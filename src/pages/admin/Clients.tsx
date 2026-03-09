@@ -40,7 +40,9 @@ export function AdminClients() {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch('/api/admin/clients');
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/clients`, {
+          credentials: 'include'
+        });
         if (!response.ok) throw new Error('Falha ao carregar clientes');
         const data = await response.json();
         setClients(data);
@@ -57,10 +59,11 @@ export function AdminClients() {
   const handleToggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
     try {
-      const response = await fetch(`/api/admin/clients/${id}/status`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/clients/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
+        credentials: 'include'
       });
 
       if (!response.ok) throw new Error('Falha ao atualizar estado');

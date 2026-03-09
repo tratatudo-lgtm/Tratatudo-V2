@@ -53,7 +53,9 @@ export function AdminInstances() {
 
   const fetchInstances = async () => {
     try {
-      const response = await fetch('/api/admin/instances');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/instances`, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error('Falha ao carregar instâncias');
       const data = await response.json();
       setInstances(data);
@@ -79,7 +81,9 @@ export function AdminInstances() {
 
   const fetchClients = async () => {
     try {
-      const response = await fetch('/api/admin/clients');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/clients`, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error('Falha ao carregar clientes');
       const data = await response.json();
       setClients(data);
@@ -103,10 +107,11 @@ export function AdminInstances() {
 
     setIsCreating(true);
     try {
-      const response = await fetch('/api/admin/instances/create', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/instances/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: selectedClientId })
+        body: JSON.stringify({ client_id: selectedClientId }),
+        credentials: 'include'
       });
 
       const result = await response.json();
@@ -127,7 +132,9 @@ export function AdminInstances() {
   const handleFetchQrCode = async (instanceName: string) => {
     setIsFetchingQr(true);
     try {
-      const response = await fetch(`/api/admin/instances/qrcode/${instanceName}`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/instances/qrcode/${instanceName}`, {
+        credentials: 'include'
+      });
       const result = await response.json();
       
       if (!response.ok) throw new Error(result.error || 'Erro ao obter QR Code');
@@ -173,7 +180,7 @@ export function AdminInstances() {
         </div>
         <div className="flex items-center gap-3">
           <button 
-            onClick={handleOpenCreateModal}
+            onClick={() => handleOpenCreateModal()}
             className="px-4 py-2 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />

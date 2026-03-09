@@ -38,7 +38,9 @@ export function AdminSubscriptions() {
   useEffect(() => {
     const fetchSubscriptions = async () => {
       try {
-        const response = await fetch('/api/admin/subscriptions');
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/subscriptions`, {
+          credentials: 'include'
+        });
         if (!response.ok) throw new Error('Falha ao carregar subscrições');
         const data = await response.json();
         setSubscriptions(data);

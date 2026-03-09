@@ -53,7 +53,9 @@ export function Requests() {
   const fetchTickets = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/tickets');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/tickets`, {
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error('Falha ao carregar tickets');
       const data = await res.json();
       setTickets(data);
@@ -67,7 +69,9 @@ export function Requests() {
   const fetchTicketMessages = async (ticketId: string) => {
     try {
       setLoadingMessages(true);
-      const res = await fetch(`/api/tickets/${ticketId}/messages`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/tickets/${ticketId}/messages`, {
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error('Falha ao carregar mensagens do ticket');
       const data = await res.json();
       setMessages(data);

@@ -36,7 +36,9 @@ export function AdminMessages() {
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        const response = await fetch('/api/admin/messages');
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/messages`, {
+          credentials: 'include'
+        });
         if (!response.ok) throw new Error('Falha ao carregar mensagens');
         const data = await response.json();
         setMessages(data);

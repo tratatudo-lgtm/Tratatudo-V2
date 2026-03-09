@@ -40,7 +40,9 @@ export function AdminTickets() {
   useEffect(() => {
     const fetchTickets = async () => {
       try {
-        const response = await fetch('/api/admin/tickets');
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/tickets`, {
+          credentials: 'include'
+        });
         if (!response.ok) throw new Error('Falha ao carregar tickets');
         const data = await response.json();
         setTickets(data);
@@ -56,10 +58,11 @@ export function AdminTickets() {
 
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
-      const response = await fetch(`/api/admin/tickets/${id}/status`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/tickets/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
+        credentials: 'include'
       });
 
       if (!response.ok) throw new Error('Falha ao atualizar estado');

@@ -50,7 +50,7 @@ export function HowItWorks() {
                 className="lg:w-1/2 space-y-6"
               >
                 <div className="bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center text-primary mb-6">
-                  {React.cloneElement(step.icon as React.ReactElement, { className: "w-8 h-8" })}
+                  {React.cloneElement(step.icon as React.ReactElement, { className: "w-8 h-8" } as any)}
                 </div>
                 <h2 className="text-3xl lg:text-4xl font-display font-bold text-slate-900">{step.title}</h2>
                 <p className="text-slate-600 text-lg leading-relaxed">{step.desc}</p>

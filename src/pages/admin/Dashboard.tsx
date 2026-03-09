@@ -58,8 +58,8 @@ export function AdminDashboard() {
     const fetchData = async () => {
       try {
         const [statsRes, alertsRes] = await Promise.all([
-          fetch('/api/admin/dashboard/stats'),
-          fetch('/api/admin/alerts')
+          fetch(`${import.meta.env.VITE_API_URL}/api/admin/dashboard/stats`, { credentials: 'include' }),
+          fetch(`${import.meta.env.VITE_API_URL}/api/admin/alerts`, { credentials: 'include' })
         ]);
 
         if (!statsRes.ok) throw new Error('Falha ao carregar dados do painel admin');

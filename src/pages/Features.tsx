@@ -67,7 +67,7 @@ export function Features() {
               className="group"
             >
               <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center text-primary mb-6 group-hover:bg-primary group-hover:text-white transition-all duration-300 shadow-sm">
-                {React.cloneElement(feat.icon as React.ReactElement, { className: "w-8 h-8" })}
+                {React.cloneElement(feat.icon as React.ReactElement, { className: "w-8 h-8" } as any)}
               </div>
               <h3 className="text-2xl font-bold text-slate-900 mb-4">{feat.title}</h3>
               <p className="text-slate-600 leading-relaxed">{feat.desc}</p>

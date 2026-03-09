@@ -22,7 +22,9 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshSession = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/auth/session');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/session`, {
+        credentials: 'include'
+      });
       if (response.ok) {
         const data = await response.json();
         setAdmin({ 
@@ -45,10 +47,11 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshSession]);
 
   const login = async (email: string, password: string) => {
-    const response = await fetch('/api/admin/auth/login', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
+      credentials: 'include'
     });
 
     if (!response.ok) {
@@ -65,7 +68,10 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch('/api/admin/auth/logout', { method: 'POST' });
+      await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/logout`, { 
+        method: 'POST',
+        credentials: 'include'
+      });
       setAdmin(null);
     } catch (error) {
       console.error('Error signing out admin:', error);

@@ -51,7 +51,9 @@ export function Settings() {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/client/settings');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/client/settings`, {
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error('Falha ao carregar definições');
       const data = await res.json();
       setSettings(data);
@@ -78,14 +80,15 @@ export function Settings() {
       setError(null);
       setSuccess(false);
 
-      const res = await fetch('/api/client/settings', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/client/settings`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           company_name: formData.company_name,
           email: formData.email,
           bot_instructions: formData.bot_instructions
-        })
+        }),
+        credentials: 'include'
       });
 
       if (!res.ok) throw new Error('Falha ao guardar alterações');

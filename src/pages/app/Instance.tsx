@@ -45,7 +45,9 @@ export function Instance() {
   const fetchInstanceData = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/instance');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/instance`, {
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error('Falha ao carregar dados da instância');
       const result = await res.json();
       setData(result);

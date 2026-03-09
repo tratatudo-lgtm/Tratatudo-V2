@@ -40,7 +40,9 @@ export function AdminLogs() {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const response = await fetch('/api/admin/logs');
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/logs`, {
+          credentials: 'include'
+        });
         if (!response.ok) throw new Error('Falha ao carregar logs do sistema');
         const data = await response.json();
         setLogs(data);

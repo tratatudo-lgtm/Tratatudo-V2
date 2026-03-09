@@ -49,7 +49,7 @@ export function ForWho() {
               className="bg-white p-10 rounded-[2.5rem] border border-slate-200 hover:border-primary/30 hover:shadow-2xl transition-all group"
             >
               <div className="bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center text-primary mb-8 group-hover:bg-primary group-hover:text-white transition-all">
-                {React.cloneElement(sector.icon as React.ReactElement, { className: "w-8 h-8" })}
+                {React.cloneElement(sector.icon as React.ReactElement, { className: "w-8 h-8" } as any)}
               </div>
               <h3 className="text-2xl font-bold text-slate-900 mb-4">{sector.title}</h3>
               <p className="text-slate-600 mb-8 leading-relaxed">{sector.desc}</p>

@@ -22,7 +22,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshSession = useCallback(async () => {
     try {
-      const response = await fetch('/api/auth/session');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/session`, {
+        credentials: 'include'
+      });
       if (response.ok) {
         const data = await response.json();
         setUser({ 
@@ -53,7 +55,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, { 
+        method: 'POST',
+        credentials: 'include'
+      });
       setUser(null);
     } catch (error) {
       console.error('Error signing out:', error);

@@ -56,7 +56,9 @@ export function Subscription() {
   const fetchSubscription = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/subscription');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/subscription`, {
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error('Falha ao carregar dados da subscrição');
       const result = await res.json();
       setData(result);

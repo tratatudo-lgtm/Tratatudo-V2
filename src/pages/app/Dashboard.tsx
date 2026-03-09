@@ -61,7 +61,9 @@ export function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('/api/dashboard/stats');
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/stats`, {
+          credentials: 'include'
+        });
         if (!response.ok) throw new Error('Falha ao carregar dados do painel');
         const result = await response.json();
         setData(result);

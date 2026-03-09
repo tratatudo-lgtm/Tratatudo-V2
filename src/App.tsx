@@ -15,6 +15,7 @@ import { NotificationProvider } from './components/NotificationProvider';
 
 import { AdminAuthProvider } from './lib/auth/AdminAuthContext';
 import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // App Portal Components
 import { AppLayout } from './components/app/AppLayout';
@@ -73,45 +74,47 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AdminAuthProvider>
-        <NotificationProvider>
-          <Router>
-            <ScrollToTop />
-            <MainLayout>
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<Home />} />
-                <Route path="/como-funciona" element={<HowItWorks />} />
-                <Route path="/funcionalidades" element={<Features />} />
-                <Route path="/para-quem" element={<ForWho />} />
-                <Route path="/precos" element={<Pricing />} />
-                <Route path="/contacto" element={<Contact />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/experimentar" element={<Pricing />} />
+    <ErrorBoundary>
+      <AuthProvider>
+        <AdminAuthProvider>
+          <NotificationProvider>
+            <Router>
+              <ScrollToTop />
+              <MainLayout>
+                <Routes>
+                  {/* Public Routes */}
+                  <Route path="/" element={<Home />} />
+                  <Route path="/como-funciona" element={<HowItWorks />} />
+                  <Route path="/funcionalidades" element={<Features />} />
+                  <Route path="/para-quem" element={<ForWho />} />
+                  <Route path="/precos" element={<Pricing />} />
+                  <Route path="/contacto" element={<Contact />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/experimentar" element={<Pricing />} />
 
-                {/* App Portal Routes */}
-                <Route path="/app" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                <Route path="/app/mensagens" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-                <Route path="/app/pedidos" element={<ProtectedRoute><Requests /></ProtectedRoute>} />
-                <Route path="/app/instancia" element={<ProtectedRoute><Instance /></ProtectedRoute>} />
-                <Route path="/app/subscricao" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
-                <Route path="/app/definicoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                  {/* App Portal Routes */}
+                  <Route path="/app" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/app/mensagens" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+                  <Route path="/app/pedidos" element={<ProtectedRoute><Requests /></ProtectedRoute>} />
+                  <Route path="/app/instancia" element={<ProtectedRoute><Instance /></ProtectedRoute>} />
+                  <Route path="/app/subscricao" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+                  <Route path="/app/definicoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
-                {/* Admin Portal Routes */}
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin/dashboard" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
-                <Route path="/admin/clients" element={<AdminProtectedRoute><AdminClients /></AdminProtectedRoute>} />
-                <Route path="/admin/instances" element={<AdminProtectedRoute><AdminInstances /></AdminProtectedRoute>} />
-                <Route path="/admin/messages" element={<AdminProtectedRoute><AdminMessages /></AdminProtectedRoute>} />
-                <Route path="/admin/tickets" element={<AdminProtectedRoute><AdminTickets /></AdminProtectedRoute>} />
-                <Route path="/admin/subscriptions" element={<AdminProtectedRoute><AdminSubscriptions /></AdminProtectedRoute>} />
-                <Route path="/admin/logs" element={<AdminProtectedRoute><AdminLogs /></AdminProtectedRoute>} />
-              </Routes>
-            </MainLayout>
-          </Router>
-        </NotificationProvider>
-      </AdminAuthProvider>
-    </AuthProvider>
+                  {/* Admin Portal Routes */}
+                  <Route path="/admin/login" element={<AdminLogin />} />
+                  <Route path="/admin/dashboard" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
+                  <Route path="/admin/clients" element={<AdminProtectedRoute><AdminClients /></AdminProtectedRoute>} />
+                  <Route path="/admin/instances" element={<AdminProtectedRoute><AdminInstances /></AdminProtectedRoute>} />
+                  <Route path="/admin/messages" element={<AdminProtectedRoute><AdminMessages /></AdminProtectedRoute>} />
+                  <Route path="/admin/tickets" element={<AdminProtectedRoute><AdminTickets /></AdminProtectedRoute>} />
+                  <Route path="/admin/subscriptions" element={<AdminProtectedRoute><AdminSubscriptions /></AdminProtectedRoute>} />
+                  <Route path="/admin/logs" element={<AdminProtectedRoute><AdminLogs /></AdminProtectedRoute>} />
+                </Routes>
+              </MainLayout>
+            </Router>
+          </NotificationProvider>
+        </AdminAuthProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

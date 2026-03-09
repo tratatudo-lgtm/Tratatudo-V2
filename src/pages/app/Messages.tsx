@@ -51,7 +51,9 @@ export function Messages() {
   const fetchConversations = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/messages/conversations');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/messages/conversations`, {
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error('Falha ao carregar conversas');
       const data = await res.json();
       setConversations(data);
@@ -68,7 +70,9 @@ export function Messages() {
   const fetchHistory = async (phone: string) => {
     try {
       setLoadingHistory(true);
-      const res = await fetch(`/api/messages/history/${phone}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/messages/history/${phone}`, {
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error('Falha ao carregar histórico');
       const data = await res.json();
       setHistory(data);
