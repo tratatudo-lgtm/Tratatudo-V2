@@ -3,7 +3,51 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
+    <title>TrataTudo - Gestão Inteligente</title>
+    <script>
+      // Global error handler for early boot errors
+      window.onerror = function(message, source, lineno, colno, error) {
+        showErrorOverlay('Runtime Error', message, source + ':' + lineno + ':' + colno, error?.stack);
+      };
+      window.onunhandledrejection = function(event) {
+        showErrorOverlay('Unhandled Promise Rejection', event.reason?.message || event.reason, '', event.reason?.stack);
+      };
+
+      function showErrorOverlay(type, message, location, stack) {
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(220, 38, 38, 0.95)';
+        overlay.style.color = 'white';
+        overlay.style.zIndex = '999999';
+        overlay.style.padding = '40px';
+        overlay.style.fontFamily = 'monospace';
+        overlay.style.overflow = 'auto';
+        
+        overlay.innerHTML = `
+          <h1 style="font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid white; padding-bottom: 10px;">🚨 ${type}</h1>
+          <div style="margin-bottom: 20px;">
+            <strong style="display: block; font-size: 18px; margin-bottom: 8px;">Message:</strong>
+            <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">${message}</div>
+          </div>
+          ${location ? `
+          <div style="margin-bottom: 20px;">
+            <strong style="display: block; font-size: 18px; margin-bottom: 8px;">Location:</strong>
+            <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">${location}</div>
+          </div>` : ''}
+          ${stack ? `
+          <div style="margin-bottom: 20px;">
+            <strong style="display: block; font-size: 18px; margin-bottom: 8px;">Stack Trace:</strong>
+            <pre style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; white-space: pre-wrap; word-break: break-all;">${stack}</pre>
+          </div>` : ''}
+          <button onclick="window.location.reload()" style="background: white; color: #dc2626; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px;">Reload App</button>
+        `;
+        document.body.appendChild(overlay);
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -73,10 +73,31 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const [booted, setBooted] = React.useState(false);
+
+  useEffect(() => {
+    console.log("App component mounted, setting booted=true in 500ms");
+    const timer = setTimeout(() => setBooted(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!booted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h1 className="text-2xl font-black text-slate-900">App boot OK</h1>
+          <p className="text-slate-500">Initializing providers...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <AuthProvider>
         <AdminAuthProvider>
+          {/* Temporarily disabled NotificationProvider if needed, but let's keep it for now and see if it boots */}
           <NotificationProvider>
             <Router>
               <ScrollToTop />
