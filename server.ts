@@ -20,6 +20,40 @@ async function startServer() {
   app.use(express.json());
   app.use(cookieParser());
 
+  // --- Middleware ---
+
+  // Authenticate client and inject req.client and req.clientId
+  const authenticateClient = async (req: any, res: any, next: any) => {
+    const sessionId = req.cookies.hub_session;
+    if (!sessionId) {
+      return res.status(401).json({ error: "Não autenticado." });
+    }
+
+    const { data: session, error: sessionError } = await supabase
+      .from("sessions")
+      .select("*")
+      .eq("id", sessionId)
+      .single();
+
+    if (sessionError || !session || new Date(session.expires_at) < new Date()) {
+      return res.status(401).json({ error: "Sessão expirada ou inválida." });
+    }
+
+    const { data: client, error: clientError } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("phone", session.phone)
+      .single();
+
+    if (clientError || !client) {
+      return res.status(404).json({ error: "Cliente não encontrado." });
+    }
+
+    req.client = client;
+    req.clientId = client.client_id;
+    next();
+  };
+
   // --- API Routes ---
 
   // 1. Send OTP
@@ -135,86 +169,71 @@ async function startServer() {
   });
 
   // 4. Dashboard Stats
-  app.get("/api/dashboard/stats", async (req, res) => {
-    const sessionId = req.cookies.hub_session;
-    if (!sessionId) {
-      return res.status(401).json({ error: "Não autenticado." });
-    }
-
-    const { data: session, error: sessionError } = await supabase
-      .from("sessions")
-      .select("*")
-      .eq("id", sessionId)
-      .single();
-
-    if (sessionError || !session || new Date(session.expires_at) < new Date()) {
-      return res.status(401).json({ error: "Sessão expirada." });
-    }
-
-    const phone = session.phone;
-    
-    // Get client_id from clients table using phone
-    const { data: client, error: clientError } = await supabase
-      .from("clients")
-      .select("*")
-      .eq("phone", phone)
-      .single();
-
-    if (clientError || !client) {
-      return res.status(404).json({ error: "Cliente não encontrado no Supabase." });
-    }
-
-    const clientId = client.client_id;
+  app.get(["/api/dashboard", "/api/dashboard/stats"], authenticateClient, async (req: any, res) => {
+    const clientId = req.clientId;
+    const client = req.client;
 
     // 1. Messages count
-    const { count: messagesCount, error: msgError } = await supabase
+    const { count: messagesCount } = await supabase
       .from("wa_messages")
       .select("*", { count: 'exact', head: true })
       .eq("client_id", clientId);
 
+    const { count: sentMessages } = await supabase
+      .from("wa_messages")
+      .select("*", { count: 'exact', head: true })
+      .eq("client_id", clientId)
+      .eq("direction", "sent");
+
+    const { count: receivedMessages } = await supabase
+      .from("wa_messages")
+      .select("*", { count: 'exact', head: true })
+      .eq("client_id", clientId)
+      .eq("direction", "received");
+
     // 2. Tickets stats
-    const { count: totalTickets, error: ticketError } = await supabase
+    const { count: totalTickets } = await supabase
       .from("tickets")
       .select("*", { count: 'exact', head: true })
       .eq("client_id", clientId);
 
-    const { count: openTickets, error: openError } = await supabase
+    const { count: openTickets } = await supabase
       .from("tickets")
       .select("*", { count: 'exact', head: true })
       .eq("client_id", clientId)
       .in("status", ["aberto", "em análise"]);
 
-    const { count: complaints, error: complaintError } = await supabase
+    const { count: complaints } = await supabase
       .from("tickets")
       .select("*", { count: 'exact', head: true })
       .eq("client_id", clientId)
       .eq("type", "reclamação");
 
     // 3. Instance info
-    const { data: instance, error: instanceError } = await supabase
+    const { data: instance } = await supabase
       .from("client_instances")
       .select("*")
       .eq("client_id", clientId)
       .single();
 
     // 5. Recent Activity
-    const { data: recentTickets, error: rtError } = await supabase
+    const { data: recentTickets } = await supabase
       .from("tickets")
       .select("subject, status, created_at")
       .eq("client_id", clientId)
       .order("created_at", { ascending: false })
       .limit(5);
 
-    const { data: recentMessages, error: rmError } = await supabase
+    const { data: recentMessages } = await supabase
       .from("wa_messages")
-      .select("content, created_at")
+      .select("text, created_at")
       .eq("client_id", clientId)
       .order("created_at", { ascending: false })
       .limit(5);
 
     const activity = [
       ...(recentTickets || []).map(t => ({ type: 'ticket', title: t.subject, status: t.status, created_at: t.created_at })),
-      ...(recentMessages || []).map(m => ({ type: 'message', title: m.content, status: 'enviada', created_at: m.created_at }))
+      ...(recentMessages || []).map(m => ({ type: 'message', title: m.text, status: 'enviada', created_at: m.created_at }))
     ]
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 5);
@@ -222,12 +241,22 @@ async function startServer() {
     res.json({
       stats: {
         messages: messagesCount || 0,
+        sentMessages: sentMessages || 0,
+        receivedMessages: receivedMessages || 0,
         totalTickets: totalTickets || 0,
         openTickets: openTickets || 0,
         complaints: complaints || 0,
       },
-      instance: instance || null,
-      subscription: client || null,
+      instance: instance ? {
+        name: instance.instance_name,
+        type: instance.is_hub ? 'HUB' : 'Standard',
+        status: instance.status
+      } : null,
+      subscription: {
+        status: client.status,
+        trial_end: client.trial_end,
+        plan: client.plan || 'Pro'
+      },
       activity: activity
     });
   });
@@ -248,35 +277,14 @@ async function startServer() {
   });
 
   // 6. Get Conversations
-  app.get("/api/messages/conversations", async (req, res) => {
-    const sessionId = req.cookies.hub_session;
-    if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
-
-    const { data: session, error: sessionError } = await supabase
-      .from("sessions")
-      .select("*")
-      .eq("id", sessionId)
-      .single();
-
-    if (sessionError || !session || new Date(session.expires_at) < new Date()) {
-      return res.status(401).json({ error: "Sessão expirada." });
-    }
-
-    // Get client_id
-    const { data: client } = await supabase
-      .from("clients")
-      .select("client_id")
-      .eq("phone", session.phone)
-      .single();
-
-    if (!client) return res.status(404).json({ error: "Cliente não encontrado." });
+  app.get(["/api/messages", "/api/messages/conversations"], authenticateClient, async (req: any, res) => {
+    const clientId = req.clientId;
 
     // Fetch messages to group into conversations
-    // We fetch more to ensure we get several unique conversations
     const { data: messages, error } = await supabase
       .from("wa_messages")
       .select("text, direction, created_at, phone_e164, type")
-      .eq("client_id", client.client_id)
+      .eq("client_id", clientId)
       .order("created_at", { ascending: false })
       .limit(500);
 
@@ -300,34 +308,14 @@ async function startServer() {
   });
 
   // 7. Get Message History
-  app.get("/api/messages/history/:phone", async (req, res) => {
-    const sessionId = req.cookies.hub_session;
+  app.get("/api/messages/history/:phone", authenticateClient, async (req: any, res) => {
+    const clientId = req.clientId;
     const { phone } = req.params;
-    if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
-
-    const { data: session, error: sessionError } = await supabase
-      .from("sessions")
-      .select("*")
-      .eq("id", sessionId)
-      .single();
-
-    if (sessionError || !session || new Date(session.expires_at) < new Date()) {
-      return res.status(401).json({ error: "Sessão expirada." });
-    }
-
-    // Get client_id
-    const { data: client } = await supabase
-      .from("clients")
-      .select("client_id")
-      .eq("phone", session.phone)
-      .single();
-
-    if (!client) return res.status(404).json({ error: "Cliente não encontrado." });
 
     const { data: messages, error } = await supabase
       .from("wa_messages")
       .select("text, direction, created_at, phone_e164, type")
-      .eq("client_id", client.client_id)
+      .eq("client_id", clientId)
       .eq("phone_e164", phone)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -338,33 +326,13 @@ async function startServer() {
   });
 
   // 8. Get Tickets
-  app.get("/api/tickets", async (req, res) => {
-    const sessionId = req.cookies.hub_session;
-    if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
-
-    const { data: session, error: sessionError } = await supabase
-      .from("sessions")
-      .select("*")
-      .eq("id", sessionId)
-      .single();
-
-    if (sessionError || !session || new Date(session.expires_at) < new Date()) {
-      return res.status(401).json({ error: "Sessão expirada." });
-    }
-
-    // Get client_id
-    const { data: client } = await supabase
-      .from("clients")
-      .select("client_id")
-      .eq("phone", session.phone)
-      .single();
-
-    if (!client) return res.status(404).json({ error: "Cliente não encontrado." });
+  app.get("/api/tickets", authenticateClient, async (req: any, res) => {
+    const clientId = req.clientId;
 
     const { data: tickets, error } = await supabase
       .from("tickets")
       .select("*")
-      .eq("client_id", client.client_id)
+      .eq("client_id", clientId)
       .order("created_at", { ascending: false });
 
     if (error) return res.status(500).json({ error: error.message });
@@ -373,36 +341,16 @@ async function startServer() {
   });
 
   // 9. Get Ticket Messages
-  app.get("/api/tickets/:id/messages", async (req, res) => {
-    const sessionId = req.cookies.hub_session;
+  app.get("/api/tickets/:id/messages", authenticateClient, async (req: any, res) => {
+    const clientId = req.clientId;
     const { id } = req.params;
-    if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
-
-    const { data: session, error: sessionError } = await supabase
-      .from("sessions")
-      .select("*")
-      .eq("id", sessionId)
-      .single();
-
-    if (sessionError || !session || new Date(session.expires_at) < new Date()) {
-      return res.status(401).json({ error: "Sessão expirada." });
-    }
-
-    // Get client_id
-    const { data: client } = await supabase
-      .from("clients")
-      .select("client_id")
-      .eq("phone", session.phone)
-      .single();
-
-    if (!client) return res.status(404).json({ error: "Cliente não encontrado." });
 
     // First verify the ticket belongs to the client
     const { data: ticket } = await supabase
       .from("tickets")
       .select("id")
       .eq("id", id)
-      .eq("client_id", client.client_id)
+      .eq("client_id", clientId)
       .single();
 
     if (!ticket) return res.status(403).json({ error: "Acesso negado." });
@@ -414,7 +362,6 @@ async function startServer() {
       .order("created_at", { ascending: true });
 
     if (error) {
-      // If table doesn't exist, return empty array as per requirements
       if (error.code === 'PGRST116' || error.message.includes('relation "ticket_messages" does not exist')) {
         return res.json([]);
       }
@@ -425,40 +372,17 @@ async function startServer() {
   });
 
   // 10. Get Instance Details
-  app.get("/api/instance", async (req, res) => {
-    const sessionId = req.cookies.hub_session;
-    if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
-
-    const { data: session, error: sessionError } = await supabase
-      .from("sessions")
-      .select("*")
-      .eq("id", sessionId)
-      .single();
-
-    if (sessionError || !session || new Date(session.expires_at) < new Date()) {
-      return res.status(401).json({ error: "Sessão expirada." });
-    }
-
-    // Get client_id
-    const { data: client } = await supabase
-      .from("clients")
-      .select("client_id")
-      .eq("phone", session.phone)
-      .single();
-
-    if (!client) return res.status(404).json({ error: "Cliente não encontrado." });
-
-    const clientId = client.client_id;
+  app.get("/api/instance", authenticateClient, async (req: any, res) => {
+    const clientId = req.clientId;
 
     // 1. Instance info
-    const { data: instance, error: instanceError } = await supabase
+    const { data: instance } = await supabase
       .from("client_instances")
       .select("*")
       .eq("client_id", clientId)
       .single();
 
     // 2. Stats for the instance page
-    // Messages count
     const { count: messagesCount } = await supabase
       .from("wa_messages")
       .select("*", { count: 'exact', head: true })
@@ -476,7 +400,6 @@ async function startServer() {
       .eq("client_id", clientId)
       .eq("direction", "received");
 
-    // Tickets stats
     const { count: totalTickets } = await supabase
       .from("tickets")
       .select("*", { count: 'exact', head: true })
@@ -501,32 +424,9 @@ async function startServer() {
   });
 
   // 11. Get Subscription Details
-  app.get("/api/subscription", async (req, res) => {
-    const sessionId = req.cookies.hub_session;
-    if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
-
-    const { data: session, error: sessionError } = await supabase
-      .from("sessions")
-      .select("*")
-      .eq("id", sessionId)
-      .single();
-
-    if (sessionError || !session || new Date(session.expires_at) < new Date()) {
-      return res.status(401).json({ error: "Sessão expirada." });
-    }
-
-    // Get client data
-    const { data: client, error: clientError } = await supabase
-      .from("clients")
-      .select("*")
-      .eq("phone", session.phone)
-      .single();
-
-    if (clientError || !client) {
-      return res.status(404).json({ error: "Cliente não encontrado." });
-    }
-
-    const clientId = client.client_id;
+  app.get("/api/subscription", authenticateClient, async (req: any, res) => {
+    const clientId = req.clientId;
+    const client = req.client;
 
     // Fetch usage stats
     const { count: messagesCount } = await supabase
@@ -545,7 +445,7 @@ async function startServer() {
       .eq("client_id", clientId)
       .eq("type", "reclamação");
 
-    // Mock limits for now (could be in a plans table in a real app)
+    // Mock limits
     const limits = {
       messages: 10000,
       tickets: 500,
@@ -563,54 +463,18 @@ async function startServer() {
   });
 
   // 12. Get Client Settings
-  app.get("/api/client/settings", async (req, res) => {
-    const sessionId = req.cookies.hub_session;
-    if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
-
-    const { data: session, error: sessionError } = await supabase
-      .from("sessions")
-      .select("*")
-      .eq("id", sessionId)
-      .single();
-
-    if (sessionError || !session || new Date(session.expires_at) < new Date()) {
-      return res.status(401).json({ error: "Sessão expirada." });
-    }
-
-    const { data: client, error: clientError } = await supabase
-      .from("clients")
-      .select("*")
-      .eq("phone", session.phone)
-      .single();
-
-    if (clientError || !client) {
-      return res.status(404).json({ error: "Cliente não encontrado." });
-    }
-
-    res.json(client);
+  app.get("/api/client/settings", authenticateClient, async (req: any, res) => {
+    res.json(req.client);
   });
 
   // 13. Update Client Settings
-  app.patch("/api/client/settings", async (req, res) => {
-    const sessionId = req.cookies.hub_session;
-    if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
-
-    const { data: session, error: sessionError } = await supabase
-      .from("sessions")
-      .select("*")
-      .eq("id", sessionId)
-      .single();
-
-    if (sessionError || !session || new Date(session.expires_at) < new Date()) {
-      return res.status(401).json({ error: "Sessão expirada." });
-    }
-
+  app.patch("/api/client/settings", authenticateClient, async (req: any, res) => {
     const { company_name, email, bot_instructions } = req.body;
 
     const { data: updatedClient, error: updateError } = await supabase
       .from("clients")
       .update({ company_name, email, bot_instructions })
-      .eq("phone", session.phone)
+      .eq("client_id", req.clientId)
       .select()
       .single();
 
