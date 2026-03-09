@@ -11,7 +11,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (phone: string) => void;
   signOut: () => Promise<void>;
-  refreshSession: () => Promise<void>;
+  refreshSession: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,14 +39,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           phone: data.phone,
           client_id: data.client_id
         });
+        return true;
       } else {
         const errorText = await response.text();
         console.warn(`[AUTH] No active session: ${errorText}`);
         setUser(null);
+        return false;
       }
     } catch (error) {
       console.error('[AUTH] Session check failed:', error);
       setUser(null);
+      return false;
     } finally {
       setLoading(false);
     }

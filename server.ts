@@ -89,10 +89,11 @@ async function startServer() {
     }
 
     // Set cookie
-    res.cookie("tratatudo_session", sessionId, {
+    res.cookie("hub_session", sessionId, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
       sameSite: "none",
+      path: "/",
       maxAge: 24 * 60 * 60 * 1000,
     });
 
@@ -104,7 +105,7 @@ async function startServer() {
 
   // 3. Check Session
   app.get("/api/auth/session", async (req, res) => {
-    const sessionId = req.cookies.tratatudo_session;
+    const sessionId = req.cookies.hub_session;
     if (!sessionId) {
       return res.status(401).json({ error: "Não autenticado." });
     }
@@ -135,7 +136,7 @@ async function startServer() {
 
   // 4. Dashboard Stats
   app.get("/api/dashboard/stats", async (req, res) => {
-    const sessionId = req.cookies.tratatudo_session;
+    const sessionId = req.cookies.hub_session;
     if (!sessionId) {
       return res.status(401).json({ error: "Não autenticado." });
     }
@@ -233,17 +234,22 @@ async function startServer() {
 
   // 5. Logout
   app.post("/api/auth/logout", async (req, res) => {
-    const sessionId = req.cookies.tratatudo_session;
+    const sessionId = req.cookies.hub_session;
     if (sessionId) {
       await supabase.from("sessions").delete().eq("id", sessionId);
     }
-    res.clearCookie("tratatudo_session");
+    res.clearCookie("hub_session", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+    });
     res.json({ success: true });
   });
 
   // 6. Get Conversations
   app.get("/api/messages/conversations", async (req, res) => {
-    const sessionId = req.cookies.tratatudo_session;
+    const sessionId = req.cookies.hub_session;
     if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
 
     const { data: session, error: sessionError } = await supabase
@@ -295,7 +301,7 @@ async function startServer() {
 
   // 7. Get Message History
   app.get("/api/messages/history/:phone", async (req, res) => {
-    const sessionId = req.cookies.tratatudo_session;
+    const sessionId = req.cookies.hub_session;
     const { phone } = req.params;
     if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
 
@@ -333,7 +339,7 @@ async function startServer() {
 
   // 8. Get Tickets
   app.get("/api/tickets", async (req, res) => {
-    const sessionId = req.cookies.tratatudo_session;
+    const sessionId = req.cookies.hub_session;
     if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
 
     const { data: session, error: sessionError } = await supabase
@@ -368,7 +374,7 @@ async function startServer() {
 
   // 9. Get Ticket Messages
   app.get("/api/tickets/:id/messages", async (req, res) => {
-    const sessionId = req.cookies.tratatudo_session;
+    const sessionId = req.cookies.hub_session;
     const { id } = req.params;
     if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
 
@@ -420,7 +426,7 @@ async function startServer() {
 
   // 10. Get Instance Details
   app.get("/api/instance", async (req, res) => {
-    const sessionId = req.cookies.tratatudo_session;
+    const sessionId = req.cookies.hub_session;
     if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
 
     const { data: session, error: sessionError } = await supabase
@@ -496,7 +502,7 @@ async function startServer() {
 
   // 11. Get Subscription Details
   app.get("/api/subscription", async (req, res) => {
-    const sessionId = req.cookies.tratatudo_session;
+    const sessionId = req.cookies.hub_session;
     if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
 
     const { data: session, error: sessionError } = await supabase
@@ -558,7 +564,7 @@ async function startServer() {
 
   // 12. Get Client Settings
   app.get("/api/client/settings", async (req, res) => {
-    const sessionId = req.cookies.tratatudo_session;
+    const sessionId = req.cookies.hub_session;
     if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
 
     const { data: session, error: sessionError } = await supabase
@@ -586,7 +592,7 @@ async function startServer() {
 
   // 13. Update Client Settings
   app.patch("/api/client/settings", async (req, res) => {
-    const sessionId = req.cookies.tratatudo_session;
+    const sessionId = req.cookies.hub_session;
     if (!sessionId) return res.status(401).json({ error: "Não autenticado." });
 
     const { data: session, error: sessionError } = await supabase
@@ -656,8 +662,9 @@ async function startServer() {
     // Set cookie
     res.cookie("tratatudo_admin_session", sessionId, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
       sameSite: "none",
+      path: "/",
       maxAge: 12 * 60 * 60 * 1000,
     });
 
@@ -690,7 +697,12 @@ async function startServer() {
     if (sessionId) {
       await supabase.from("sessions").delete().eq("id", sessionId);
     }
-    res.clearCookie("tratatudo_admin_session");
+    res.clearCookie("tratatudo_admin_session", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+    });
     res.json({ success: true });
   });
 

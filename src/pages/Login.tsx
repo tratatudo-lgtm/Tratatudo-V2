@@ -80,9 +80,18 @@ export function Login() {
       console.log(`[OTP] Verify code response:`, data);
       
       if (response.ok) {
-        await refreshSession();
-        setMessage({ type: 'success', text: data.message || 'Login efetuado com sucesso! A redirecionar...' });
-        setTimeout(() => navigate('/app'), 1000);
+        const sessionEstablished = await refreshSession();
+        
+        if (sessionEstablished) {
+          setMessage({ type: 'success', text: data.message || 'Login efetuado com sucesso! A redirecionar...' });
+          setTimeout(() => navigate('/app'), 1000);
+        } else {
+          console.error('[OTP] Session not found after successful verification');
+          setMessage({ 
+            type: 'error', 
+            text: 'Sessão não estabelecida. Verifique se o seu navegador aceita cookies de terceiros.' 
+          });
+        }
       } else {
         setMessage({ type: 'error', text: data.message || data.error || 'Código inválido.' });
       }
