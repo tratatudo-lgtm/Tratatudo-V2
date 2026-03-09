@@ -29,8 +29,8 @@ async function startServer() {
       return res.status(400).json({ error: "Número de WhatsApp é obrigatório." });
     }
 
-    // Generate 4-digit code
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 mins
 
     // Store in Supabase

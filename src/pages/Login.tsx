@@ -55,8 +55,8 @@ export function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp.length < 4) {
-      setMessage({ type: 'error', text: 'O código deve ter pelo menos 4 dígitos.' });
+    if (otp.length !== 6) {
+      setMessage({ type: 'error', text: 'O código deve ter exatamente 6 dígitos.' });
       return;
     }
 
@@ -205,14 +205,17 @@ export function Login() {
                       <input 
                         type="text" 
                         value={otp}
-                        onChange={(e) => setOtp(e.target.value)}
-                        placeholder="Insira o código de 4 dígitos"
-                        maxLength={4}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '');
+                          if (val.length <= 6) setOtp(val);
+                        }}
+                        placeholder="Insira o código de 6 dígitos"
+                        maxLength={6}
                         disabled={isLoading}
                         className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all tracking-[0.5em] font-mono text-center text-xl disabled:bg-slate-50 disabled:text-slate-400"
                       />
                     </div>
-                    <p className="text-[10px] text-slate-400">Enviámos um código de 4 dígitos para o seu WhatsApp.</p>
+                    <p className="text-[10px] text-slate-400">Enviámos um código de 6 dígitos para o seu WhatsApp.</p>
                   </div>
 
                   <button 
