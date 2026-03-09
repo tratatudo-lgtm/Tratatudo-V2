@@ -56,13 +56,22 @@ export function AdminDashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
+      const statsUrl = `${import.meta.env.VITE_API_URL}/api/admin/dashboard/stats`;
+      const alertsUrl = `${import.meta.env.VITE_API_URL}/api/admin/alerts`;
+      console.log(`[ADMIN] Fetching dashboard data: ${statsUrl}, ${alertsUrl}`);
+      
       try {
         const [statsRes, alertsRes] = await Promise.all([
-          fetch(`${import.meta.env.VITE_API_URL}/api/admin/dashboard/stats`, { credentials: 'include' }),
-          fetch(`${import.meta.env.VITE_API_URL}/api/admin/alerts`, { credentials: 'include' })
+          fetch(statsUrl, { credentials: 'include' }),
+          fetch(alertsUrl, { credentials: 'include' })
         ]);
 
-        if (!statsRes.ok) throw new Error('Falha ao carregar dados do painel admin');
+        console.log(`[ADMIN] Fetch status - Stats: ${statsRes.status}, Alerts: ${alertsRes.status}`);
+
+        if (!statsRes.ok) {
+          const errorData = await statsRes.json().catch(() => ({}));
+          throw new Error(errorData.message || errorData.error || 'Falha ao carregar dados do painel admin');
+        }
         const statsData = await statsRes.json();
         setData(statsData);
 
@@ -70,8 +79,9 @@ export function AdminDashboard() {
           const alertsData = await alertsRes.json();
           setAlerts(alertsData);
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      } catch (err: any) {
+        console.error('[ADMIN] Fetch dashboard failed:', err);
+        setError(err.message || 'Erro desconhecido');
       } finally {
         setLoading(false);
       }

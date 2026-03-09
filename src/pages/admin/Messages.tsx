@@ -35,15 +35,22 @@ export function AdminMessages() {
 
   useEffect(() => {
     const fetchMessages = async () => {
+      const url = `${import.meta.env.VITE_API_URL}/api/admin/messages`;
+      console.log(`[ADMIN] Fetching messages: ${url}`);
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/messages`, {
+        const response = await fetch(url, {
           credentials: 'include'
         });
-        if (!response.ok) throw new Error('Falha ao carregar mensagens');
+        console.log(`[ADMIN] Fetch messages status: ${response.status}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || errorData.error || 'Falha ao carregar mensagens');
+        }
         const data = await response.json();
         setMessages(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      } catch (err: any) {
+        console.error('[ADMIN] Fetch messages failed:', err);
+        setError(err.message || 'Erro desconhecido');
       } finally {
         setLoading(false);
       }

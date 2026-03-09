@@ -17,6 +17,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!clientId) return;
 
+    console.log(`[NOTIFICATIONS] Subscribing to realtime events for client: ${clientId}`);
+
     // 1. Listen for new messages
     const messageChannel = supabase
       .channel('global_messages_notifications')
@@ -28,19 +30,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           table: 'wa_messages',
           filter: `client_id=eq.${clientId}`,
         },
-        (payload) => {
-          const newMessage = payload.new;
-          // Only notify if it's an incoming message
-          if (newMessage.direction === 'inbound') {
-            const messageText = newMessage.text || newMessage.content || 'Verifique o painel de mensagens.';
-            toast('Nova mensagem recebida', {
-              description: messageText.length > 60 ? messageText.substring(0, 60) + '...' : messageText,
-              icon: <MessageCircle className="w-5 h-5 text-emerald-500" />,
-              duration: 5000,
-              action: {
-                label: 'Ver',
-                onClick: () => window.location.href = '/app/mensagens'
-              }
+        (payload: any) => {
+          if (payload.new.direction === 'received') {
+            toast.info('Nova Mensagem', {
+              description: payload.new.text.substring(0, 50) + (payload.new.text.length > 50 ? '...' : ''),
+              icon: <MessageCircle className="w-4 h-4" />,
             });
           }
         }
@@ -58,37 +52,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           table: 'tickets',
           filter: `client_id=eq.${clientId}`,
         },
-        (payload) => {
-          const newTicket = payload.new;
-          const isComplaint = newTicket.type === 'reclamação';
-          const ticketSubject = newTicket.subject || 'Novo ticket registrado.';
-          
-          if (isComplaint) {
-            toast('Nova reclamação criada', {
-              description: ticketSubject,
-              icon: <AlertTriangle className="w-5 h-5 text-red-500" />,
-              duration: 6000,
-              action: {
-                label: 'Ver',
-                onClick: () => window.location.href = '/app/pedidos'
-              }
-            });
-          } else {
-            toast('Novo pedido criado', {
-              description: ticketSubject,
-              icon: <Ticket className="w-5 h-5 text-blue-500" />,
-              duration: 5000,
-              action: {
-                label: 'Ver',
-                onClick: () => window.location.href = '/app/pedidos'
-              }
-            });
-          }
+        (payload: any) => {
+          toast.success('Novo Ticket Criado', {
+            description: payload.new.subject,
+            icon: <Ticket className="w-4 h-4" />,
+          });
         }
       )
       .subscribe();
 
     return () => {
+      console.log("[NOTIFICATIONS] Unsubscribing from realtime events.");
       supabase.removeChannel(messageChannel);
       supabase.removeChannel(ticketChannel);
     };

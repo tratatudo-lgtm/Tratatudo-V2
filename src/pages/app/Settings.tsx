@@ -49,12 +49,18 @@ export function Settings() {
   });
 
   const fetchSettings = async () => {
+    const url = `${import.meta.env.VITE_API_URL}/api/client/settings`;
+    console.log(`[APP] Fetching client settings: ${url}`);
     try {
       setLoading(true);
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/client/settings`, {
+      const res = await fetch(url, {
         credentials: 'include'
       });
-      if (!res.ok) throw new Error('Falha ao carregar definições');
+      console.log(`[APP] Fetch client settings status: ${res.status}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Falha ao carregar definições');
+      }
       const data = await res.json();
       setSettings(data);
       setFormData({
@@ -64,7 +70,8 @@ export function Settings() {
         responsible_name: data.responsible_name || 'João Duarte' // Mock fallback
       });
     } catch (err: any) {
-      setError(err.message);
+      console.error('[APP] Fetch client settings failed:', err);
+      setError(err.message || 'Erro desconhecido');
     } finally {
       setLoading(false);
     }
@@ -75,12 +82,14 @@ export function Settings() {
   }, []);
 
   const handleSave = async () => {
+    const url = `${import.meta.env.VITE_API_URL}/api/client/settings`;
+    console.log(`[APP] Saving client settings: ${url}`);
     try {
       setSaving(true);
       setError(null);
       setSuccess(false);
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/client/settings`, {
+      const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -91,7 +100,11 @@ export function Settings() {
         credentials: 'include'
       });
 
-      if (!res.ok) throw new Error('Falha ao guardar alterações');
+      console.log(`[APP] Save client settings status: ${res.status}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Falha ao guardar alterações');
+      }
       
       const updated = await res.json();
       setSettings(updated);
@@ -99,7 +112,8 @@ export function Settings() {
       
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
-      setError(err.message);
+      console.error('[APP] Save client settings failed:', err);
+      setError(err.message || 'Erro desconhecido');
     } finally {
       setSaving(false);
     }

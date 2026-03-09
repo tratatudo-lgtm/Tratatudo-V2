@@ -49,35 +49,48 @@ export function Messages() {
   const clientId = user?.client_id;
 
   const fetchConversations = async () => {
+    const url = `${import.meta.env.VITE_API_URL}/api/messages/conversations`;
+    console.log(`[APP] Fetching conversations: ${url}`);
     try {
       setLoading(true);
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/messages/conversations`, {
+      const res = await fetch(url, {
         credentials: 'include'
       });
-      if (!res.ok) throw new Error('Falha ao carregar conversas');
+      console.log(`[APP] Fetch conversations status: ${res.status}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Falha ao carregar conversas');
+      }
       const data = await res.json();
       setConversations(data);
       if (data.length > 0 && !selectedPhone) {
         setSelectedPhone(data[0].phone_e164);
       }
     } catch (err: any) {
-      setError(err.message);
+      console.error('[APP] Fetch conversations failed:', err);
+      setError(err.message || 'Erro desconhecido');
     } finally {
       setLoading(false);
     }
   };
 
   const fetchHistory = async (phone: string) => {
+    const url = `${import.meta.env.VITE_API_URL}/api/messages/history/${phone}`;
+    console.log(`[APP] Fetching history for ${phone}: ${url}`);
     try {
       setLoadingHistory(true);
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/messages/history/${phone}`, {
+      const res = await fetch(url, {
         credentials: 'include'
       });
-      if (!res.ok) throw new Error('Falha ao carregar histórico');
+      console.log(`[APP] Fetch history status: ${res.status}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Falha ao carregar histórico');
+      }
       const data = await res.json();
       setHistory(data);
     } catch (err: any) {
-      console.error(err);
+      console.error(`[APP] Fetch history failed for ${phone}:`, err);
     } finally {
       setLoadingHistory(false);
     }

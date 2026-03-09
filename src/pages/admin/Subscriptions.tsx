@@ -37,15 +37,22 @@ export function AdminSubscriptions() {
 
   useEffect(() => {
     const fetchSubscriptions = async () => {
+      const url = `${import.meta.env.VITE_API_URL}/api/admin/subscriptions`;
+      console.log(`[ADMIN] Fetching subscriptions: ${url}`);
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/subscriptions`, {
+        const response = await fetch(url, {
           credentials: 'include'
         });
-        if (!response.ok) throw new Error('Falha ao carregar subscrições');
+        console.log(`[ADMIN] Fetch subscriptions status: ${response.status}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || errorData.error || 'Falha ao carregar subscrições');
+        }
         const data = await response.json();
         setSubscriptions(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      } catch (err: any) {
+        console.error('[ADMIN] Fetch subscriptions failed:', err);
+        setError(err.message || 'Erro desconhecido');
       } finally {
         setLoading(false);
       }

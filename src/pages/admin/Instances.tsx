@@ -52,15 +52,22 @@ export function AdminInstances() {
   const navigate = useNavigate();
 
   const fetchInstances = async () => {
+    const url = `${import.meta.env.VITE_API_URL}/api/admin/instances`;
+    console.log(`[ADMIN] Fetching instances: ${url}`);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/instances`, {
+      const response = await fetch(url, {
         credentials: 'include'
       });
-      if (!response.ok) throw new Error('Falha ao carregar instâncias');
+      console.log(`[ADMIN] Fetch instances status: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Falha ao carregar instâncias');
+      }
       const data = await response.json();
       setInstances(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+    } catch (err: any) {
+      console.error('[ADMIN] Fetch instances failed:', err);
+      setError(err.message || 'Erro desconhecido');
     } finally {
       setLoading(false);
     }
@@ -80,15 +87,22 @@ export function AdminInstances() {
   }, [location.search]);
 
   const fetchClients = async () => {
+    const url = `${import.meta.env.VITE_API_URL}/api/admin/clients`;
+    console.log(`[ADMIN] Fetching clients for modal: ${url}`);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/clients`, {
+      const response = await fetch(url, {
         credentials: 'include'
       });
-      if (!response.ok) throw new Error('Falha ao carregar clientes');
+      console.log(`[ADMIN] Fetch clients status: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Falha ao carregar clientes');
+      }
       const data = await response.json();
       setClients(data);
-    } catch (err) {
-      toast.error('Erro ao carregar lista de clientes');
+    } catch (err: any) {
+      console.error('[ADMIN] Fetch clients failed:', err);
+      toast.error(err.message || 'Erro ao carregar lista de clientes');
     }
   };
 

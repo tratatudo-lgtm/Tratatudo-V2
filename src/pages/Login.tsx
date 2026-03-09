@@ -23,23 +23,31 @@ export function Login() {
     setIsLoading(true);
     setMessage(null);
     
+    const url = `${import.meta.env.VITE_API_URL}/api/auth/request-code`;
+    const payload = { phone_e164: phone };
+    console.log(`[OTP] Requesting code: ${url}`, payload);
+    
     try {
-      const response = await fetch('/api/auth/send-otp', {
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        credentials: 'include',
+        body: JSON.stringify(payload),
       });
       
+      console.log(`[OTP] Request code status: ${response.status}`);
       const data = await response.json();
+      console.log(`[OTP] Request code response:`, data);
       
       if (response.ok) {
         setStep('otp');
-        setMessage({ type: 'success', text: 'Código enviado com sucesso para o seu WhatsApp!' });
+        setMessage({ type: 'success', text: data.message || 'Código enviado com sucesso para o seu WhatsApp!' });
       } else {
-        setMessage({ type: 'error', text: data.error || 'Erro ao enviar código.' });
+        setMessage({ type: 'error', text: data.message || data.error || 'Erro ao enviar código.' });
       }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Erro de ligação ao servidor.' });
+    } catch (error: any) {
+      console.error('[OTP] Request code failed:', error);
+      setMessage({ type: 'error', text: `Erro de ligação ao servidor: ${error.message}` });
     } finally {
       setIsLoading(false);
     }
@@ -55,24 +63,32 @@ export function Login() {
     setIsLoading(true);
     setMessage(null);
 
+    const url = `${import.meta.env.VITE_API_URL}/api/auth/verify-code`;
+    const payload = { phone_e164: phone, code: otp };
+    console.log(`[OTP] Verifying code: ${url}`, payload);
+
     try {
-      const response = await fetch('/api/auth/verify-otp', {
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code: otp }),
+        credentials: 'include',
+        body: JSON.stringify(payload),
       });
       
+      console.log(`[OTP] Verify code status: ${response.status}`);
       const data = await response.json();
+      console.log(`[OTP] Verify code response:`, data);
       
       if (response.ok) {
         await refreshSession();
-        setMessage({ type: 'success', text: 'Login efetuado com sucesso! A redirecionar...' });
+        setMessage({ type: 'success', text: data.message || 'Login efetuado com sucesso! A redirecionar...' });
         setTimeout(() => navigate('/app'), 1000);
       } else {
-        setMessage({ type: 'error', text: data.error || 'Código inválido.' });
+        setMessage({ type: 'error', text: data.message || data.error || 'Código inválido.' });
       }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Erro de ligação ao servidor.' });
+    } catch (error: any) {
+      console.error('[OTP] Verify code failed:', error);
+      setMessage({ type: 'error', text: `Erro de ligação ao servidor: ${error.message}` });
     } finally {
       setIsLoading(false);
     }

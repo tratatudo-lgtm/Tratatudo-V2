@@ -21,21 +21,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refreshSession = useCallback(async () => {
+    const url = `${import.meta.env.VITE_API_URL}/api/auth/session`;
+    console.log(`[AUTH] Checking session: ${url}`);
+    
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/session`, {
+      const response = await fetch(url, {
+        method: 'GET',
         credentials: 'include'
       });
+      
+      console.log(`[AUTH] Session status: ${response.status}`);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log(`[AUTH] Session data:`, data);
         setUser({ 
           phone: data.phone,
           client_id: data.client_id
         });
       } else {
+        const errorText = await response.text();
+        console.warn(`[AUTH] No active session: ${errorText}`);
         setUser(null);
       }
     } catch (error) {
-      console.error('Error checking session:', error);
+      console.error('[AUTH] Session check failed:', error);
       setUser(null);
     } finally {
       setLoading(false);

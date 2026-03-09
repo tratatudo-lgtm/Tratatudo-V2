@@ -39,15 +39,22 @@ export function AdminLogs() {
 
   useEffect(() => {
     const fetchLogs = async () => {
+      const url = `${import.meta.env.VITE_API_URL}/api/admin/logs`;
+      console.log(`[ADMIN] Fetching logs: ${url}`);
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/logs`, {
+        const response = await fetch(url, {
           credentials: 'include'
         });
-        if (!response.ok) throw new Error('Falha ao carregar logs do sistema');
+        console.log(`[ADMIN] Fetch logs status: ${response.status}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || errorData.error || 'Falha ao carregar logs do sistema');
+        }
         const data = await response.json();
         setLogs(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      } catch (err: any) {
+        console.error('[ADMIN] Fetch logs failed:', err);
+        setError(err.message || 'Erro desconhecido');
       } finally {
         setLoading(false);
       }

@@ -51,32 +51,45 @@ export function Requests() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const fetchTickets = async () => {
+    const url = `${import.meta.env.VITE_API_URL}/api/tickets`;
+    console.log(`[APP] Fetching tickets: ${url}`);
     try {
       setLoading(true);
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/tickets`, {
+      const res = await fetch(url, {
         credentials: 'include'
       });
-      if (!res.ok) throw new Error('Falha ao carregar tickets');
+      console.log(`[APP] Fetch tickets status: ${res.status}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Falha ao carregar tickets');
+      }
       const data = await res.json();
       setTickets(data);
     } catch (err: any) {
-      setError(err.message);
+      console.error('[APP] Fetch tickets failed:', err);
+      setError(err.message || 'Erro desconhecido');
     } finally {
       setLoading(false);
     }
   };
 
   const fetchTicketMessages = async (ticketId: string) => {
+    const url = `${import.meta.env.VITE_API_URL}/api/tickets/${ticketId}/messages`;
+    console.log(`[APP] Fetching messages for ticket ${ticketId}: ${url}`);
     try {
       setLoadingMessages(true);
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/tickets/${ticketId}/messages`, {
+      const res = await fetch(url, {
         credentials: 'include'
       });
-      if (!res.ok) throw new Error('Falha ao carregar mensagens do ticket');
+      console.log(`[APP] Fetch ticket messages status: ${res.status}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Falha ao carregar mensagens do ticket');
+      }
       const data = await res.json();
       setMessages(data);
     } catch (err: any) {
-      console.error(err);
+      console.error(`[APP] Fetch ticket messages failed for ${ticketId}:`, err);
     } finally {
       setLoadingMessages(false);
     }

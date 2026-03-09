@@ -60,15 +60,22 @@ export function Dashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
+      const url = `${import.meta.env.VITE_API_URL}/api/dashboard/stats`;
+      console.log(`[APP] Fetching dashboard stats: ${url}`);
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/stats`, {
+        const response = await fetch(url, {
           credentials: 'include'
         });
-        if (!response.ok) throw new Error('Falha ao carregar dados do painel');
+        console.log(`[APP] Fetch dashboard stats status: ${response.status}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || errorData.error || 'Falha ao carregar dados do painel');
+        }
         const result = await response.json();
         setData(result);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      } catch (err: any) {
+        console.error('[APP] Fetch dashboard failed:', err);
+        setError(err.message || 'Erro desconhecido');
       } finally {
         setLoading(false);
       }

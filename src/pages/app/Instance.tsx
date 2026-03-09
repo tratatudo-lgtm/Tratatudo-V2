@@ -43,16 +43,23 @@ export function Instance() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchInstanceData = async () => {
+    const url = `${import.meta.env.VITE_API_URL}/api/instance`;
+    console.log(`[APP] Fetching instance data: ${url}`);
     try {
       setLoading(true);
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/instance`, {
+      const res = await fetch(url, {
         credentials: 'include'
       });
-      if (!res.ok) throw new Error('Falha ao carregar dados da instância');
+      console.log(`[APP] Fetch instance data status: ${res.status}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Falha ao carregar dados da instância');
+      }
       const result = await res.json();
       setData(result);
     } catch (err: any) {
-      setError(err.message);
+      console.error('[APP] Fetch instance data failed:', err);
+      setError(err.message || 'Erro desconhecido');
     } finally {
       setLoading(false);
     }
