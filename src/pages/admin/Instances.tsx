@@ -21,8 +21,9 @@ import {
   QrCode
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { cn } from '../../lib/utils';
+import { cn, extractArrayResponse } from '../../lib/utils';
 import { toast } from 'sonner';
+import { LoadingState, ErrorState } from '../../components/States';
 
 interface Instance {
   id: string;
@@ -55,6 +56,7 @@ export function AdminInstances() {
     const url = `${import.meta.env.VITE_API_URL}/api/admin/instances`;
     console.log(`[ADMIN] Fetching instances: ${url}`);
     try {
+      setLoading(true);
       const response = await fetch(url, {
         credentials: 'include'
       });
@@ -63,8 +65,8 @@ export function AdminInstances() {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || errorData.error || 'Falha ao carregar instâncias');
       }
-      const data = await response.json();
-      setInstances(data);
+      const result = await response.json();
+      setInstances(extractArrayResponse<Instance>(result, 'instances'));
     } catch (err: any) {
       console.error('[ADMIN] Fetch instances failed:', err);
       setError(err.message || 'Erro desconhecido');
@@ -98,8 +100,8 @@ export function AdminInstances() {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || errorData.error || 'Falha ao carregar clientes');
       }
-      const data = await response.json();
-      setClients(data);
+      const result = await response.json();
+      setClients(extractArrayResponse<any>(result, 'clients'));
     } catch (err: any) {
       console.error('[ADMIN] Fetch clients failed:', err);
       toast.error(err.message || 'Erro ao carregar lista de clientes');
@@ -176,10 +178,19 @@ export function AdminInstances() {
   );
 
   if (loading) {
+    return <LoadingState message="A carregar estado das instâncias..." className="h-[60vh]" />;
+  }
+
+  if (error) {
     return (
-      <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-medium">A carregar estado das instâncias...</p>
+      <div className="h-[60vh] flex flex-col items-center justify-center gap-4 text-center px-4">
+        <ErrorState message={error} />
+        <button 
+          onClick={fetchInstances}
+          className="mt-4 px-6 py-2 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors"
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }

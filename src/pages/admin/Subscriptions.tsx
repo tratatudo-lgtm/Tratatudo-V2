@@ -13,10 +13,12 @@ import {
   ArrowRight,
   ShieldCheck,
   Zap,
+  MessageSquare,
   DollarSign,
   Clock
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, extractArrayResponse } from '../../lib/utils';
+import { LoadingState, ErrorState, EmptyState } from '../../components/States';
 
 interface Subscription {
   id: string;
@@ -35,29 +37,30 @@ export function AdminSubscriptions() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    const fetchSubscriptions = async () => {
-      const url = `${import.meta.env.VITE_API_URL}/api/admin/subscriptions`;
-      console.log(`[ADMIN] Fetching subscriptions: ${url}`);
-      try {
-        const response = await fetch(url, {
-          credentials: 'include'
-        });
-        console.log(`[ADMIN] Fetch subscriptions status: ${response.status}`);
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || errorData.error || 'Falha ao carregar subscrições');
-        }
-        const data = await response.json();
-        setSubscriptions(data);
-      } catch (err: any) {
-        console.error('[ADMIN] Fetch subscriptions failed:', err);
-        setError(err.message || 'Erro desconhecido');
-      } finally {
-        setLoading(false);
+  const fetchSubscriptions = async () => {
+    const url = `${import.meta.env.VITE_API_URL}/api/admin/subscriptions`;
+    console.log(`[ADMIN] Fetching subscriptions: ${url}`);
+    try {
+      setLoading(true);
+      const response = await fetch(url, {
+        credentials: 'include'
+      });
+      console.log(`[ADMIN] Fetch subscriptions status: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Falha ao carregar subscrições');
       }
-    };
+      const result = await response.json();
+      setSubscriptions(extractArrayResponse<Subscription>(result, 'subscriptions'));
+    } catch (err: any) {
+      console.error('[ADMIN] Fetch subscriptions failed:', err);
+      setError(err.message || 'Erro desconhecido');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchSubscriptions();
   }, []);
 
@@ -67,10 +70,19 @@ export function AdminSubscriptions() {
   );
 
   if (loading) {
+    return <LoadingState message="A carregar dados financeiros..." className="h-[60vh]" />;
+  }
+
+  if (error) {
     return (
-      <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-medium tracking-tight">A carregar dados financeiros...</p>
+      <div className="h-[60vh] flex flex-col items-center justify-center gap-4 text-center px-4">
+        <ErrorState message={error} />
+        <button 
+          onClick={fetchSubscriptions}
+          className="mt-4 px-6 py-2 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors"
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }

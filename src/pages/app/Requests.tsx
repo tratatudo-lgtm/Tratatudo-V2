@@ -18,7 +18,8 @@ import {
   Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '@/src/lib/utils';
+import { cn, extractArrayResponse } from '../../lib/utils';
+import { LoadingState, ErrorState, EmptyState } from '../../components/States';
 
 interface Ticket {
   id: string;
@@ -51,20 +52,34 @@ export function Requests() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const fetchTickets = async () => {
-    const url = `${import.meta.env.VITE_API_URL}/api/tickets`;
-    console.log(`[APP] Fetching tickets: ${url}`);
+    const endpoints = [
+      `${import.meta.env.VITE_API_URL}/api/client/tickets`,
+      `${import.meta.env.VITE_API_URL}/api/tickets`,
+      `${import.meta.env.VITE_API_URL}/api/pedidos`
+    ];
+    
+    let lastError = null;
+    
     try {
       setLoading(true);
-      const res = await fetch(url, {
-        credentials: 'include'
-      });
-      console.log(`[APP] Fetch tickets status: ${res.status}`);
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || errorData.error || 'Falha ao carregar tickets');
+      for (const url of endpoints) {
+        console.log(`[APP] Fetching tickets: ${url}`);
+        try {
+          const res = await fetch(url, {
+            credentials: 'include'
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            setTickets(extractArrayResponse<Ticket>(data, 'tickets'));
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          lastError = e;
+        }
       }
-      const data = await res.json();
-      setTickets(data);
+      throw lastError || new Error('Falha ao carregar tickets');
     } catch (err: any) {
       console.error('[APP] Fetch tickets failed:', err);
       setError(err.message || 'Erro desconhecido');
@@ -81,13 +96,12 @@ export function Requests() {
       const res = await fetch(url, {
         credentials: 'include'
       });
-      console.log(`[APP] Fetch ticket messages status: ${res.status}`);
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.message || errorData.error || 'Falha ao carregar mensagens do ticket');
       }
       const data = await res.json();
-      setMessages(data);
+      setMessages(extractArrayResponse<TicketMessage>(data, 'messages'));
     } catch (err: any) {
       console.error(`[APP] Fetch ticket messages failed for ${ticketId}:`, err);
     } finally {
@@ -137,30 +151,19 @@ export function Requests() {
   };
 
   if (loading) {
-    return (
-      <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto" />
-          <p className="text-slate-500 font-medium">A carregar os seus pedidos...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState message="A carregar os seus pedidos..." className="h-[calc(100vh-10rem)]" />;
   }
 
   if (error) {
     return (
       <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
-        <div className="bg-white p-8 rounded-3xl border border-red-100 shadow-xl text-center max-w-md">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-slate-900 mb-2">Erro ao carregar tickets</h3>
-          <p className="text-slate-500 text-sm mb-6">{error}</p>
-          <button 
-            onClick={fetchTickets}
-            className="bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-primary/90 transition-all"
-          >
-            Tentar Novamente
-          </button>
-        </div>
+        <ErrorState message={error} />
+        <button 
+          onClick={fetchTickets}
+          className="mt-4 bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-primary/90 transition-all"
+        >
+          Tentar Novamente
+        </button>
       </div>
     );
   }

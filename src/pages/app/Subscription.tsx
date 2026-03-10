@@ -15,7 +15,8 @@ import {
   Loader2
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { cn } from '@/src/lib/utils';
+import { cn, extractObjectResponse } from '../../lib/utils';
+import { LoadingState, ErrorState } from '../../components/States';
 
 interface UsageStat {
   used: number;
@@ -54,20 +55,48 @@ export function Subscription() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchSubscription = async () => {
-    const url = `${import.meta.env.VITE_API_URL}/api/subscription`;
-    console.log(`[APP] Fetching subscription data: ${url}`);
+    const endpoints = [
+      `${import.meta.env.VITE_API_URL}/api/client/subscription`,
+      `${import.meta.env.VITE_API_URL}/api/subscription`
+    ];
+    
+    let lastError = null;
+    
     try {
       setLoading(true);
-      const res = await fetch(url, {
-        credentials: 'include'
-      });
-      console.log(`[APP] Fetch subscription data status: ${res.status}`);
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || errorData.error || 'Falha ao carregar dados da subscrição');
+      for (const url of endpoints) {
+        console.log(`[APP] Fetching subscription data: ${url}`);
+        try {
+          const res = await fetch(url, {
+            credentials: 'include'
+          });
+          
+          if (res.ok) {
+            const result = await res.json();
+            console.log(`[APP] Subscription data received from ${url}:`, result);
+            
+            const subscription = extractObjectResponse<any>(result, 'subscription');
+            
+            if (subscription) {
+              // Map the response to our interface
+              const mappedData: SubscriptionData = {
+                client: subscription.client || subscription,
+                usage: subscription.usage || {
+                  messages: { used: 0, limit: 1000 },
+                  tickets: { used: 0, limit: 100 },
+                  complaints: { used: 0, limit: 10 }
+                }
+              };
+              setData(mappedData);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (e) {
+          lastError = e;
+        }
       }
-      const result = await res.json();
-      setData(result);
+      throw lastError || new Error('Falha ao carregar dados da subscrição');
     } catch (err: any) {
       console.error('[APP] Fetch subscription failed:', err);
       setError(err.message || 'Erro desconhecido');
@@ -108,30 +137,19 @@ export function Subscription() {
   };
 
   if (loading) {
-    return (
-      <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto" />
-          <p className="text-slate-500 font-medium">A carregar detalhes da subscrição...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState message="A carregar detalhes da subscrição..." className="h-[calc(100vh-10rem)]" />;
   }
 
   if (error) {
     return (
       <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
-        <div className="bg-white p-8 rounded-3xl border border-red-100 shadow-xl text-center max-w-md">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-slate-900 mb-2">Erro ao carregar dados</h3>
-          <p className="text-slate-500 text-sm mb-6">{error}</p>
-          <button 
-            onClick={fetchSubscription}
-            className="bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-primary/90 transition-all"
-          >
-            Tentar Novamente
-          </button>
-        </div>
+        <ErrorState message={error} />
+        <button 
+          onClick={fetchSubscription}
+          className="mt-4 bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-primary/90 transition-all"
+        >
+          Tentar Novamente
+        </button>
       </div>
     );
   }

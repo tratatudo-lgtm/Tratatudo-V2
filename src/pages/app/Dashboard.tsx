@@ -18,15 +18,19 @@ import {
   Loader2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { cn } from '../../lib/utils';
+import { cn, extractArrayResponse, extractObjectResponse } from '../../lib/utils';
 import { useAuth } from '../../lib/auth/AuthContext';
+import { LoadingState, ErrorState } from '../../components/States';
 
 interface DashboardData {
   stats: {
-    messages: number;
-    totalTickets: number;
-    openTickets: number;
-    complaints: number;
+    messages?: number;
+    totalMessages?: number;
+    totalTickets?: number;
+    openTickets?: number;
+    complaints?: number;
+    inProgressTickets?: number;
+    resolvedTickets?: number;
   };
   instance: {
     name: string;
@@ -60,50 +64,61 @@ export function Dashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const url = `${import.meta.env.VITE_API_URL}/api/dashboard/stats`;
-      console.log(`[APP] Fetching dashboard stats: ${url}`);
-      try {
-        const response = await fetch(url, {
-          credentials: 'include'
-        });
-        console.log(`[APP] Fetch dashboard stats status: ${response.status}`);
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || errorData.error || 'Falha ao carregar dados do painel');
+      // Try both possible endpoints
+      const endpoints = [
+        `${import.meta.env.VITE_API_URL}/api/client/dashboard/stats`,
+        `${import.meta.env.VITE_API_URL}/api/dashboard/stats`
+      ];
+      
+      let lastError = null;
+      
+      for (const url of endpoints) {
+        try {
+          console.log(`[APP] Fetching dashboard stats: ${url}`);
+          const response = await fetch(url, {
+            credentials: 'include'
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            console.log(`[APP] Dashboard data received from ${url}:`, result);
+            
+            // Map the response to our interface
+            const mappedData: DashboardData = {
+              stats: result.stats || {},
+              instance: extractObjectResponse(result, 'instance'),
+              subscription: extractObjectResponse(result, 'subscription'),
+              activity: extractArrayResponse(result, 'activity')
+            };
+            
+            setData(mappedData);
+            setLoading(false);
+            return;
+          }
+        } catch (err: any) {
+          console.error(`[APP] Fetch dashboard failed for ${url}:`, err);
+          lastError = err;
         }
-        const result = await response.json();
-        setData(result);
-      } catch (err: any) {
-        console.error('[APP] Fetch dashboard failed:', err);
-        setError(err.message || 'Erro desconhecido');
-      } finally {
-        setLoading(false);
       }
+      
+      setError(lastError?.message || 'Falha ao carregar dados do painel');
+      setLoading(false);
     };
 
     fetchData();
   }, []);
 
   if (loading) {
-    return (
-      <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-medium">A carregar o seu painel...</p>
-      </div>
-    );
+    return <LoadingState message="A carregar o seu painel..." className="h-[60vh]" />;
   }
 
   if (error) {
     return (
       <div className="h-[60vh] flex flex-col items-center justify-center gap-4 text-center px-4">
-        <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-2">
-          <AlertCircle className="w-8 h-8" />
-        </div>
-        <h2 className="text-xl font-bold text-slate-900">Ups! Algo correu mal</h2>
-        <p className="text-slate-500 max-w-md">{error}</p>
+        <ErrorState message={error} />
         <button 
           onClick={() => window.location.reload()}
-          className="mt-4 px-6 py-2 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors"
+          className="px-6 py-2 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors"
         >
           Tentar novamente
         </button>
@@ -114,7 +129,7 @@ export function Dashboard() {
   const stats = [
     { 
       name: 'Total de Mensagens', 
-      value: data?.stats.messages.toLocaleString() || '0', 
+      value: (data?.stats?.totalMessages ?? data?.stats?.messages ?? 0).toLocaleString() || '0', 
       change: '+0%', 
       trend: 'neutral', 
       icon: MessageSquare,
@@ -123,7 +138,7 @@ export function Dashboard() {
     },
     { 
       name: 'Pedidos em Aberto', 
-      value: data?.stats.openTickets.toString() || '0', 
+      value: (data?.stats?.openTickets ?? 0).toString() || '0', 
       change: '0%', 
       trend: 'neutral', 
       icon: ClipboardList,
@@ -132,7 +147,7 @@ export function Dashboard() {
     },
     { 
       name: 'Reclamações', 
-      value: data?.stats.complaints.toString() || '0', 
+      value: (data?.stats?.complaints ?? 0).toString() || '0', 
       change: '0%', 
       trend: 'neutral', 
       icon: AlertCircle,
@@ -158,16 +173,21 @@ export function Dashboard() {
   ];
 
   const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (!dateStr) return 'N/A';
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
 
-    if (diffMins < 1) return 'Agora mesmo';
-    if (diffMins < 60) return `Há ${diffMins} min`;
-    if (diffHours < 24) return `Há ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`;
-    return date.toLocaleDateString('pt-PT');
+      if (diffMins < 1) return 'Agora mesmo';
+      if (diffMins < 60) return `Há ${diffMins} min`;
+      if (diffHours < 24) return `Há ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`;
+      return date.toLocaleDateString('pt-PT');
+    } catch (e) {
+      return 'N/A';
+    }
   };
 
   return (

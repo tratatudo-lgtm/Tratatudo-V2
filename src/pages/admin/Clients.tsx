@@ -18,7 +18,8 @@ import {
   ExternalLink,
   Smartphone
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, extractArrayResponse } from '../../lib/utils';
+import { LoadingState, ErrorState, EmptyState } from '../../components/States';
 
 interface Client {
   id: string;
@@ -37,29 +38,30 @@ export function AdminClients() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    const fetchClients = async () => {
-      const url = `${import.meta.env.VITE_API_URL}/api/admin/clients`;
-      console.log(`[ADMIN] Fetching clients: ${url}`);
-      try {
-        const response = await fetch(url, {
-          credentials: 'include'
-        });
-        console.log(`[ADMIN] Fetch clients status: ${response.status}`);
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || errorData.error || 'Falha ao carregar clientes');
-        }
-        const data = await response.json();
-        setClients(data);
-      } catch (err: any) {
-        console.error('[ADMIN] Fetch clients failed:', err);
-        setError(err.message || 'Erro desconhecido');
-      } finally {
-        setLoading(false);
+  const fetchClients = async () => {
+    const url = `${import.meta.env.VITE_API_URL}/api/admin/clients`;
+    console.log(`[ADMIN] Fetching clients: ${url}`);
+    try {
+      setLoading(true);
+      const response = await fetch(url, {
+        credentials: 'include'
+      });
+      console.log(`[ADMIN] Fetch clients status: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Falha ao carregar clientes');
       }
-    };
+      const result = await response.json();
+      setClients(extractArrayResponse<Client>(result, 'clients'));
+    } catch (err: any) {
+      console.error('[ADMIN] Fetch clients failed:', err);
+      setError(err.message || 'Erro desconhecido');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchClients();
   }, []);
 
@@ -88,10 +90,19 @@ export function AdminClients() {
   );
 
   if (loading) {
+    return <LoadingState message="A carregar lista de clientes..." className="h-[60vh]" />;
+  }
+
+  if (error) {
     return (
-      <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-medium">A carregar lista de clientes...</p>
+      <div className="h-[60vh] flex flex-col items-center justify-center gap-4 text-center px-4">
+        <ErrorState message={error} />
+        <button 
+          onClick={fetchClients}
+          className="mt-4 px-6 py-2 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors"
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }

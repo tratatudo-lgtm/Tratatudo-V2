@@ -21,7 +21,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { cn } from '@/src/lib/utils';
+import { cn, extractObjectResponse } from '../../lib/utils';
+import { LoadingState, ErrorState } from '../../components/States';
 
 interface ClientSettings {
   client_id: string;
@@ -49,26 +50,44 @@ export function Settings() {
   });
 
   const fetchSettings = async () => {
-    const url = `${import.meta.env.VITE_API_URL}/api/client/settings`;
-    console.log(`[APP] Fetching client settings: ${url}`);
+    const endpoints = [
+      `${import.meta.env.VITE_API_URL}/api/client/settings`,
+      `${import.meta.env.VITE_API_URL}/api/settings`
+    ];
+    
+    let lastError = null;
+    
     try {
       setLoading(true);
-      const res = await fetch(url, {
-        credentials: 'include'
-      });
-      console.log(`[APP] Fetch client settings status: ${res.status}`);
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || errorData.error || 'Falha ao carregar definições');
+      for (const url of endpoints) {
+        console.log(`[APP] Fetching client settings: ${url}`);
+        try {
+          const res = await fetch(url, {
+            credentials: 'include'
+          });
+          
+          if (res.ok) {
+            const result = await res.json();
+            console.log(`[APP] Client settings received from ${url}:`, result);
+            
+            const data = extractObjectResponse<ClientSettings>(result, 'settings');
+            if (data) {
+              setSettings(data);
+              setFormData({
+                company_name: data.company_name || '',
+                email: data.email || '',
+                bot_instructions: data.bot_instructions || '',
+                responsible_name: data.responsible_name || 'João Duarte' // Mock fallback
+              });
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (e) {
+          lastError = e;
+        }
       }
-      const data = await res.json();
-      setSettings(data);
-      setFormData({
-        company_name: data.company_name || '',
-        email: data.email || '',
-        bot_instructions: data.bot_instructions || '',
-        responsible_name: data.responsible_name || 'João Duarte' // Mock fallback
-      });
+      throw lastError || new Error('Falha ao carregar definições');
     } catch (err: any) {
       console.error('[APP] Fetch client settings failed:', err);
       setError(err.message || 'Erro desconhecido');
@@ -106,7 +125,8 @@ export function Settings() {
         throw new Error(errorData.message || errorData.error || 'Falha ao guardar alterações');
       }
       
-      const updated = await res.json();
+      const result = await res.json();
+      const updated = extractObjectResponse<ClientSettings>(result, 'settings') || result;
       setSettings(updated);
       setSuccess(true);
       
@@ -131,14 +151,7 @@ export function Settings() {
   };
 
   if (loading) {
-    return (
-      <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto" />
-          <p className="text-slate-500 font-medium">A carregar definições...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState message="A carregar definições..." className="h-[calc(100vh-10rem)]" />;
   }
 
   return (

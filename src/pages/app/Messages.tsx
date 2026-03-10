@@ -15,10 +15,11 @@ import {
   ArrowLeft,
   Loader2
 } from 'lucide-react';
-import { cn } from '@/src/lib/utils';
+import { cn, extractArrayResponse } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { supabase } from '@/src/lib/supabase';
-import { useAuth } from '@/src/lib/auth/AuthContext';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth/AuthContext';
+import { LoadingState, ErrorState, EmptyState } from '../../components/States';
 
 interface Conversation {
   phone_e164: string;
@@ -49,23 +50,38 @@ export function Messages() {
   const clientId = user?.client_id;
 
   const fetchConversations = async () => {
-    const url = `${import.meta.env.VITE_API_URL}/api/messages/conversations`;
-    console.log(`[APP] Fetching conversations: ${url}`);
+    const endpoints = [
+      `${import.meta.env.VITE_API_URL}/api/client/messages`,
+      `${import.meta.env.VITE_API_URL}/api/messages`,
+      `${import.meta.env.VITE_API_URL}/api/messages/conversations`
+    ];
+    
+    let lastError = null;
+    
     try {
       setLoading(true);
-      const res = await fetch(url, {
-        credentials: 'include'
-      });
-      console.log(`[APP] Fetch conversations status: ${res.status}`);
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || errorData.error || 'Falha ao carregar conversas');
+      for (const url of endpoints) {
+        console.log(`[APP] Fetching conversations: ${url}`);
+        try {
+          const res = await fetch(url, {
+            credentials: 'include'
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            const extracted = extractArrayResponse<Conversation>(data, 'messages');
+            setConversations(extracted);
+            if (extracted.length > 0 && !selectedPhone) {
+              setSelectedPhone(extracted[0].phone_e164);
+            }
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          lastError = e;
+        }
       }
-      const data = await res.json();
-      setConversations(data);
-      if (data.length > 0 && !selectedPhone) {
-        setSelectedPhone(data[0].phone_e164);
-      }
+      throw lastError || new Error('Falha ao carregar conversas');
     } catch (err: any) {
       console.error('[APP] Fetch conversations failed:', err);
       setError(err.message || 'Erro desconhecido');
@@ -82,13 +98,12 @@ export function Messages() {
       const res = await fetch(url, {
         credentials: 'include'
       });
-      console.log(`[APP] Fetch history status: ${res.status}`);
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.message || errorData.error || 'Falha ao carregar histórico');
       }
       const data = await res.json();
-      setHistory(data);
+      setHistory(extractArrayResponse<Message>(data, 'messages'));
     } catch (err: any) {
       console.error(`[APP] Fetch history failed for ${phone}:`, err);
     } finally {
@@ -180,30 +195,19 @@ export function Messages() {
   };
 
   if (loading) {
-    return (
-      <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto" />
-          <p className="text-slate-500 font-medium">A carregar as suas conversas...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState message="A carregar as suas conversas..." className="h-[calc(100vh-10rem)]" />;
   }
 
   if (error) {
     return (
       <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
-        <div className="bg-white p-8 rounded-3xl border border-red-100 shadow-xl text-center max-w-md">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-slate-900 mb-2">Erro ao carregar dados</h3>
-          <p className="text-slate-500 text-sm mb-6">{error}</p>
-          <button 
-            onClick={fetchConversations}
-            className="bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-primary/90 transition-all"
-          >
-            Tentar Novamente
-          </button>
-        </div>
+        <ErrorState message={error} />
+        <button 
+          onClick={fetchConversations}
+          className="mt-4 bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-primary/90 transition-all"
+        >
+          Tentar Novamente
+        </button>
       </div>
     );
   }

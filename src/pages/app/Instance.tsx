@@ -17,8 +17,10 @@ import {
   Loader2
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { cn } from '@/src/lib/utils';
+import { cn, extractObjectResponse } from '../../lib/utils';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../lib/auth/AuthContext';
+import { LoadingState, ErrorState } from '../../components/States';
 
 interface InstanceData {
   instance_name: string;
@@ -38,25 +40,50 @@ interface Stats {
 }
 
 export function Instance() {
+  const { user } = useAuth();
   const [data, setData] = useState<{ instance: InstanceData | null; stats: Stats } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchInstanceData = async () => {
-    const url = `${import.meta.env.VITE_API_URL}/api/instance`;
-    console.log(`[APP] Fetching instance data: ${url}`);
+    const endpoints = [
+      `${import.meta.env.VITE_API_URL}/api/client/instance`,
+      `${import.meta.env.VITE_API_URL}/api/instance`
+    ];
+    
+    let lastError = null;
+    
     try {
       setLoading(true);
-      const res = await fetch(url, {
-        credentials: 'include'
-      });
-      console.log(`[APP] Fetch instance data status: ${res.status}`);
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || errorData.error || 'Falha ao carregar dados da instância');
+      for (const url of endpoints) {
+        console.log(`[APP] Fetching instance data: ${url}`);
+        try {
+          const res = await fetch(url, {
+            credentials: 'include'
+          });
+          
+          if (res.ok) {
+            const result = await res.json();
+            console.log(`[APP] Instance data received from ${url}:`, result);
+            
+            const instance = extractObjectResponse<InstanceData>(result, 'instance');
+            const stats = result.stats || {
+              totalMessages: 0,
+              sentMessages: 0,
+              receivedMessages: 0,
+              totalTickets: 0,
+              complaints: 0
+            };
+            
+            setData({ instance, stats });
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          lastError = e;
+        }
       }
-      const result = await res.json();
-      setData(result);
+      throw lastError || new Error('Falha ao carregar dados da instância');
     } catch (err: any) {
       console.error('[APP] Fetch instance data failed:', err);
       setError(err.message || 'Erro desconhecido');
@@ -91,30 +118,19 @@ export function Instance() {
   };
 
   if (loading) {
-    return (
-      <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto" />
-          <p className="text-slate-500 font-medium">A carregar estado da instância...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState message="A carregar estado da instância..." className="h-[calc(100vh-10rem)]" />;
   }
 
   if (error) {
     return (
       <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
-        <div className="bg-white p-8 rounded-3xl border border-red-100 shadow-xl text-center max-w-md">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-slate-900 mb-2">Erro ao carregar dados</h3>
-          <p className="text-slate-500 text-sm mb-6">{error}</p>
-          <button 
-            onClick={fetchInstanceData}
-            className="bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-primary/90 transition-all"
-          >
-            Tentar Novamente
-          </button>
-        </div>
+        <ErrorState message={error} />
+        <button 
+          onClick={fetchInstanceData}
+          className="mt-4 bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-primary/90 transition-all"
+        >
+          Tentar Novamente
+        </button>
       </div>
     );
   }
