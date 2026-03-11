@@ -18,24 +18,17 @@ import { motion } from 'motion/react';
 import { cn, extractObjectResponse } from '../../lib/utils';
 import { LoadingState, ErrorState } from '../../components/States';
 
-interface UsageStat {
-  used: number;
-  limit: number;
-}
-
 interface SubscriptionData {
-  client: {
-    client_id: string;
-    phone: string;
+  subscription: {
     status: string;
-    trial_end: string;
-    created_at: string;
-    plan?: string;
+    plan: string;
+    started_at: string;
+    ends_at: string;
   };
   usage: {
-    messages: UsageStat;
-    tickets: UsageStat;
-    complaints: UsageStat;
+    messages: number;
+    tickets: number;
+    complaints: number;
   };
 }
 
@@ -77,17 +70,8 @@ export function Subscription() {
             
             const subscription = extractObjectResponse<any>(result, 'subscription');
             
-            if (subscription) {
-              // Map the response to our interface
-              const mappedData: SubscriptionData = {
-                client: subscription.client || subscription,
-                usage: subscription.usage || {
-                  messages: { used: 0, limit: 1000 },
-                  tickets: { used: 0, limit: 100 },
-                  complaints: { used: 0, limit: 10 }
-                }
-              };
-              setData(mappedData);
+            if (result.ok) {
+              setData(result);
               setLoading(false);
               return;
             }
@@ -110,7 +94,9 @@ export function Subscription() {
   }, []);
 
   const formatDate = (dateStr: string) => {
+    if (!dateStr) return 'N/A';
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'N/A';
     return date.toLocaleDateString('pt-PT', { 
       day: '2-digit', 
       month: 'short', 
@@ -154,7 +140,7 @@ export function Subscription() {
     );
   }
 
-  if (!data?.client) {
+  if (!data?.subscription) {
     return (
       <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
         <div className="bg-white p-12 rounded-3xl border border-slate-200 shadow-xl text-center max-w-md">
@@ -171,8 +157,9 @@ export function Subscription() {
     );
   }
 
-  const { client, usage } = data;
-  const messageProgress = (usage.messages.used / usage.messages.limit) * 100;
+  const { subscription, usage } = data;
+  const messageLimit = 1000; // Default limit for now or fetch from plan
+  const messageProgress = (usage.messages / messageLimit) * 100;
 
   return (
     <div className="space-y-8 pb-12">
@@ -202,20 +189,20 @@ export function Subscription() {
                   <div>
                     <div className="flex items-center gap-3 mb-1">
                       <h2 className="text-2xl font-bold text-slate-900">
-                        Plano {client.plan || 'Atual'}
+                        Plano {subscription.plan || 'Atual'}
                       </h2>
                       <span className={cn(
                         "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border",
-                        getStatusColor(client.status)
+                        getStatusColor(subscription.status)
                       )}>
-                        {getStatusLabel(client.status)}
+                        {getStatusLabel(subscription.status)}
                       </span>
                     </div>
                     <p className="text-slate-500 text-sm flex items-center gap-2">
                       <Clock className="w-3.5 h-3.5" /> 
-                      {client.status === 'trial' ? 'Fim do teste: ' : 'Próxima renovação: '}
+                      {subscription.plan === 'Trial' ? 'Fim do teste: ' : 'Próxima renovação: '}
                       <span className="font-bold text-slate-900">
-                        {formatDate(client.trial_end || client.created_at)}
+                        {formatDate(subscription.ends_at)}
                       </span>
                     </p>
                   </div>
@@ -223,11 +210,8 @@ export function Subscription() {
                 <div className="text-right">
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl font-display font-black text-slate-900">
-                      {client.status === 'trial' ? 'Grátis' : '49€'}
+                      {subscription.plan === 'Trial' ? 'Grátis' : 'Sob consulta'}
                     </span>
-                    {client.status !== 'trial' && (
-                      <span className="text-slate-400 font-medium">/mês</span>
-                    )}
                   </div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">IVA incluído à taxa legal</p>
                 </div>
@@ -244,7 +228,7 @@ export function Subscription() {
                       <p className="text-xs text-slate-500">Utilização este mês</p>
                     </div>
                     <span className="text-sm font-bold text-slate-900">
-                      {usage.messages.used.toLocaleString()} <span className="text-slate-400 font-normal">/ {usage.messages.limit.toLocaleString()}</span>
+                      {usage.messages.toLocaleString()} <span className="text-slate-400 font-normal">/ {messageLimit.toLocaleString()}</span>
                     </span>
                   </div>
                   <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
@@ -264,17 +248,17 @@ export function Subscription() {
                   <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100">
                     <div className="flex items-center justify-between mb-2">
                       <ClipboardList className="w-5 h-5 text-orange-500" />
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Limite: {usage.tickets.limit}</span>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Limite: N/A</span>
                     </div>
-                    <p className="text-2xl font-bold text-slate-900">{usage.tickets.used}</p>
+                    <p className="text-2xl font-bold text-slate-900">{usage.tickets}</p>
                     <p className="text-xs text-slate-500 font-medium">Pedidos Gerados</p>
                   </div>
                   <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100">
                     <div className="flex items-center justify-between mb-2">
                       <AlertCircle className="w-5 h-5 text-red-500" />
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Limite: {usage.complaints.limit}</span>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Limite: N/A</span>
                     </div>
-                    <p className="text-2xl font-bold text-slate-900">{usage.complaints.used}</p>
+                    <p className="text-2xl font-bold text-slate-900">{usage.complaints}</p>
                     <p className="text-xs text-slate-500 font-medium">Reclamações Registadas</p>
                   </div>
                 </div>

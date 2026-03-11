@@ -33,13 +33,14 @@ interface DashboardData {
     resolvedTickets?: number;
   };
   instance: {
-    name: string;
-    type: string;
+    instance_name: string;
+    is_hub: boolean;
     status: string;
   } | null;
   subscription: {
     status: string;
-    trial_end: string;
+    plan: string;
+    ends_at: string;
   } | null;
   activity: Array<{
     type: 'ticket' | 'message';
@@ -176,6 +177,7 @@ export function Dashboard() {
     if (!dateStr) return 'N/A';
     try {
       const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return 'N/A';
       const now = new Date();
       const diffMs = now.getTime() - date.getTime();
       const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -309,7 +311,7 @@ export function Dashboard() {
                   <Smartphone className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">{data?.instance?.name || 'Sem Instância'}</p>
+                  <p className="text-sm font-bold text-slate-900">{data?.instance?.instance_name || 'Sem Instância'}</p>
                   <p className="text-[10px] text-slate-500">{user?.phone_e164}</p>
                 </div>
               </div>
@@ -319,25 +321,25 @@ export function Dashboard() {
                   <span className="text-slate-500">Estado da Ligação</span>
                   <span className={cn(
                     "flex items-center gap-1.5 font-bold",
-                    data?.instance?.status === 'online' ? "text-green-600" : "text-red-600"
+                    data?.instance?.status === 'conectado' ? "text-green-600" : "text-red-600"
                   )}>
                     <div className={cn(
                       "w-1.5 h-1.5 rounded-full",
-                      data?.instance?.status === 'online' ? "bg-green-500 animate-pulse" : "bg-red-500"
+                      data?.instance?.status === 'conectado' ? "bg-green-500 animate-pulse" : "bg-red-500"
                     )}></div>
-                    {data?.instance?.status === 'online' ? 'Conectado' : 'Desconectado'}
+                    {data?.instance?.status === 'conectado' ? 'Conectado' : 'Desconectado'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500">Tipo de Instância</span>
                   <span className="font-bold text-slate-900 flex items-center gap-1 capitalize">
                     <ShieldCheck className="w-3 h-3 text-primary" />
-                    {data?.instance?.type || 'N/A'}
+                    {data?.instance?.is_hub ? 'Hub Trial' : 'Instância Privada'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500">Uptime (30 dias)</span>
-                  <span className="font-bold text-slate-900">{data?.instance?.status === 'online' ? '99.9%' : '0%'}</span>
+                  <span className="font-bold text-slate-900">{data?.instance?.status === 'conectado' ? '99.9%' : 'N/A'}</span>
                 </div>
               </div>
             </div>
@@ -356,7 +358,7 @@ export function Dashboard() {
               <div>
                 <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">Plano Atual</p>
                 <p className="text-xl font-display font-bold">
-                  {data?.subscription?.status === 'active' ? 'Profissional' : 'Nenhum'}
+                  {data?.subscription?.plan || 'Nenhum'}
                 </p>
               </div>
 
@@ -377,8 +379,8 @@ export function Dashboard() {
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">Expira em</p>
                   <p className="text-xs font-bold">
-                    {data?.subscription?.trial_end 
-                      ? new Date(data.subscription.trial_end).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })
+                    {data?.subscription?.ends_at 
+                      ? new Date(data.subscription.ends_at).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })
                       : 'N/A'}
                   </p>
                 </div>

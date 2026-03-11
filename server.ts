@@ -598,12 +598,12 @@ async function startServer() {
 
   // 13. Update Client Settings
   app.patch("/api/client/settings", requireClientSession, async (req: any, res) => {
-    const { company_name, email, bot_instructions } = req.body;
+    const { company_name, bot_instructions } = req.body;
 
     try {
       const { data: updatedClient, error: updateError } = await supabase
         .from("clients")
-        .update({ company_name, email, bot_instructions })
+        .update({ company_name, bot_instructions })
         .eq("id", req.clientId)
         .select()
         .single();

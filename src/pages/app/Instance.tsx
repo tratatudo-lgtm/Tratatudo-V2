@@ -97,7 +97,9 @@ export function Instance() {
   }, []);
 
   const formatDate = (dateStr: string) => {
+    if (!dateStr) return 'N/A';
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'N/A';
     return date.toLocaleDateString('pt-PT', { 
       day: '2-digit', 
       month: 'short', 
@@ -108,6 +110,7 @@ export function Instance() {
   const formatRelativeTime = (dateStr?: string) => {
     if (!dateStr) return 'Sem atividade recente';
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'Sem atividade recente';
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
     
@@ -316,22 +319,8 @@ export function Instance() {
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Últimas 24 Horas</span>
         </div>
         <div className="p-8">
-          <div className="flex items-end gap-1 h-12 mb-4">
-            {[...Array(48)].map((_, i) => (
-              <div 
-                key={i} 
-                className={cn(
-                  "flex-1 rounded-full transition-all hover:scale-y-125 cursor-help",
-                  i === 12 || i === 35 ? "bg-red-400 h-4" : 
-                  i > 40 ? "bg-emerald-500 h-12" : "bg-emerald-500 h-10"
-                )}
-                title={i === 12 || i === 35 ? "Falha na ligação" : "Ligação estável"}
-              ></div>
-            ))}
-          </div>
-          <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-            <span>Há 24h</span>
-            <span>Agora</span>
+          <div className="flex items-center justify-center h-12 text-slate-400 text-xs font-medium italic">
+            Dados de saúde da ligação serão apresentados após 24h de atividade.
           </div>
         </div>
       </motion.div>

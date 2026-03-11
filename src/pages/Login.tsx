@@ -23,9 +23,8 @@ export function Login() {
     setIsLoading(true);
     setMessage(null);
     
-    const API_BASE = "https://api.tratatudo.pt";
-    const url = `${API_BASE}/api/auth/send-otp`;
-    const payload = { phone };
+    const url = `${import.meta.env.VITE_API_URL}/api/auth/send-otp`;
+    const payload = { phone_e164: phone };
     console.log(`[OTP] Requesting code: ${url}`, payload);
     
     try {
@@ -64,9 +63,8 @@ export function Login() {
     setIsLoading(true);
     setMessage(null);
 
-        const API_BASE = "https://api.tratatudo.pt";
-    const url = `${API_BASE}/api/auth/verify-otp`;
-    const payload = { phone, code: otp };
+    const url = `${import.meta.env.VITE_API_URL}/api/auth/verify-otp`;
+    const payload = { phone_e164: phone, code: otp };
     console.log(`[OTP] Verifying code: ${url}`, payload);
 
     try {
