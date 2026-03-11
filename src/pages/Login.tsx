@@ -64,7 +64,8 @@ export function Login() {
     setIsLoading(true);
     setMessage(null);
 
-        const url = `${API_BASE}/api/auth/verify-otp`;
+        const API_BASE = "https://api.tratatudo.pt";
+    const url = `${API_BASE}/api/auth/verify-otp`;
     const payload = { phone, code: otp };
     console.log(`[OTP] Verifying code: ${url}`, payload);
 
