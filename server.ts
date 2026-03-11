@@ -433,6 +433,71 @@ async function startServer() {
     }
   });
 
+  // 7.1 Send Message
+  app.post("/api/client/messages/send", requireClientSession, async (req: any, res) => {
+    const clientId = req.clientId;
+    const { phone, text } = req.body;
+
+    if (!phone || !text) {
+      return res.status(400).json({ ok: false, error: "Telefone e texto são obrigatórios" });
+    }
+
+    try {
+      // Get client's instance
+      const { data: instance } = await supabase
+        .from("client_instances")
+        .select("*")
+        .eq("client_id", clientId)
+        .single();
+
+      if (!instance || instance.status !== 'online') {
+        return res.status(400).json({ ok: false, error: "Instância não encontrada ou offline" });
+      }
+
+      const EVO_URL = process.env.EVO_URL;
+      const EVO_KEY = process.env.EVO_KEY;
+
+      if (!EVO_URL || !EVO_KEY) {
+        return res.status(500).json({ ok: false, error: "Configuração do WhatsApp em falta" });
+      }
+
+      // Send via Evolution API
+      const evoRes = await fetch(`${EVO_URL}/message/sendText/${instance.instance_name}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVO_KEY
+        },
+        body: JSON.stringify({
+          number: phone.replace("+", ""),
+          text: text,
+          delay: 500
+        })
+      });
+
+      if (!evoRes.ok) {
+        const errData = await evoRes.json().catch(() => ({}));
+        throw new Error(errData.message || "Erro ao enviar mensagem via WhatsApp");
+      }
+
+      // Save to database
+      const { data: savedMsg, error: saveError } = await supabase.from("wa_messages").insert({
+        client_id: clientId,
+        phone_e164: phone,
+        instance: instance.instance_name,
+        direction: "outbound",
+        text: text
+      }).select().single();
+
+      if (saveError) throw saveError;
+
+      res.json({ ok: true, message: savedMsg });
+    } catch (err: any) {
+      console.error("[SEND MESSAGE ERROR]", err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   // 8. Get Tickets
   app.get("/api/client/tickets", requireClientSession, async (req: any, res) => {
     const clientId = req.clientId;
@@ -910,6 +975,57 @@ async function startServer() {
   app.get("/api/admin/logs", requireAdminSession, async (req: any, res) => {
     // Return empty for now as requested if no table exists
     res.json({ ok: true, logs: [] });
+  });
+
+  // 12.1 Create Trial Client
+  app.post("/api/admin/clients/trial", requireAdminSession, async (req: any, res) => {
+    const { phone_e164, company_name, contact_name } = req.body;
+
+    if (!phone_e164 || !company_name) {
+      return res.status(400).json({ ok: false, error: "Telefone e Nome da Empresa são obrigatórios" });
+    }
+
+    try {
+      // 1. Create Client
+      const trialEnd = new Date();
+      trialEnd.setDate(trialEnd.getDate() + 7); // 7 days trial
+
+      const { data: client, error: clientError } = await supabase
+        .from("clients")
+        .insert({
+          phone_e164,
+          company_name,
+          contact_name: contact_name || company_name,
+          status: 'active',
+          trial_end: trialEnd.toISOString(),
+          bot_instructions: "És um assistente prestativo para a empresa " + company_name + "."
+        })
+        .select()
+        .single();
+
+      if (clientError) throw clientError;
+
+      // 2. Create Subscription
+      await supabase.from("subscriptions").insert({
+        client_id: client.id,
+        plan: 'Trial',
+        status: 'active',
+        ends_at: trialEnd.toISOString()
+      });
+
+      // 3. Create Instance (Placeholder or Hub)
+      await supabase.from("client_instances").insert({
+        client_id: client.id,
+        instance_name: `trial-${client.id.split('-')[0]}`,
+        status: 'offline',
+        is_hub: true
+      });
+
+      res.json({ ok: true, client });
+    } catch (err: any) {
+      console.error("[CREATE TRIAL ERROR]", err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
   });
 
   // 13. Evolution API: Create Instance

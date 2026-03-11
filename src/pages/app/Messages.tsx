@@ -46,6 +46,8 @@ export function Messages() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('Todas');
   const [isMobileListOpen, setIsMobileListOpen] = useState(true);
+  const [newMessage, setNewMessage] = useState('');
+  const [sending, setSending] = useState(false);
   const { user } = useAuth();
   const clientId = user?.client_id;
 
@@ -71,7 +73,8 @@ export function Messages() {
             const data = await res.json();
             const extracted = extractArrayResponse<Conversation>(data, 'messages');
             setConversations(extracted);
-            if (extracted.length > 0 && !selectedPhone) {
+            // Don't auto-select on mobile to keep list open
+            if (extracted.length > 0 && !selectedPhone && window.innerWidth > 1024) {
               setSelectedPhone(extracted[0].phone_e164);
             }
             setLoading(false);
@@ -91,7 +94,7 @@ export function Messages() {
   };
 
   const fetchHistory = async (phone: string) => {
-    const url = `${import.meta.env.VITE_API_URL}/api/messages/history/${phone}`;
+    const url = `${import.meta.env.VITE_API_URL}/api/client/messages/history/${phone}`;
     console.log(`[APP] Fetching history for ${phone}: ${url}`);
     try {
       setLoadingHistory(true);
@@ -108,6 +111,35 @@ export function Messages() {
       console.error(`[APP] Fetch history failed for ${phone}:`, err);
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPhone || !newMessage.trim() || sending) return;
+
+    try {
+      setSending(true);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/client/messages/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: selectedPhone, text: newMessage }),
+        credentials: 'include'
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Falha ao enviar mensagem');
+      }
+
+      const data = await res.json();
+      setHistory(prev => [...prev, data.message]);
+      setNewMessage('');
+    } catch (err: any) {
+      console.error('[APP] Send message failed:', err);
+      alert(err.message);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -392,13 +424,27 @@ export function Messages() {
 
               {/* Input Area */}
               <div className="p-4 bg-white border-t border-slate-100">
-                <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
-                  <div className="flex-1 px-4 py-2 text-sm text-slate-400 italic">
-                    O bot está a processar esta conversa automaticamente...
-                  </div>
-                  <button className="bg-slate-900 text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-slate-800 transition-all flex items-center gap-2">
-                    Intervir Manualmente <ChevronRight className="w-3 h-3" />
+                <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
+                  <input 
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Escreva a sua mensagem..."
+                    className="flex-1 bg-transparent px-4 py-2 text-sm outline-none"
+                    disabled={sending}
+                  />
+                  <button 
+                    type="submit"
+                    disabled={sending || !newMessage.trim()}
+                    className="bg-primary text-white p-2.5 rounded-xl font-bold text-xs hover:bg-primary/90 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </button>
+                </form>
+                <div className="mt-2 flex justify-between items-center px-2">
+                  <p className="text-[10px] text-slate-400 italic">
+                    O bot está a processar esta conversa automaticamente. Intervenha se necessário.
+                  </p>
                 </div>
               </div>
             </>

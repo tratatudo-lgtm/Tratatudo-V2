@@ -16,10 +16,14 @@ import {
   AlertCircle,
   ArrowRight,
   ExternalLink,
-  Smartphone
+  Smartphone,
+  Plus,
+  X
 } from 'lucide-react';
 import { cn, extractArrayResponse } from '../../lib/utils';
+import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
 import { LoadingState, ErrorState, EmptyState } from '../../components/States';
+import { AnimatePresence } from 'motion/react';
 
 interface Client {
   id: string;
@@ -37,6 +41,11 @@ export function AdminClients() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newClient, setNewClient] = useState({ phone_e164: '', company_name: '', contact_name: '' });
+  const [creating, setCreating] = useState(false);
+
+  const { logout } = useAdminAuth();
 
   const fetchClients = async () => {
     const url = `${import.meta.env.VITE_API_URL}/api/admin/clients`;
@@ -48,6 +57,10 @@ export function AdminClients() {
       });
       console.log(`[ADMIN] Fetch clients status: ${response.status}`);
       if (!response.ok) {
+        if (response.status === 401) {
+          await logout();
+          return;
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || errorData.error || 'Falha ao carregar clientes');
       }
@@ -58,6 +71,34 @@ export function AdminClients() {
       setError(err.message || 'Erro desconhecido');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateTrial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClient.phone_e164 || !newClient.company_name || creating) return;
+
+    try {
+      setCreating(true);
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/clients/trial`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newClient),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Falha ao criar cliente trial');
+      }
+
+      await fetchClients();
+      setIsModalOpen(false);
+      setNewClient({ phone_e164: '', company_name: '', contact_name: '' });
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -116,6 +157,12 @@ export function AdminClients() {
           <p className="text-slate-500 font-medium">Administre os utilizadores da plataforma</p>
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="bg-primary text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Criar Trial
+          </button>
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
@@ -131,6 +178,67 @@ export function AdminClients() {
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h3 className="font-bold text-slate-900">Novo Cliente Trial (7 dias)</h3>
+                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <form onSubmit={handleCreateTrial} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Telefone (E164)</label>
+                  <input 
+                    type="text" 
+                    placeholder="+351912345678"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm"
+                    value={newClient.phone_e164}
+                    onChange={e => setNewClient({...newClient, phone_e164: e.target.value})}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome da Empresa</label>
+                  <input 
+                    type="text" 
+                    placeholder="Empresa Lda"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm"
+                    value={newClient.company_name}
+                    onChange={e => setNewClient({...newClient, company_name: e.target.value})}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do Contacto (Opcional)</label>
+                  <input 
+                    type="text" 
+                    placeholder="João Silva"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm"
+                    value={newClient.contact_name}
+                    onChange={e => setNewClient({...newClient, contact_name: e.target.value})}
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  disabled={creating}
+                  className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : "Criar Cliente Trial"}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Clients Table */}
       <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">

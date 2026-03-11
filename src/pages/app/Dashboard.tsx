@@ -339,7 +339,7 @@ export function Dashboard() {
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500">Uptime (30 dias)</span>
-                  <span className="font-bold text-slate-900">{data?.instance?.status === 'conectado' ? '99.9%' : 'N/A'}</span>
+                  <span className="font-bold text-slate-900">{data?.instance?.status === 'online' ? '100%' : 'N/A'}</span>
                 </div>
               </div>
             </div>

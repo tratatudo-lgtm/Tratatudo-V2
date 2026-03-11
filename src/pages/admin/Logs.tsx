@@ -20,6 +20,7 @@ import {
   Download
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
 
 interface SystemLog {
   id: string;
@@ -37,6 +38,8 @@ export function AdminLogs() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLevel, setFilterLevel] = useState<string>('all');
 
+  const { logout } = useAdminAuth();
+
   useEffect(() => {
     const fetchLogs = async () => {
       const url = `${import.meta.env.VITE_API_URL}/api/admin/logs`;
@@ -47,6 +50,10 @@ export function AdminLogs() {
         });
         console.log(`[ADMIN] Fetch logs status: ${response.status}`);
         if (!response.ok) {
+          if (response.status === 401) {
+            await logout();
+            return;
+          }
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.message || errorData.error || 'Falha ao carregar logs do sistema');
         }

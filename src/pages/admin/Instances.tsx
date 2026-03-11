@@ -21,6 +21,7 @@ import {
   QrCode
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
 import { cn, extractArrayResponse } from '../../lib/utils';
 import { toast } from 'sonner';
 import { LoadingState, ErrorState } from '../../components/States';
@@ -52,6 +53,8 @@ export function AdminInstances() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const { logout } = useAdminAuth();
+
   const fetchInstances = async () => {
     const url = `${import.meta.env.VITE_API_URL}/api/admin/instances`;
     console.log(`[ADMIN] Fetching instances: ${url}`);
@@ -62,6 +65,10 @@ export function AdminInstances() {
       });
       console.log(`[ADMIN] Fetch instances status: ${response.status}`);
       if (!response.ok) {
+        if (response.status === 401) {
+          await logout();
+          return;
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || errorData.error || 'Falha ao carregar instâncias');
       }
@@ -97,6 +104,10 @@ export function AdminInstances() {
       });
       console.log(`[ADMIN] Fetch clients status: ${response.status}`);
       if (!response.ok) {
+        if (response.status === 401) {
+          await logout();
+          return;
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || errorData.error || 'Falha ao carregar clientes');
       }

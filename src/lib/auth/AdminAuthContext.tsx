@@ -25,12 +25,17 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/session`, {
         credentials: 'include'
       });
+      
       if (response.ok) {
         const data = await response.json();
-        setAdmin({ 
-          email: data.email,
-          role: data.role
-        });
+        if (data.authenticated && data.email) {
+          setAdmin({ 
+            email: data.email,
+            role: data.role || 'admin'
+          });
+        } else {
+          setAdmin(null);
+        }
       } else {
         setAdmin(null);
       }

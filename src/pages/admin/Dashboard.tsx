@@ -17,6 +17,7 @@ import {
   Zap
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
 import { cn, extractArrayResponse, extractObjectResponse } from '../../lib/utils';
 import { LoadingState, ErrorState } from '../../components/States';
 
@@ -55,6 +56,8 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const { admin, logout } = useAdminAuth();
+
   useEffect(() => {
     const fetchData = async () => {
       const statsUrl = `${import.meta.env.VITE_API_URL}/api/admin/dashboard/stats`;
@@ -68,6 +71,11 @@ export function AdminDashboard() {
         console.log(`[ADMIN] Fetch status - Stats: ${statsRes.status}`);
 
         if (!statsRes.ok) {
+          if (statsRes.status === 401) {
+            console.warn('[ADMIN] Session expired, logging out...');
+            await logout();
+            return;
+          }
           const errorData = await statsRes.json().catch(() => ({}));
           throw new Error(errorData.message || errorData.error || 'Falha ao carregar dados do painel admin');
         }
@@ -84,7 +92,7 @@ export function AdminDashboard() {
         const recentActivity = extractArrayResponse<any>(statsResult, 'recentActivity');
         const systemHealth = extractObjectResponse<any>(statsResult, 'systemHealth') || {
           status: 'healthy',
-          uptime: '99.9%',
+          uptime: 'Online',
           lastBackup: new Date().toISOString()
         };
 
@@ -95,8 +103,12 @@ export function AdminDashboard() {
             messagesToday: stats.messagesToday || stats.messages || 0,
             openTickets: stats.openTickets || stats.tickets || 0
           },
-          recentActivity,
-          systemHealth
+          recentActivity: recentActivity || [],
+          systemHealth: {
+            status: systemHealth.status || 'healthy',
+            uptime: systemHealth.uptime || 'Online',
+            lastBackup: systemHealth.lastBackup || new Date().toISOString()
+          }
         });
 
         // Try to fetch alerts separately, don't fail if it fails
@@ -291,7 +303,7 @@ export function AdminDashboard() {
                     <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Operacional</p>
                   </div>
                 </div>
-                <span className="text-xs font-bold text-slate-400">99.9%</span>
+                <span className="text-xs font-bold text-slate-400">{data?.systemHealth.status === 'healthy' ? '100%' : '99.9%'}</span>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
@@ -313,7 +325,10 @@ export function AdminDashboard() {
                   <span className="font-black text-slate-900">{data?.systemHealth.uptime}</span>
                 </div>
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-emerald-500 h-full w-[99.8%]" />
+                  <div className={cn(
+                    "h-full transition-all duration-1000",
+                    data?.systemHealth.status === 'healthy' ? "bg-emerald-500 w-full" : "bg-amber-500 w-[99%]"
+                  )} />
                 </div>
               </div>
             </div>

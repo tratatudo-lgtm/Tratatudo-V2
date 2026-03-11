@@ -18,6 +18,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
 
 interface Ticket {
   id: string;
@@ -37,6 +38,8 @@ export function AdminTickets() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const { logout } = useAdminAuth();
+
   useEffect(() => {
     const fetchTickets = async () => {
       const url = `${import.meta.env.VITE_API_URL}/api/admin/tickets`;
@@ -47,6 +50,10 @@ export function AdminTickets() {
         });
         console.log(`[ADMIN] Fetch tickets status: ${response.status}`);
         if (!response.ok) {
+          if (response.status === 401) {
+            await logout();
+            return;
+          }
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.message || errorData.error || 'Falha ao carregar tickets');
         }

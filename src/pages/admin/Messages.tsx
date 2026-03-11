@@ -15,6 +15,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { cn, extractArrayResponse } from '../../lib/utils';
+import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
 import { LoadingState, ErrorState, EmptyState } from '../../components/States';
 
 interface Message {
@@ -34,6 +35,8 @@ export function AdminMessages() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const { logout } = useAdminAuth();
+
   const fetchMessages = async () => {
     const url = `${import.meta.env.VITE_API_URL}/api/admin/messages`;
     console.log(`[ADMIN] Fetching messages: ${url}`);
@@ -44,6 +47,10 @@ export function AdminMessages() {
       });
       console.log(`[ADMIN] Fetch messages status: ${response.status}`);
       if (!response.ok) {
+        if (response.status === 401) {
+          await logout();
+          return;
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || errorData.error || 'Falha ao carregar mensagens');
       }

@@ -18,6 +18,7 @@ import {
   Clock
 } from 'lucide-react';
 import { cn, extractArrayResponse } from '../../lib/utils';
+import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
 import { LoadingState, ErrorState, EmptyState } from '../../components/States';
 
 interface Subscription {
@@ -37,6 +38,8 @@ export function AdminSubscriptions() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const { logout } = useAdminAuth();
+
   const fetchSubscriptions = async () => {
     const url = `${import.meta.env.VITE_API_URL}/api/admin/subscriptions`;
     console.log(`[ADMIN] Fetching subscriptions: ${url}`);
@@ -47,6 +50,10 @@ export function AdminSubscriptions() {
       });
       console.log(`[ADMIN] Fetch subscriptions status: ${response.status}`);
       if (!response.ok) {
+        if (response.status === 401) {
+          await logout();
+          return;
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || errorData.error || 'Falha ao carregar subscrições');
       }
