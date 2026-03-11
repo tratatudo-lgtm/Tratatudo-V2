@@ -25,11 +25,12 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/session`, {
         credentials: 'include'
       });
-      
+
       if (response.ok) {
         const data = await response.json();
+
         if (data.authenticated && data.email) {
-          setAdmin({ 
+          setAdmin({
             email: data.email,
             role: data.role || 'admin'
           });
@@ -53,6 +54,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     setLoading(true);
+
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/login`, {
         method: 'POST',
@@ -72,7 +74,9 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Resposta do servidor inválida');
       }
 
+      // confirmar sessão via cookie
       await refreshSession();
+
     } catch (error) {
       setAdmin(null);
       throw error;
@@ -83,10 +87,11 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/logout`, { 
+      await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/logout`, {
         method: 'POST',
         credentials: 'include'
       });
+
       setAdmin(null);
     } catch (error) {
       console.error('Error signing out admin:', error);
@@ -94,14 +99,14 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AdminAuthContext.Provider 
-      value={{ 
-        admin, 
-        isAuthenticated: !!admin, 
-        loading, 
-        login, 
-        logout, 
-        refreshSession 
+    <AdminAuthContext.Provider
+      value={{
+        admin,
+        isAuthenticated: !!admin,
+        loading,
+        login,
+        logout,
+        refreshSession
       }}
     >
       {children}
@@ -111,8 +116,10 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAdminAuth() {
   const context = useContext(AdminAuthContext);
+
   if (context === undefined) {
     throw new Error('useAdminAuth must be used within an AdminAuthProvider');
   }
+
   return context;
 }
