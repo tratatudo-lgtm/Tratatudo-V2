@@ -1,15 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 interface User {
-  phone: string;
-  client_id?: string;
+  phone_e164: string;
+  client_id: string;
+  company_name: string;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  signIn: (phone: string) => void;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<boolean>;
 }
@@ -22,7 +22,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshSession = useCallback(async () => {
     const url = `${import.meta.env.VITE_API_URL}/api/auth/session`;
-    console.log(`[AUTH] Checking session: ${url}`);
     
     try {
       const response = await fetch(url, {
@@ -30,22 +29,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         credentials: 'include'
       });
       
-      console.log(`[AUTH] Session status: ${response.status}`);
-      
       if (response.ok) {
         const data = await response.json();
-        console.log(`[AUTH] Session data:`, data);
-        setUser({ 
-          phone: data.phone,
-          client_id: data.client_id
-        });
-        return true;
-      } else {
-        const errorText = await response.text();
-        console.warn(`[AUTH] No active session: ${errorText}`);
-        setUser(null);
-        return false;
+        if (data.authenticated) {
+          setUser({ 
+            phone_e164: data.phone_e164,
+            client_id: data.client_id,
+            company_name: data.company_name
+          });
+          return true;
+        }
       }
+      setUser(null);
+      return false;
     } catch (error) {
       console.error('[AUTH] Session check failed:', error);
       setUser(null);
@@ -58,13 +54,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refreshSession();
   }, [refreshSession]);
-
-  const signIn = (phone: string) => {
-    setUser({ 
-      phone,
-      client_id: `CL-${phone.replace(/\D/g, '').slice(-6)}`
-    });
-  };
 
   const signOut = async () => {
     try {
@@ -84,7 +73,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user, 
         isAuthenticated: !!user, 
         loading, 
-        signIn, 
         signOut, 
         refreshSession 
       }}

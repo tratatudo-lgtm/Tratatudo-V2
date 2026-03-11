@@ -41,11 +41,11 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           
           <button className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded-xl transition-all">
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-              {user?.phone?.slice(-2) || 'TT'}
+              {user?.phone_e164?.slice(-2) || 'TT'}
             </div>
             <div className="hidden sm:block text-left">
-              <p className="text-xs font-bold text-slate-900 leading-none">{user?.phone || 'Cliente'}</p>
-              <p className="text-[10px] text-slate-500 mt-1">{user?.client_id || 'ID: 000000'}</p>
+              <p className="text-xs font-bold text-slate-900 leading-none">{user?.company_name || 'Cliente'}</p>
+              <p className="text-[10px] text-slate-500 mt-1">{user?.phone_e164 || 'Sem número'}</p>
             </div>
             <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block" />
           </button>

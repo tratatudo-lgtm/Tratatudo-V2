@@ -310,7 +310,7 @@ export function Dashboard() {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-slate-900">{data?.instance?.name || 'Sem Instância'}</p>
-                  <p className="text-[10px] text-slate-500">{user?.phone}</p>
+                  <p className="text-[10px] text-slate-500">{user?.phone_e164}</p>
                 </div>
               </div>
 
