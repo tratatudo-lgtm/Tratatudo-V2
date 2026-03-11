@@ -67,14 +67,12 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = await response.json();
-      if (data.ok && data.email) {
-        setAdmin({ 
-          email: data.email,
-          role: data.role || 'admin'
-        });
-      } else {
+
+      if (!data.ok || !data.email) {
         throw new Error('Resposta do servidor inválida');
       }
+
+      await refreshSession();
     } catch (error) {
       setAdmin(null);
       throw error;
