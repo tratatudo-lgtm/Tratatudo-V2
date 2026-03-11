@@ -63,7 +63,8 @@ export function AdminDashboard() {
       
       try {
         setLoading(true);
-        const statsRes = await fetch(statsUrl, { credentials: 'include' });
+        const statsRes = await fetch(statsUrl, {
+          credentials: 'include', credentials: 'include' });
 
         console.log(`[ADMIN] Fetch status - Stats: ${statsRes.status}`);
 
@@ -101,7 +102,8 @@ export function AdminDashboard() {
 
         // Try to fetch alerts separately, don't fail if it fails
         try {
-          const alertsRes = await fetch(alertsUrl, { credentials: 'include' });
+          const alertsRes = await fetch(alertsUrl, {
+          credentials: 'include', credentials: 'include' });
           if (alertsRes.ok) {
             const alertsResult = await alertsRes.json();
             setAlerts(extractArrayResponse<SystemAlert>(alertsResult, 'alerts'));

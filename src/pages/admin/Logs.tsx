@@ -43,6 +43,7 @@ export function AdminLogs() {
       console.log(`[ADMIN] Fetching logs: ${url}`);
       try {
         const response = await fetch(url, {
+        credentials: 'include',
           credentials: 'include'
         });
         console.log(`[ADMIN] Fetch logs status: ${response.status}`);
