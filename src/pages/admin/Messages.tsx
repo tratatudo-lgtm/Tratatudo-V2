@@ -40,7 +40,6 @@ export function AdminMessages() {
     try {
       setLoading(true);
       const response = await fetch(url, {
-        credentials: 'include',
         credentials: 'include'
       });
       console.log(`[ADMIN] Fetch messages status: ${response.status}`);

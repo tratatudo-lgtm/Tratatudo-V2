@@ -23,7 +23,6 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const refreshSession = useCallback(async () => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/session`, {
-        credentials: 'include',
         credentials: 'include'
       });
       if (response.ok) {
@@ -49,7 +48,6 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/login`, {
-      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -70,8 +68,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/logout`, {
-        credentials: 'include', 
+      await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/logout`, { 
         method: 'POST',
         credentials: 'include'
       });

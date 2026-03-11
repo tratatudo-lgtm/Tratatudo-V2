@@ -58,7 +58,6 @@ export function AdminInstances() {
     try {
       setLoading(true);
       const response = await fetch(url, {
-        credentials: 'include',
         credentials: 'include'
       });
       console.log(`[ADMIN] Fetch instances status: ${response.status}`);
@@ -94,7 +93,6 @@ export function AdminInstances() {
     console.log(`[ADMIN] Fetching clients for modal: ${url}`);
     try {
       const response = await fetch(url, {
-        credentials: 'include',
         credentials: 'include'
       });
       console.log(`[ADMIN] Fetch clients status: ${response.status}`);
@@ -126,7 +124,6 @@ export function AdminInstances() {
     setIsCreating(true);
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/instances/create`, {
-        credentials: 'include',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ client_id: selectedClientId }),

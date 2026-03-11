@@ -44,7 +44,6 @@ export function AdminClients() {
     try {
       setLoading(true);
       const response = await fetch(url, {
-        credentials: 'include',
         credentials: 'include'
       });
       console.log(`[ADMIN] Fetch clients status: ${response.status}`);
@@ -70,7 +69,6 @@ export function AdminClients() {
     const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/clients/${id}/status`, {
-        credentials: 'include',
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),

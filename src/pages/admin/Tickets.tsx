@@ -43,7 +43,6 @@ export function AdminTickets() {
       console.log(`[ADMIN] Fetching tickets: ${url}`);
       try {
         const response = await fetch(url, {
-        credentials: 'include',
           credentials: 'include'
         });
         console.log(`[ADMIN] Fetch tickets status: ${response.status}`);
@@ -67,7 +66,6 @@ export function AdminTickets() {
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/tickets/${id}/status`, {
-        credentials: 'include',
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),

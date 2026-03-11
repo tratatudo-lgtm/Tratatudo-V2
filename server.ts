@@ -1,4 +1,5 @@
 import express from "express";
+import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
@@ -22,35 +23,10 @@ const JWT_SECRET = process.env.JWT_SECRET || "tratatudo-v2-secret-key-2026";
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT || 3002);
+  const PORT = 3000;
 
   app.use(express.json());
   app.use(cookieParser());
-
-  app.use((req, res, next) => {
-    const allowedOrigins = [
-      "https://app.tratatudo.pt",
-      "https://api.tratatudo.pt",
-      "https://tratatudo.pt",
-      "http://localhost:5173",
-      "http://localhost:3000"
-    ];
-
-    const origin = req.headers.origin;
-    if (origin && allowedOrigins.includes(origin)) {
-      res.header("Access-Control-Allow-Origin", origin);
-      res.header("Vary", "Origin");
-      res.header("Access-Control-Allow-Credentials", "true");
-      res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-      res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
-    }
-
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(204);
-    }
-
-    next();
-  });
 
   // --- Middlewares ---
 
@@ -121,16 +97,7 @@ async function startServer() {
 
   // 1. Send OTP Code
   app.post("/api/auth/send-otp", async (req, res) => {
-    
-let phone_e164 = req.body.phone_e164 || req.body.phone || req.body.number || "";
-phone_e164 = String(phone_e164).replace(/[^0-9]/g,"");
-
-if (!phone_e164.startsWith("351")) {
-  phone_e164 = "351" + phone_e164;
-}
-
-phone_e164 = "+" + phone_e164;
-
+    const { phone_e164 } = req.body;
     if (!phone_e164) {
       return res.status(400).json({ ok: false, error: "Número de WhatsApp é obrigatório." });
     }
@@ -170,42 +137,7 @@ phone_e164 = "+" + phone_e164;
     }
 
     // --- REAL WHATSAPP LOGIC ---
-    
-      const EVO_URL = process.env.EVO_URL;
-      const EVO_KEY = process.env.EVO_KEY;
-
-      if (EVO_URL && EVO_KEY) {
-        await fetch(`${EVO_URL}/message/sendText/TrataTudo%20bot`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": EVO_KEY
-          },
-          body: JSON.stringify({
-            number: phone_e164.replace("+",""),
-            text: `Código de acesso TrataTudo: ${code}`,
-            delay: 1000
-          })
-        });
-      }
-
-
-
-      if (EVO_URL && EVO_KEY) {
-        await fetch(`${EVO_URL}/message/sendText/TrataTudo%20bot`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": EVO_KEY
-          },
-          body: JSON.stringify({
-            number: phone_e164.replace("+",""),
-            text: `Código de acesso TrataTudo: ${code}`
-          })
-        });
-      }
-
-console.log(`[WHATSAPP OTP] Código ${code} para ${phone_e164}`);
+    console.log(`[WHATSAPP OTP] Código ${code} para ${phone_e164}`);
     // ---------------------------
 
     res.json({ ok: true, message: "Código enviado com sucesso!" });
@@ -213,17 +145,7 @@ console.log(`[WHATSAPP OTP] Código ${code} para ${phone_e164}`);
 
   // 2. Verify OTP Code
   app.post("/api/auth/verify-otp", async (req, res) => {
-    
-let phone_e164 = req.body.phone_e164 || req.body.phone || req.body.number || "";
-phone_e164 = String(phone_e164).replace(/[^0-9]/g,"");
-
-if (!phone_e164.startsWith("351")) {
-  phone_e164 = "351" + phone_e164;
-}
-
-phone_e164 = "+" + phone_e164;
-
-    const { code } = req.body;
+    const { phone_e164, code } = req.body;
     if (!phone_e164 || !code) {
       return res.status(400).json({ ok: false, error: "Número e código são obrigatórios." });
     }
@@ -302,50 +224,6 @@ phone_e164 = "+" + phone_e164;
         phone_e164: client.phone_e164
       }
     });
-  });
-
-  // Emergency direct login by phone
-  app.get("/api/auth/demo-login", async (req, res) => {
-    try {
-      const phoneRaw = String(req.query.phone || "").trim();
-      if (!phoneRaw) {
-        return res.status(400).json({ ok: false, error: "phone obrigatório" });
-      }
-
-      let phone = phoneRaw.replace(/\D/g, "");
-      if (!phone.startsWith("351")) {
-        phone = "351" + phone;
-      }
-      const phone_e164 = "+" + phone;
-
-      const { data: client, error } = await supabase
-        .from("clients")
-        .select("id, company_name, phone_e164")
-        .eq("phone_e164", phone_e164)
-        .single();
-
-      if (error || !client) {
-        return res.status(404).json({ ok: false, error: "Cliente não encontrado." });
-      }
-
-      const token = jwt.sign(
-        { clientId: client.id, phone_e164: client.phone_e164 },
-        JWT_SECRET,
-        { expiresIn: "24h" }
-      );
-
-      res.cookie("hub_session", token, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        path: "/",
-        maxAge: 24 * 60 * 60 * 1000,
-      });
-
-      return res.redirect("https://app.tratatudo.pt/app");
-    } catch (err) {
-      return res.status(500).json({ ok: false, error: "Erro no demo login." });
-    }
   });
 
   // 3. Check Session
@@ -440,14 +318,14 @@ phone_e164 = "+" + phone_e164;
         .from("client_instances")
         .select("*")
         .eq("client_id", clientId)
-        .maybeSingle();
+        .single();
 
       // 4. Subscription info
       const { data: subscription } = await supabase
         .from("subscriptions")
         .select("*")
         .eq("client_id", clientId)
-        .maybeSingle();
+        .single();
 
       // 5. Recent Activity
       const { data: recentTickets } = await supabase
@@ -613,7 +491,7 @@ phone_e164 = "+" + phone_e164;
         .from("client_instances")
         .select("*")
         .eq("client_id", clientId)
-        .maybeSingle();
+        .single();
 
       const { count: totalMessages } = await supabase
         .from("wa_messages")
@@ -676,7 +554,7 @@ phone_e164 = "+" + phone_e164;
         .from("subscriptions")
         .select("*")
         .eq("client_id", clientId)
-        .maybeSingle();
+        .single();
 
       const { count: messagesCount } = await supabase
         .from("wa_messages")
@@ -1040,6 +918,8 @@ phone_e164 = "+" + phone_e164;
     if (!client_id) return res.status(400).json({ ok: false, error: "client_id é obrigatório." });
 
     const instance_name = `client-${client_id}`;
+    const EVO_URL = process.env.EVO_URL;
+    const EVO_KEY = process.env.EVO_KEY;
 
     if (!EVO_URL || !EVO_KEY) {
       return res.status(500).json({ ok: false, error: "Configuração da Evolution API em falta (EVO_URL/EVO_KEY)." });
@@ -1253,9 +1133,11 @@ phone_e164 = "+" + phone_e164;
       }
 
       // Send response back via Evolution API
+      const EVO_URL = process.env.EVO_URL;
+      const EVO_KEY = process.env.EVO_KEY;
 
       if (EVO_URL && EVO_KEY) {
-        await fetch(`${EVO_URL}/message/sendText/TrataTudo%20bot`, {
+        await fetch(`${EVO_URL}/message/sendText/${instance}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1284,6 +1166,8 @@ phone_e164 = "+" + phone_e164;
 
   // 15. Evolution API: Health Check & Sync
   const checkInstancesHealth = async () => {
+    const EVO_URL = process.env.EVO_URL;
+    const EVO_KEY = process.env.EVO_KEY;
 
     if (!EVO_URL || !EVO_KEY) return;
 
@@ -1361,44 +1245,19 @@ phone_e164 = "+" + phone_e164;
     res.json(alerts);
   });
 
-  // --- Pure API mode ---
-  app.use((req, res, next) => {
-    const allowedOrigins = [
-      "https://app.tratatudo.pt",
-      "https://api.tratatudo.pt",
-      "https://tratatudo.pt",
-      "http://localhost:5173",
-      "http://localhost:3000"
-    ];
-
-    const origin = req.headers.origin;
-    if (origin && allowedOrigins.includes(origin)) {
-      res.header("Access-Control-Allow-Origin", origin);
-      res.header("Vary", "Origin");
-      res.header("Access-Control-Allow-Credentials", "true");
-      res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-      res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
-    }
-
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(204);
-    }
-
-    next();
-  });
-
-  app.get("/api/health", (req, res) => {
-    res.json({
-      ok: true,
-      status: "online",
-      service: "tratatudo-v2",
-      port: PORT
+  // --- Vite Middleware ---
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
     });
-  });
-
-  app.use("/api", (req, res) => {
-    res.status(404).json({ ok: false, error: "API endpoint não encontrado." });
-  });
+    app.use(vite.middlewares);
+  } else {
+    app.use(express.static(path.join(__dirname, "dist")));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(__dirname, "dist", "index.html"));
+    });
+  }
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);

@@ -43,7 +43,6 @@ export function AdminSubscriptions() {
     try {
       setLoading(true);
       const response = await fetch(url, {
-        credentials: 'include',
         credentials: 'include'
       });
       console.log(`[ADMIN] Fetch subscriptions status: ${response.status}`);
