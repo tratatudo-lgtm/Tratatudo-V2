@@ -24,7 +24,8 @@ export function Login() {
     setMessage(null);
     
     const url = `${import.meta.env.VITE_API_URL}/api/auth/send-otp`;
-    const payload = { phone_e164: phone };
+    const payload = { phone };
+    const payload = { phone };
     console.log(`[OTP] Requesting code: ${url}`, payload);
     
     try {
@@ -64,7 +65,8 @@ export function Login() {
     setMessage(null);
 
     const url = `${import.meta.env.VITE_API_URL}/api/auth/verify-otp`;
-    const payload = { phone_e164: phone, code: otp };
+    const payload = { phone, code: otp };
+    const payload = { phone, code: otp };
     console.log(`[OTP] Verifying code: ${url}`, payload);
 
     try {
