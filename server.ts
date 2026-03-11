@@ -1,15 +1,10 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
-import path from "path";
-import { fileURLToPath } from "url";
+import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import Groq from "groq-sdk";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Initialize Supabase
 const supabaseUrl = process.env.SUPABASE_URL || "";
@@ -23,8 +18,14 @@ const JWT_SECRET = process.env.JWT_SECRET || "tratatudo-v2-secret-key-2026";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3002);
 
+  app.use(cors({
+    origin: true, // Allow all origins for now, or specify Vercel URL
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"]
+  }));
   app.use(express.json());
   app.use(cookieParser());
 
@@ -99,6 +100,10 @@ async function startServer() {
   };
 
   // --- API Routes ---
+
+  app.get("/api/health", (req, res) => {
+    res.json({ ok: true, status: "healthy", timestamp: new Date().toISOString() });
+  });
 
   // 1. Send OTP Code
   app.post("/api/auth/send-otp", async (req, res) => {
@@ -1370,20 +1375,6 @@ async function startServer() {
     if (error) return res.status(500).json({ error: error.message });
     res.json(alerts);
   });
-
-  // --- Vite Middleware ---
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    app.use(express.static(path.join(__dirname, "dist")));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "dist", "index.html"));
-    });
-  }
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
