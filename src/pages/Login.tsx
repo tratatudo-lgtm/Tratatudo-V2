@@ -23,7 +23,7 @@ export function Login() {
     setIsLoading(true);
     setMessage(null);
     
-    const url = `${import.meta.env.VITE_API_URL}/api/auth/request-code`;
+    const url = `${import.meta.env.VITE_API_URL}/api/auth/send-otp`;
     const payload = { phone_e164: phone };
     console.log(`[OTP] Requesting code: ${url}`, payload);
     
@@ -63,7 +63,7 @@ export function Login() {
     setIsLoading(true);
     setMessage(null);
 
-    const url = `${import.meta.env.VITE_API_URL}/api/auth/verify-code`;
+    const url = `${import.meta.env.VITE_API_URL}/api/auth/verify-otp`;
     const payload = { phone_e164: phone, code: otp };
     console.log(`[OTP] Verifying code: ${url}`, payload);
 

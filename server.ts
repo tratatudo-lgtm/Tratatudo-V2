@@ -95,8 +95,8 @@ async function startServer() {
 
   // --- API Routes ---
 
-  // 1. Request OTP Code
-  app.post("/api/auth/request-code", async (req, res) => {
+  // 1. Send OTP Code
+  app.post("/api/auth/send-otp", async (req, res) => {
     const { phone_e164 } = req.body;
     if (!phone_e164) {
       return res.status(400).json({ ok: false, error: "Número de WhatsApp é obrigatório." });
@@ -144,7 +144,7 @@ async function startServer() {
   });
 
   // 2. Verify OTP Code
-  app.post("/api/auth/verify-code", async (req, res) => {
+  app.post("/api/auth/verify-otp", async (req, res) => {
     const { phone_e164, code } = req.body;
     if (!phone_e164 || !code) {
       return res.status(400).json({ ok: false, error: "Número e código são obrigatórios." });
