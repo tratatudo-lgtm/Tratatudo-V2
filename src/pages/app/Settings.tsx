@@ -28,8 +28,10 @@ interface ClientSettings {
   client_id: string;
   company_name: string;
   phone_e164: string;
+  email: string;
   bot_instructions: string;
   status: string;
+  responsible_name?: string; // Added for UI consistency if available
 }
 
 export function Settings() {
@@ -42,7 +44,9 @@ export function Settings() {
   // Form state
   const [formData, setFormData] = useState({
     company_name: '',
-    bot_instructions: ''
+    email: '',
+    bot_instructions: '',
+    responsible_name: ''
   });
 
   const fetchSettings = async () => {
@@ -71,7 +75,9 @@ export function Settings() {
               setSettings(data);
               setFormData({
                 company_name: data.company_name || '',
-                bot_instructions: data.bot_instructions || ''
+                email: data.email || '',
+                bot_instructions: data.bot_instructions || '',
+                responsible_name: data.responsible_name || ''
               });
               setLoading(false);
               return;
@@ -107,6 +113,7 @@ export function Settings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           company_name: formData.company_name,
+          email: formData.email,
           bot_instructions: formData.bot_instructions
         }),
         credentials: 'include'
@@ -136,7 +143,9 @@ export function Settings() {
     if (settings) {
       setFormData({
         company_name: settings.company_name || '',
-        bot_instructions: settings.bot_instructions || ''
+        email: settings.email || '',
+        bot_instructions: settings.bot_instructions || '',
+        responsible_name: settings.responsible_name || ''
       });
     }
   };
@@ -203,6 +212,30 @@ export function Settings() {
                 </div>
               </div>
               <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Responsável</label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="text" 
+                    value={formData.responsible_name}
+                    onChange={(e) => setFormData({ ...formData, responsible_name: e.target.value })}
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Email de Contacto</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="email" 
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">WhatsApp Associado</label>
                 <div className="relative">
                   <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -239,6 +272,15 @@ export function Settings() {
             </div>
             <div className="p-8 space-y-6">
               <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Nome do Bot</label>
+                <input 
+                  type="text" 
+                  defaultValue=""
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium"
+                />
+              </div>
+              
+              <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Instruções do Bot (Prompt)</label>
                 <textarea 
                   rows={6}
@@ -247,6 +289,31 @@ export function Settings() {
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium resize-none"
                   placeholder="Descreva como o bot deve se comportar..."
                 />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Volume2 className="w-3 h-3" /> Tom de Comunicação
+                  </label>
+                  <select className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium bg-white appearance-none">
+                    
+                    <option>Amigável e Descontraído</option>
+                    <option>Direto e Técnico</option>
+                    <option>Entusiasta</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Languages className="w-3 h-3" /> Idioma Principal
+                  </label>
+                  <select className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium bg-white appearance-none">
+                    <option>Português (Portugal)</option>
+                    <option>Português (Brasil)</option>
+                    <option>Inglês</option>
+                    <option>Espanhol</option>
+                  </select>
+                </div>
               </div>
             </div>
           </motion.section>
