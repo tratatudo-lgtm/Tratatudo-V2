@@ -52,23 +52,35 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshSession]);
 
   const login = async (email: string, password: string) => {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-      credentials: 'include'
-    });
+    setLoading(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+        credentials: 'include'
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Erro ao iniciar sessão');
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Erro ao iniciar sessão' }));
+        throw new Error(error.error || 'Erro ao iniciar sessão');
+      }
+
+      const data = await response.json();
+      if (data.ok && data.email) {
+        setAdmin({ 
+          email: data.email,
+          role: data.role || 'admin'
+        });
+      } else {
+        throw new Error('Resposta do servidor inválida');
+      }
+    } catch (error) {
+      setAdmin(null);
+      throw error;
+    } finally {
+      setLoading(false);
     }
-
-    const data = await response.json();
-    setAdmin({ 
-      email: data.email,
-      role: data.role
-    });
   };
 
   const logout = async () => {

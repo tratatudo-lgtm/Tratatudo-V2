@@ -88,7 +88,12 @@ async function startServer() {
       req.adminId = decoded.userId;
       next();
     } catch (err) {
-      res.clearCookie("tratatudo_admin_session");
+      res.clearCookie("tratatudo_admin_session", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: "/",
+      });
       return res.status(401).json({ ok: false, error: "Sessão administrativa expirada." });
     }
   };
@@ -744,7 +749,12 @@ async function startServer() {
 
       res.json({ ok: true, authenticated: true, email: decoded.email, role: "admin" });
     } catch (err) {
-      res.clearCookie("tratatudo_admin_session");
+      res.clearCookie("tratatudo_admin_session", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: "/",
+      });
       res.json({ ok: true, authenticated: false });
     }
   });

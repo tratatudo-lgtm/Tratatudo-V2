@@ -94,7 +94,7 @@ export function Messages() {
   };
 
   const fetchHistory = async (phone: string) => {
-    const url = `${import.meta.env.VITE_API_URL}/api/client/messages/history/${phone}`;
+    const url = `${import.meta.env.VITE_API_URL}/api/client/messages/history/${encodeURIComponent(phone)}`;
     console.log(`[APP] Fetching history for ${phone}: ${url}`);
     try {
       setLoadingHistory(true);
@@ -332,7 +332,10 @@ export function Messages() {
         </div>
 
         {/* Chat Detail Panel */}
-        <div className="flex-1 flex flex-col bg-slate-50/30 z-10">
+        <div className={cn(
+          "flex-1 flex flex-col bg-slate-50/30 z-10 transition-all duration-300",
+          isMobileListOpen ? "hidden lg:flex" : "flex"
+        )}>
           {selectedPhone ? (
             <>
               {/* Chat Header */}
