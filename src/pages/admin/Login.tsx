@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ShieldCheck, Mail, Lock, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
@@ -9,7 +8,7 @@ export function AdminLogin() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+
   const { login } = useAdminAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,7 +18,10 @@ export function AdminLogin() {
 
     try {
       await login(email, password);
-      navigate('/admin/dashboard');
+
+      // força reload completo para garantir leitura do cookie e sessão admin
+      window.location.href = '/admin/dashboard';
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao fazer login');
     } finally {
@@ -29,12 +31,11 @@ export function AdminLogin() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-primary rounded-3xl shadow-2xl shadow-primary/30 mb-6">
             <ShieldCheck className="w-10 h-10 text-white" />
@@ -43,11 +44,10 @@ export function AdminLogin() {
           <p className="text-slate-500 font-medium">Portal de Gestão da Plataforma</p>
         </div>
 
-        {/* Login Card */}
         <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 p-8 lg:p-10 border border-slate-100">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" autoComplete="on">
             {error && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-2xl flex items-center gap-3 text-sm font-medium"
@@ -61,8 +61,10 @@ export function AdminLogin() {
               <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Email</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input 
+                <input
                   type="email"
+                  name="email"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@tratatudo.com"
@@ -76,8 +78,10 @@ export function AdminLogin() {
               <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Palavra-passe</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input 
+                <input
                   type="password"
+                  name="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -87,7 +91,7 @@ export function AdminLogin() {
               </div>
             </div>
 
-            <button 
+            <button
               type="submit"
               disabled={loading}
               className="w-full bg-primary text-white rounded-2xl py-4 font-bold shadow-lg shadow-primary/30 hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:active:scale-100"
@@ -104,7 +108,6 @@ export function AdminLogin() {
           </form>
         </div>
 
-        {/* Footer */}
         <p className="text-center mt-8 text-slate-400 text-sm font-medium">
           &copy; {new Date().getFullYear()} TrataTudo. Acesso restrito a administradores.
         </p>
