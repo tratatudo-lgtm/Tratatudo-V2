@@ -56,7 +56,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (isAdminRoute && location.pathname !== '/admin/login') {
-    return <AdminLayout>{children}</AdminLayout>;
+    return <AdminLayout>{children};
   }
 
   if (isLoginPage) return <>{children}</>;
@@ -124,39 +124,25 @@ export default function App() {
                   {/* Admin Portal Routes */}
                   <Route path="/admin/login" element={<AdminLogin />} />
                   <Route path="/admin/dashboard" element={
-                    <AdminProtectedRoute>
-                      <AdminLayout><AdminDashboard /></AdminLayout>
-                    </AdminProtectedRoute>
+                    <AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>
                   } />
                   <Route path="/admin/clients" element={
-                    <AdminProtectedRoute>
-                      <AdminLayout><AdminClients /></AdminLayout>
-                    </AdminProtectedRoute>
+                    <AdminProtectedRoute><AdminClients /></AdminProtectedRoute>
                   } />
                   <Route path="/admin/instances" element={
-                    <AdminProtectedRoute>
-                      <AdminLayout><AdminInstances /></AdminLayout>
-                    </AdminProtectedRoute>
+                    <AdminProtectedRoute><AdminInstances /></AdminProtectedRoute>
                   } />
                   <Route path="/admin/messages" element={
-                    <AdminProtectedRoute>
-                      <AdminLayout><AdminMessages /></AdminLayout>
-                    </AdminProtectedRoute>
+                    <AdminProtectedRoute><AdminMessages /></AdminProtectedRoute>
                   } />
                   <Route path="/admin/tickets" element={
-                    <AdminProtectedRoute>
-                      <AdminLayout><AdminTickets /></AdminLayout>
-                    </AdminProtectedRoute>
+                    <AdminProtectedRoute><AdminTickets /></AdminProtectedRoute>
                   } />
                   <Route path="/admin/subscriptions" element={
-                    <AdminProtectedRoute>
-                      <AdminLayout><AdminSubscriptions /></AdminLayout>
-                    </AdminProtectedRoute>
+                    <AdminProtectedRoute><AdminSubscriptions /></AdminProtectedRoute>
                   } />
                   <Route path="/admin/logs" element={
-                    <AdminProtectedRoute>
-                      <AdminLayout><AdminLogs /></AdminLayout>
-                    </AdminProtectedRoute>
+                    <AdminProtectedRoute><AdminLogs /></AdminProtectedRoute>
                   } />
                 </Routes>
               </MainLayout>
