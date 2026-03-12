@@ -56,7 +56,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (isAdminRoute && location.pathname !== '/admin/login') {
-    return <AdminLayout>{children};
+    return <AdminLayout>{children}</AdminLayout>;
   }
 
   if (isLoginPage) return <>{children}</>;
