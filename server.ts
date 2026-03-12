@@ -1,14 +1,10 @@
 import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
+import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import Groq from "groq-sdk";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Initialize Supabase
 const supabaseUrl = process.env.SUPABASE_URL || "";
@@ -24,33 +20,14 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3002);
 
+  app.use(cors({
+    origin: true, // Allow all origins for now, or specify Vercel URL
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"]
+  }));
   app.use(express.json());
   app.use(cookieParser());
-
-  app.use((req, res, next) => {
-    const allowedOrigins = [
-      "https://app.tratatudo.pt",
-      "https://api.tratatudo.pt",
-      "https://tratatudo.pt",
-      "http://localhost:5173",
-      "http://localhost:3000"
-    ];
-
-    const origin = req.headers.origin;
-    if (origin && allowedOrigins.includes(origin)) {
-      res.header("Access-Control-Allow-Origin", origin);
-      res.header("Vary", "Origin");
-      res.header("Access-Control-Allow-Credentials", "true");
-      res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-      res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
-    }
-
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(204);
-    }
-
-    next();
-  });
 
   // --- Middlewares ---
 
@@ -112,25 +89,25 @@ async function startServer() {
       req.adminId = decoded.userId;
       next();
     } catch (err) {
-      res.clearCookie("tratatudo_admin_session");
+      res.clearCookie("tratatudo_admin_session", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: "/",
+      });
       return res.status(401).json({ ok: false, error: "Sessão administrativa expirada." });
     }
   };
 
   // --- API Routes ---
 
+  app.get("/api/health", (req, res) => {
+    res.json({ ok: true, status: "healthy", timestamp: new Date().toISOString() });
+  });
+
   // 1. Send OTP Code
   app.post("/api/auth/send-otp", async (req, res) => {
-    
-let phone_e164 = req.body.phone_e164 || req.body.phone || req.body.number || "";
-phone_e164 = String(phone_e164).replace(/[^0-9]/g,"");
-
-if (!phone_e164.startsWith("351")) {
-  phone_e164 = "351" + phone_e164;
-}
-
-phone_e164 = "+" + phone_e164;
-
+    const { phone_e164 } = req.body;
     if (!phone_e164) {
       return res.status(400).json({ ok: false, error: "Número de WhatsApp é obrigatório." });
     }
@@ -170,42 +147,7 @@ phone_e164 = "+" + phone_e164;
     }
 
     // --- REAL WHATSAPP LOGIC ---
-    
-      const EVO_URL = process.env.EVO_URL;
-      const EVO_KEY = process.env.EVO_KEY;
-
-      if (EVO_URL && EVO_KEY) {
-        await fetch(`${EVO_URL}/message/sendText/TrataTudo%20bot`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": EVO_KEY
-          },
-          body: JSON.stringify({
-            number: phone_e164.replace("+",""),
-            text: `Código de acesso TrataTudo: ${code}`,
-            delay: 1000
-          })
-        });
-      }
-
-
-
-      if (EVO_URL && EVO_KEY) {
-        await fetch(`${EVO_URL}/message/sendText/TrataTudo%20bot`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": EVO_KEY
-          },
-          body: JSON.stringify({
-            number: phone_e164.replace("+",""),
-            text: `Código de acesso TrataTudo: ${code}`
-          })
-        });
-      }
-
-console.log(`[WHATSAPP OTP] Código ${code} para ${phone_e164}`);
+    console.log(`[WHATSAPP OTP] Código ${code} para ${phone_e164}`);
     // ---------------------------
 
     res.json({ ok: true, message: "Código enviado com sucesso!" });
@@ -213,17 +155,7 @@ console.log(`[WHATSAPP OTP] Código ${code} para ${phone_e164}`);
 
   // 2. Verify OTP Code
   app.post("/api/auth/verify-otp", async (req, res) => {
-    
-let phone_e164 = req.body.phone_e164 || req.body.phone || req.body.number || "";
-phone_e164 = String(phone_e164).replace(/[^0-9]/g,"");
-
-if (!phone_e164.startsWith("351")) {
-  phone_e164 = "351" + phone_e164;
-}
-
-phone_e164 = "+" + phone_e164;
-
-    const { code } = req.body;
+    const { phone_e164, code } = req.body;
     if (!phone_e164 || !code) {
       return res.status(400).json({ ok: false, error: "Número e código são obrigatórios." });
     }
@@ -302,50 +234,6 @@ phone_e164 = "+" + phone_e164;
         phone_e164: client.phone_e164
       }
     });
-  });
-
-  // Emergency direct login by phone
-  app.get("/api/auth/demo-login", async (req, res) => {
-    try {
-      const phoneRaw = String(req.query.phone || "").trim();
-      if (!phoneRaw) {
-        return res.status(400).json({ ok: false, error: "phone obrigatório" });
-      }
-
-      let phone = phoneRaw.replace(/\D/g, "");
-      if (!phone.startsWith("351")) {
-        phone = "351" + phone;
-      }
-      const phone_e164 = "+" + phone;
-
-      const { data: client, error } = await supabase
-        .from("clients")
-        .select("id, company_name, phone_e164")
-        .eq("phone_e164", phone_e164)
-        .single();
-
-      if (error || !client) {
-        return res.status(404).json({ ok: false, error: "Cliente não encontrado." });
-      }
-
-      const token = jwt.sign(
-        { clientId: client.id, phone_e164: client.phone_e164 },
-        JWT_SECRET,
-        { expiresIn: "24h" }
-      );
-
-      res.cookie("hub_session", token, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        path: "/",
-        maxAge: 24 * 60 * 60 * 1000,
-      });
-
-      return res.redirect("https://app.tratatudo.pt/app");
-    } catch (err) {
-      return res.status(500).json({ ok: false, error: "Erro no demo login." });
-    }
   });
 
   // 3. Check Session
@@ -440,14 +328,14 @@ phone_e164 = "+" + phone_e164;
         .from("client_instances")
         .select("*")
         .eq("client_id", clientId)
-        .maybeSingle();
+        .single();
 
       // 4. Subscription info
       const { data: subscription } = await supabase
         .from("subscriptions")
         .select("*")
         .eq("client_id", clientId)
-        .maybeSingle();
+        .single();
 
       // 5. Recent Activity
       const { data: recentTickets } = await supabase
@@ -555,6 +443,71 @@ phone_e164 = "+" + phone_e164;
     }
   });
 
+  // 7.1 Send Message
+  app.post("/api/client/messages/send", requireClientSession, async (req: any, res) => {
+    const clientId = req.clientId;
+    const { phone, text } = req.body;
+
+    if (!phone || !text) {
+      return res.status(400).json({ ok: false, error: "Telefone e texto são obrigatórios" });
+    }
+
+    try {
+      // Get client's instance
+      const { data: instance } = await supabase
+        .from("client_instances")
+        .select("*")
+        .eq("client_id", clientId)
+        .single();
+
+      if (!instance || instance.status !== 'online') {
+        return res.status(400).json({ ok: false, error: "Instância não encontrada ou offline" });
+      }
+
+      const EVO_URL = process.env.EVO_URL;
+      const EVO_KEY = process.env.EVO_KEY;
+
+      if (!EVO_URL || !EVO_KEY) {
+        return res.status(500).json({ ok: false, error: "Configuração do WhatsApp em falta" });
+      }
+
+      // Send via Evolution API
+      const evoRes = await fetch(`${EVO_URL}/message/sendText/${instance.instance_name}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVO_KEY
+        },
+        body: JSON.stringify({
+          number: phone.replace("+", ""),
+          text: text,
+          delay: 500
+        })
+      });
+
+      if (!evoRes.ok) {
+        const errData = await evoRes.json().catch(() => ({}));
+        throw new Error(errData.message || "Erro ao enviar mensagem via WhatsApp");
+      }
+
+      // Save to database
+      const { data: savedMsg, error: saveError } = await supabase.from("wa_messages").insert({
+        client_id: clientId,
+        phone_e164: phone,
+        instance: instance.instance_name,
+        direction: "outbound",
+        text: text
+      }).select().single();
+
+      if (saveError) throw saveError;
+
+      res.json({ ok: true, message: savedMsg });
+    } catch (err: any) {
+      console.error("[SEND MESSAGE ERROR]", err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   // 8. Get Tickets
   app.get("/api/client/tickets", requireClientSession, async (req: any, res) => {
     const clientId = req.clientId;
@@ -613,7 +566,7 @@ phone_e164 = "+" + phone_e164;
         .from("client_instances")
         .select("*")
         .eq("client_id", clientId)
-        .maybeSingle();
+        .single();
 
       const { count: totalMessages } = await supabase
         .from("wa_messages")
@@ -676,7 +629,7 @@ phone_e164 = "+" + phone_e164;
         .from("subscriptions")
         .select("*")
         .eq("client_id", clientId)
-        .maybeSingle();
+        .single();
 
       const { count: messagesCount } = await supabase
         .from("wa_messages")
@@ -801,7 +754,12 @@ phone_e164 = "+" + phone_e164;
 
       res.json({ ok: true, authenticated: true, email: decoded.email, role: "admin" });
     } catch (err) {
-      res.clearCookie("tratatudo_admin_session");
+      res.clearCookie("tratatudo_admin_session", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: "/",
+      });
       res.json({ ok: true, authenticated: false });
     }
   });
@@ -820,47 +778,44 @@ phone_e164 = "+" + phone_e164;
   // 4. Admin Dashboard Stats
   app.get("/api/admin/dashboard/stats", requireAdminSession, async (req: any, res) => {
     try {
+      const now = new Date().toISOString();
+      
       // Global stats
       const { count: totalClients } = await supabase.from("clients").select("*", { count: 'exact', head: true });
+      const { count: trialClients } = await supabase.from("clients").select("*", { count: 'exact', head: true }).gt("trial_end", now);
+      const { count: activeClients } = await supabase.from("clients").select("*", { count: 'exact', head: true }).eq("status", "active").is("trial_end", null);
+      
       const { count: onlineInstances } = await supabase.from("client_instances").select("*", { count: 'exact', head: true }).eq("status", "online");
-      const { count: messagesToday } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true });
+      const { count: offlineInstances } = await supabase.from("client_instances").select("*", { count: 'exact', head: true }).eq("status", "offline");
+      
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const { count: messagesToday } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).gt("created_at", startOfDay.toISOString());
+      
       const { count: openTickets } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).in("status", ["aberto", "em análise", "pendente"]);
 
-      // Recent activity
-      const { data: recentTickets } = await supabase
-        .from("tickets")
-        .select("subject, status, created_at, clients(company_name)")
-        .order("created_at", { ascending: false })
-        .limit(3);
-
-      const { data: recentMessages } = await supabase
+      // Recent activity (Real data)
+      const { data: recentActivity } = await supabase
         .from("wa_messages")
-        .select("text, created_at, phone_e164, clients(company_name)")
+        .select("text, created_at, direction, phone_e164, clients(company_name)")
         .order("created_at", { ascending: false })
-        .limit(3);
+        .limit(10);
 
-      const activity = [
-        ...(recentTickets || []).map(t => ({ 
-          type: 'ticket', 
-          title: `Ticket: ${t.subject}`, 
-          status: t.status, 
-          created_at: t.created_at,
-          company: (t.clients as any)?.company_name 
-        })),
-        ...(recentMessages || []).map(m => ({ 
-          type: 'message', 
-          title: `Msg: ${m.text}`, 
-          status: 'recebida', 
-          created_at: m.created_at,
-          company: (m.clients as any)?.company_name 
-        }))
-      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 6);
+      const activity = (recentActivity || []).map(m => ({
+        type: 'message',
+        title: `${m.direction === 'inbound' ? 'Recebida' : 'Enviada'}: ${m.text.substring(0, 30)}...`,
+        status: (m.clients as any)?.company_name || m.phone_e164,
+        created_at: m.created_at
+      }));
 
       res.json({
         ok: true,
         stats: {
           totalClients: totalClients || 0,
+          trialClients: trialClients || 0,
+          activeClients: activeClients || 0,
           onlineInstances: onlineInstances || 0,
+          offlineInstances: offlineInstances || 0,
           messagesToday: messagesToday || 0,
           openTickets: openTickets || 0,
         },
@@ -881,11 +836,20 @@ phone_e164 = "+" + phone_e164;
     try {
       const { data: clients, error } = await supabase
         .from("clients")
-        .select("*")
+        .select("*, client_instances(instance_name, status, is_hub), subscriptions(plan, status, ends_at)")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      res.json({ ok: true, clients });
+      
+      // Flatten for easier frontend use
+      const flattenedClients = (clients || []).map(c => ({
+        ...c,
+        instance: c.client_instances?.[0] || null,
+        subscription: c.subscriptions?.[0] || null,
+        plan: c.subscriptions?.[0]?.plan || 'Nenhum'
+      }));
+
+      res.json({ ok: true, clients: flattenedClients });
     } catch (err: any) {
       res.status(500).json({ ok: false, error: err.message });
     }
@@ -1019,7 +983,9 @@ phone_e164 = "+" + phone_e164;
 
       const result = (subscriptions || []).map(s => ({
         ...s,
-        company_name: (s.clients as any)?.company_name || 'Desconhecido'
+        company_name: (s.clients as any)?.company_name || 'Desconhecido',
+        amount: s.plan === 'Pro' ? 49.90 : s.plan === 'Enterprise' ? 149.90 : 0,
+        next_billing: s.ends_at || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       }));
 
       res.json({ ok: true, subscriptions: result });
@@ -1034,12 +1000,107 @@ phone_e164 = "+" + phone_e164;
     res.json({ ok: true, logs: [] });
   });
 
+  // 12.1 Create Trial Client
+  app.post("/api/admin/clients/trial", requireAdminSession, async (req: any, res) => {
+    const { phone_e164, company_name, contact_name } = req.body;
+
+    if (!phone_e164 || !company_name) {
+      return res.status(400).json({ ok: false, error: "Telefone e Nome da Empresa são obrigatórios" });
+    }
+
+    try {
+      // 1. Create Client
+      const trialEnd = new Date();
+      trialEnd.setDate(trialEnd.getDate() + 7); // 7 days trial
+
+      const { data: client, error: clientError } = await supabase
+        .from("clients")
+        .insert({
+          phone_e164,
+          company_name,
+          contact_name: contact_name || company_name,
+          status: 'active',
+          trial_end: trialEnd.toISOString(),
+          bot_instructions: "És um assistente prestativo para a empresa " + company_name + "."
+        })
+        .select()
+        .single();
+
+      if (clientError) throw clientError;
+
+      // 2. Create Subscription
+      await supabase.from("subscriptions").insert({
+        client_id: client.id,
+        plan: 'Trial',
+        status: 'active',
+        ends_at: trialEnd.toISOString()
+      });
+
+      // 3. Associate with Shared Hub Instance "TrataTudo bot"
+      await supabase.from("client_instances").insert({
+        client_id: client.id,
+        instance_name: "TrataTudo bot",
+        status: 'online',
+        is_hub: true
+      });
+
+      res.json({ ok: true, client });
+    } catch (err: any) {
+      console.error("[CREATE TRIAL ERROR]", err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/admin/clients/:id/activate-production", requireAdminSession, async (req: any, res) => {
+    const { id } = req.params;
+    try {
+      // 1. Update Client
+      const { error: clientError } = await supabase
+        .from("clients")
+        .update({ 
+          status: 'active', 
+          trial_end: null 
+        })
+        .eq("id", id);
+
+      if (clientError) throw clientError;
+
+      // 2. Update Subscription
+      await supabase
+        .from("subscriptions")
+        .update({ 
+          plan: 'Pro', 
+          status: 'active',
+          ends_at: null // Or set a real end date if monthly
+        })
+        .eq("client_id", id);
+
+      // 3. Update Instance to Private
+      const privateInstanceName = `prod-${id.split('-')[0]}`;
+      await supabase
+        .from("client_instances")
+        .update({
+          instance_name: privateInstanceName,
+          is_hub: false,
+          status: 'offline' // Needs to be connected via QR
+        })
+        .eq("client_id", id);
+
+      res.json({ ok: true, message: "Produção ativada com sucesso!", instance_name: privateInstanceName });
+    } catch (err: any) {
+      console.error("[ACTIVATE PRODUCTION ERROR]", err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   // 13. Evolution API: Create Instance
   app.post("/api/admin/instances/create", requireAdminSession, async (req: any, res) => {
     const { client_id } = req.body;
     if (!client_id) return res.status(400).json({ ok: false, error: "client_id é obrigatório." });
 
     const instance_name = `client-${client_id}`;
+    const EVO_URL = process.env.EVO_URL;
+    const EVO_KEY = process.env.EVO_KEY;
 
     if (!EVO_URL || !EVO_KEY) {
       return res.status(500).json({ ok: false, error: "Configuração da Evolution API em falta (EVO_URL/EVO_KEY)." });
@@ -1253,9 +1314,11 @@ phone_e164 = "+" + phone_e164;
       }
 
       // Send response back via Evolution API
+      const EVO_URL = process.env.EVO_URL;
+      const EVO_KEY = process.env.EVO_KEY;
 
       if (EVO_URL && EVO_KEY) {
-        await fetch(`${EVO_URL}/message/sendText/TrataTudo%20bot`, {
+        await fetch(`${EVO_URL}/message/sendText/${instance}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1284,6 +1347,8 @@ phone_e164 = "+" + phone_e164;
 
   // 15. Evolution API: Health Check & Sync
   const checkInstancesHealth = async () => {
+    const EVO_URL = process.env.EVO_URL;
+    const EVO_KEY = process.env.EVO_KEY;
 
     if (!EVO_URL || !EVO_KEY) return;
 
@@ -1300,6 +1365,7 @@ phone_e164 = "+" + phone_e164;
       for (const inst of instances) {
         const instanceName = inst.instance.instanceName;
         const connectionStatus = inst.instance.connectionStatus;
+        const owner = inst.instance.owner; // WhatsApp number
 
         // Mapping: open -> online, connecting -> reconnecting, close -> offline
         let status = "offline";
@@ -1311,6 +1377,7 @@ phone_e164 = "+" + phone_e164;
           .from("client_instances")
           .update({ 
             status, 
+            whatsapp_number: owner || null,
             updated_at: new Date().toISOString() 
           })
           .eq("instance_name", instanceName)
@@ -1359,45 +1426,6 @@ phone_e164 = "+" + phone_e164;
 
     if (error) return res.status(500).json({ error: error.message });
     res.json(alerts);
-  });
-
-  // --- Pure API mode ---
-  app.use((req, res, next) => {
-    const allowedOrigins = [
-      "https://app.tratatudo.pt",
-      "https://api.tratatudo.pt",
-      "https://tratatudo.pt",
-      "http://localhost:5173",
-      "http://localhost:3000"
-    ];
-
-    const origin = req.headers.origin;
-    if (origin && allowedOrigins.includes(origin)) {
-      res.header("Access-Control-Allow-Origin", origin);
-      res.header("Vary", "Origin");
-      res.header("Access-Control-Allow-Credentials", "true");
-      res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-      res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
-    }
-
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(204);
-    }
-
-    next();
-  });
-
-  app.get("/api/health", (req, res) => {
-    res.json({
-      ok: true,
-      status: "online",
-      service: "tratatudo-v2",
-      port: PORT
-    });
-  });
-
-  app.use("/api", (req, res) => {
-    res.status(404).json({ ok: false, error: "API endpoint não encontrado." });
   });
 
   app.listen(PORT, "0.0.0.0", () => {

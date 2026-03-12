@@ -25,8 +25,8 @@ interface Subscription {
   id: string;
   client_id: string;
   company_name: string;
-  plan: 'free' | 'pro' | 'enterprise';
-  status: 'active' | 'past_due' | 'canceled' | 'trialing';
+  plan: string;
+  status: string;
   amount: number;
   next_billing: string;
   created_at: string;
@@ -132,15 +132,16 @@ export function AdminSubscriptions() {
             <div className="flex items-center justify-between mb-6">
               <div className={cn(
                 "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110",
-                sub.plan === 'enterprise' ? "bg-purple-500 shadow-purple-500/20" : 
-                sub.plan === 'pro' ? "bg-primary shadow-primary/20" : "bg-slate-500 shadow-slate-500/20"
+                sub.plan.toLowerCase() === 'enterprise' ? "bg-purple-500 shadow-purple-500/20" : 
+                sub.plan.toLowerCase() === 'pro' ? "bg-primary shadow-primary/20" : "bg-blue-500 shadow-blue-500/20"
               )}>
                 <CreditCard className="w-7 h-7 text-white" />
               </div>
               <div className={cn(
                 "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                sub.status === 'active' ? "bg-emerald-50 text-emerald-600" : 
-                sub.status === 'past_due' ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"
+                sub.status.toLowerCase() === 'active' ? "bg-emerald-50 text-emerald-600" : 
+                sub.status.toLowerCase() === 'trial' ? "bg-blue-50 text-blue-600" :
+                sub.status.toLowerCase() === 'past_due' ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"
               )}>
                 {sub.status === 'active' ? <CheckCircle2 className="w-3 h-3" /> : 
                  sub.status === 'past_due' ? <AlertCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}

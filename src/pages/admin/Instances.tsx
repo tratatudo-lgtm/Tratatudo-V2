@@ -34,6 +34,8 @@ interface Instance {
   status: 'online' | 'offline' | 'connecting';
   whatsapp_number: string;
   last_connected: string;
+  is_hub: boolean;
+  updated_at: string;
 }
 
 export function AdminInstances() {
@@ -256,14 +258,22 @@ export function AdminInstances() {
               )}>
                 <Smartphone className="w-7 h-7 text-white" />
               </div>
-              <div className={cn(
-                "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                inst.status === 'online' ? "bg-emerald-50 text-emerald-600" : 
-                inst.status === 'offline' ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600"
-              )}>
-                {inst.status === 'online' ? <CheckCircle2 className="w-3 h-3" /> : 
-                 inst.status === 'offline' ? <XCircle className="w-3 h-3" /> : <Activity className="w-3 h-3 animate-pulse" />}
-                {inst.status}
+              <div className="flex flex-col items-end gap-2">
+                <div className={cn(
+                  "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+                  inst.status === 'online' ? "bg-emerald-50 text-emerald-600" : 
+                  inst.status === 'offline' ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600"
+                )}>
+                  {inst.status === 'online' ? <CheckCircle2 className="w-3 h-3" /> : 
+                   inst.status === 'offline' ? <XCircle className="w-3 h-3" /> : <Activity className="w-3 h-3 animate-pulse" />}
+                  {inst.status}
+                </div>
+                <span className={cn(
+                  "text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md",
+                  inst.is_hub ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"
+                )}>
+                  {inst.is_hub ? 'HUB PARTILHADA' : 'INSTÂNCIA PRIVADA'}
+                </span>
               </div>
             </div>
 
@@ -279,20 +289,23 @@ export function AdminInstances() {
                   <span className="text-xs font-black text-slate-900 tracking-tight">{inst.whatsapp_number}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Última Ligação</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Última Atividade</span>
                   <span className="text-xs font-black text-slate-900 tracking-tight">
-                    {new Date(inst.last_connected).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(inst.updated_at || inst.last_connected).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 pt-2">
-                <button className="flex-1 px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2">
-                  <Zap className="w-4 h-4" />
-                  Reiniciar
+                <button 
+                  onClick={() => handleFetchQrCode(inst.instance_name)}
+                  className="flex-1 px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
+                >
+                  <QrCode className="w-4 h-4" />
+                  Sincronizar
                 </button>
                 <button className="p-2.5 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm">
-                  <ExternalLink className="w-4 h-4" />
+                  <RefreshCw className="w-4 h-4" />
                 </button>
               </div>
             </div>

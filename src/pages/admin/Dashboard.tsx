@@ -24,12 +24,15 @@ import { LoadingState, ErrorState } from '../../components/States';
 interface AdminDashboardData {
   stats: {
     totalClients: number;
+    trialClients: number;
+    activeClients: number;
     onlineInstances: number;
+    offlineInstances: number;
     messagesToday: number;
     openTickets: number;
   };
   recentActivity: Array<{
-    type: 'client' | 'ticket' | 'instance';
+    type: string;
     title: string;
     status: string;
     created_at: string;
@@ -98,10 +101,13 @@ export function AdminDashboard() {
 
         setData({
           stats: {
-            totalClients: stats.totalClients || stats.clients || 0,
-            onlineInstances: stats.onlineInstances || stats.instances || 0,
-            messagesToday: stats.messagesToday || stats.messages || 0,
-            openTickets: stats.openTickets || stats.tickets || 0
+            totalClients: stats.totalClients || 0,
+            trialClients: stats.trialClients || 0,
+            activeClients: stats.activeClients || 0,
+            onlineInstances: stats.onlineInstances || 0,
+            offlineInstances: stats.offlineInstances || 0,
+            messagesToday: stats.messagesToday || 0,
+            openTickets: stats.openTickets || 0
           },
           recentActivity: recentActivity || [],
           systemHealth: {
@@ -153,21 +159,21 @@ export function AdminDashboard() {
 
   const stats = [
     { 
-      label: 'Total Clientes', 
-      value: data?.stats.totalClients || 0, 
+      label: 'Clientes em Trial', 
+      value: data?.stats.trialClients || 0, 
       icon: Users, 
       color: 'text-blue-600', 
       bg: 'bg-blue-50',
-      trend: '+12%',
+      trend: 'Trial',
       isUp: true
     },
     { 
-      label: 'Instâncias Online', 
-      value: data?.stats.onlineInstances || 0, 
-      icon: Smartphone, 
+      label: 'Clientes Ativos', 
+      value: data?.stats.activeClients || 0, 
+      icon: ShieldCheck, 
       color: 'text-emerald-600', 
       bg: 'bg-emerald-50',
-      trend: '98%',
+      trend: 'Produção',
       isUp: true
     },
     { 
@@ -176,17 +182,17 @@ export function AdminDashboard() {
       icon: MessageSquare, 
       color: 'text-purple-600', 
       bg: 'bg-purple-50',
-      trend: '+24%',
+      trend: 'Real-time',
       isUp: true
     },
     { 
-      label: 'Tickets Abertos', 
-      value: data?.stats.openTickets || 0, 
-      icon: ClipboardList, 
-      color: 'text-orange-600', 
-      bg: 'bg-orange-50',
-      trend: '-5%',
-      isUp: false
+      label: 'Instâncias Online', 
+      value: data?.stats.onlineInstances || 0, 
+      icon: Smartphone, 
+      color: 'text-emerald-600', 
+      bg: 'bg-emerald-50',
+      trend: `${data?.stats.onlineInstances}/${(data?.stats.onlineInstances || 0) + (data?.stats.offlineInstances || 0)}`,
+      isUp: true
     },
   ];
 
@@ -303,7 +309,6 @@ export function AdminDashboard() {
                     <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Operacional</p>
                   </div>
                 </div>
-                <span className="text-xs font-bold text-slate-400">{data?.systemHealth.status === 'healthy' ? '100%' : '99.9%'}</span>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
@@ -316,7 +321,6 @@ export function AdminDashboard() {
                     <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Conectado</p>
                   </div>
                 </div>
-                <span className="text-xs font-bold text-slate-400">12ms</span>
               </div>
 
               <div className="pt-4 border-t border-slate-100">

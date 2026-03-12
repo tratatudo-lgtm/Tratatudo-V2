@@ -18,7 +18,9 @@ import {
   ExternalLink,
   Smartphone,
   Plus,
-  X
+  X,
+  MessageSquare,
+  ClipboardList
 } from 'lucide-react';
 import { cn, extractArrayResponse } from '../../lib/utils';
 import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
@@ -33,7 +35,19 @@ interface Client {
   phone: string;
   status: 'active' | 'suspended' | 'pending';
   plan: string;
+  trial_end: string | null;
+  bot_instructions: string;
   created_at: string;
+  instance: {
+    instance_name: string;
+    status: string;
+    is_hub: boolean;
+  } | null;
+  subscription: {
+    plan: string;
+    status: string;
+    ends_at: string | null;
+  } | null;
 }
 
 export function AdminClients() {
@@ -121,6 +135,24 @@ export function AdminClients() {
       setClients(prev => prev.map(c => c.id === id ? { ...c, status: newStatus as any } : c));
     } catch (err) {
       alert('Erro ao atualizar estado do cliente');
+    }
+  };
+
+  const handleActivateProduction = async (id: string) => {
+    if (!confirm('Deseja ativar o modo de produção para este cliente?')) return;
+    
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/clients/${id}/activate-production`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (!response.ok) throw new Error('Falha ao ativar produção');
+      
+      alert('Produção ativada com sucesso!');
+      await fetchClients();
+    } catch (err) {
+      alert('Erro ao ativar produção');
     }
   };
 
@@ -246,9 +278,8 @@ export function AdminClients() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">ID / Plano</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Contacto</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente / Bot</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Plano / Instância</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
               </tr>
@@ -269,27 +300,23 @@ export function AdminClients() {
                       <div>
                         <p className="text-sm font-bold text-slate-900">{client.company_name}</p>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                          Desde {new Date(client.created_at).toLocaleDateString()}
+                          Bot: {client.bot_instructions?.substring(0, 30)}...
                         </p>
                       </div>
                     </div>
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex flex-col">
-                      <span className="text-xs font-black text-slate-900 tracking-tight">{client.client_id}</span>
-                      <span className="text-[10px] font-bold text-primary uppercase tracking-widest mt-1">{client.plan}</span>
-                    </div>
-                  </td>
-                  <td className="px-8 py-6">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <Mail className="w-3 h-3" />
-                        {client.email}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <Phone className="w-3 h-3" />
-                        {client.phone}
-                      </div>
+                      <span className={cn(
+                        "text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md w-fit",
+                        client.trial_end ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"
+                      )}>
+                        {client.trial_end ? 'Trial' : 'Produção'}
+                      </span>
+                      <span className="text-xs font-bold text-slate-500 mt-1">
+                        Instância: {client.instance?.instance_name || 'Nenhuma'}
+                        {client.instance?.is_hub && <span className="ml-1 text-[8px] bg-slate-100 px-1 rounded">HUB</span>}
+                      </span>
                     </div>
                   </td>
                   <td className="px-8 py-6">
@@ -305,6 +332,15 @@ export function AdminClients() {
                   </td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      {client.trial_end && (
+                        <button 
+                          onClick={() => handleActivateProduction(client.id)}
+                          className="px-3 py-1.5 bg-emerald-500 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all"
+                          title="Ativar Produção"
+                        >
+                          Ativar Prod
+                        </button>
+                      )}
                       <button 
                         onClick={() => handleToggleStatus(client.id, client.status)}
                         className={cn(
@@ -317,18 +353,19 @@ export function AdminClients() {
                       >
                         <ShieldAlert className="w-4 h-4" />
                       </button>
-                      <button className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm">
-                        <Edit2 className="w-4 h-4" />
+                      <button 
+                        onClick={() => window.location.href = `/admin/messages?client=${client.client_id}`}
+                        className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-primary transition-all shadow-sm"
+                        title="Ver Mensagens"
+                      >
+                        <MessageSquare className="w-4 h-4" />
                       </button>
                       <button 
-                        onClick={() => window.location.href = `/admin/instances?create=${client.client_id}`}
-                        className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-emerald-500 transition-all shadow-sm"
-                        title="Criar Instância WhatsApp"
+                        onClick={() => window.location.href = `/admin/tickets?client=${client.client_id}`}
+                        className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-orange-500 transition-all shadow-sm"
+                        title="Ver Tickets"
                       >
-                        <Smartphone className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-primary transition-all shadow-sm">
-                        <ExternalLink className="w-4 h-4" />
+                        <ClipboardList className="w-4 h-4" />
                       </button>
                     </div>
                   </td>

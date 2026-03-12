@@ -25,12 +25,11 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/session`, {
         credentials: 'include'
       });
-
+      
       if (response.ok) {
         const data = await response.json();
-
         if (data.authenticated && data.email) {
-          setAdmin({
+          setAdmin({ 
             email: data.email,
             role: data.role || 'admin'
           });
@@ -54,7 +53,6 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     setLoading(true);
-
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/login`, {
         method: 'POST',
@@ -69,22 +67,14 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = await response.json();
-
-      if (!data.ok || !data.email) {
+      if (data.ok && data.email) {
+        setAdmin({ 
+          email: data.email,
+          role: data.role || 'admin'
+        });
+      } else {
         throw new Error('Resposta do servidor inválida');
       }
-
-      // Marca como autenticado imediatamente para evitar loop no redirect
-      setAdmin({
-        email: data.email,
-        role: data.role || 'admin'
-      });
-
-      // Confirma a sessão depois, já com o cookie persistido
-      setTimeout(() => {
-        refreshSession();
-      }, 300);
-
     } catch (error) {
       setAdmin(null);
       throw error;
@@ -95,7 +85,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/logout`, {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/logout`, { 
         method: 'POST',
         credentials: 'include'
       });
@@ -106,14 +96,14 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AdminAuthContext.Provider
-      value={{
-        admin,
-        isAuthenticated: !!admin,
-        loading,
-        login,
-        logout,
-        refreshSession
+    <AdminAuthContext.Provider 
+      value={{ 
+        admin, 
+        isAuthenticated: !!admin, 
+        loading, 
+        login, 
+        logout, 
+        refreshSession 
       }}
     >
       {children}
@@ -123,10 +113,8 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAdminAuth() {
   const context = useContext(AdminAuthContext);
-
   if (context === undefined) {
     throw new Error('useAdminAuth must be used within an AdminAuthProvider');
   }
-
   return context;
 }

@@ -123,27 +123,13 @@ export default function App() {
 
                   {/* Admin Portal Routes */}
                   <Route path="/admin/login" element={<AdminLogin />} />
-                  <Route path="/admin/dashboard" element={
-                    <AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>
-                  } />
-                  <Route path="/admin/clients" element={
-                    <AdminProtectedRoute><AdminClients /></AdminProtectedRoute>
-                  } />
-                  <Route path="/admin/instances" element={
-                    <AdminProtectedRoute><AdminInstances /></AdminProtectedRoute>
-                  } />
-                  <Route path="/admin/messages" element={
-                    <AdminProtectedRoute><AdminMessages /></AdminProtectedRoute>
-                  } />
-                  <Route path="/admin/tickets" element={
-                    <AdminProtectedRoute><AdminTickets /></AdminProtectedRoute>
-                  } />
-                  <Route path="/admin/subscriptions" element={
-                    <AdminProtectedRoute><AdminSubscriptions /></AdminProtectedRoute>
-                  } />
-                  <Route path="/admin/logs" element={
-                    <AdminProtectedRoute><AdminLogs /></AdminProtectedRoute>
-                  } />
+                  <Route path="/admin/dashboard" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
+                  <Route path="/admin/clients" element={<AdminProtectedRoute><AdminClients /></AdminProtectedRoute>} />
+                  <Route path="/admin/instances" element={<AdminProtectedRoute><AdminInstances /></AdminProtectedRoute>} />
+                  <Route path="/admin/messages" element={<AdminProtectedRoute><AdminMessages /></AdminProtectedRoute>} />
+                  <Route path="/admin/tickets" element={<AdminProtectedRoute><AdminTickets /></AdminProtectedRoute>} />
+                  <Route path="/admin/subscriptions" element={<AdminProtectedRoute><AdminSubscriptions /></AdminProtectedRoute>} />
+                  <Route path="/admin/logs" element={<AdminProtectedRoute><AdminLogs /></AdminProtectedRoute>} />
                 </Routes>
               </MainLayout>
             </Router>
