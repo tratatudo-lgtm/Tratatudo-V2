@@ -74,8 +74,16 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Resposta do servidor inválida');
       }
 
-      // confirmar sessão via cookie
-      await refreshSession();
+      // Marca como autenticado imediatamente para evitar loop no redirect
+      setAdmin({
+        email: data.email,
+        role: data.role || 'admin'
+      });
+
+      // Confirma a sessão depois, já com o cookie persistido
+      setTimeout(() => {
+        refreshSession();
+      }, 300);
 
     } catch (error) {
       setAdmin(null);
@@ -91,7 +99,6 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         credentials: 'include'
       });
-
       setAdmin(null);
     } catch (error) {
       console.error('Error signing out admin:', error);
