@@ -8,19 +8,30 @@ export function AdminLogin() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const { login } = useAdminAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
 
-    try {
-      await login(email, password);
+    const cleanEmail = email.trim();
+    const cleanPassword = password;
 
-      // força reload completo para garantir leitura do cookie e sessão admin
-      window.location.href = '/admin/dashboard';
+    if (!cleanEmail) {
+      setError('Introduz o email de administrador.');
+      return;
+    }
+
+    if (!cleanPassword) {
+      setError('Introduz a palavra-passe.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await login(cleanEmail, cleanPassword);
+      window.location.replace('/admin/dashboard');
       return;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao fazer login');
@@ -45,7 +56,7 @@ export function AdminLogin() {
         </div>
 
         <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 p-8 lg:p-10 border border-slate-100">
-          <form onSubmit={handleSubmit} className="space-y-6" autoComplete="on">
+          <form onSubmit={handleSubmit} className="space-y-6" noValidate autoComplete="on">
             {error && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -65,11 +76,11 @@ export function AdminLogin() {
                   type="email"
                   name="email"
                   autoComplete="username"
+                  inputMode="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@tratatudo.com"
                   className="w-full bg-slate-50 border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
-                  required
                 />
               </div>
             </div>
@@ -86,7 +97,6 @@ export function AdminLogin() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full bg-slate-50 border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
-                  required
                 />
               </div>
             </div>
