@@ -9,6 +9,9 @@ import { ForWho } from './pages/ForWho';
 import { Pricing } from './pages/Pricing';
 import { Contact } from './pages/Contact';
 import { Login } from './pages/Login';
+import { Terms } from './pages/Terms';
+import { Privacy } from './pages/Privacy';
+import { Cookies } from './pages/Cookies';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './lib/auth/AuthContext';
 import { NotificationProvider } from './components/NotificationProvider';
@@ -111,6 +114,9 @@ export default function App() {
                   <Route path="/precos" element={<Pricing />} />
                   <Route path="/contacto" element={<Contact />} />
                   <Route path="/login" element={<Login />} />
+                  <Route path="/termos" element={<Terms />} />
+                  <Route path="/privacidade" element={<Privacy />} />
+                  <Route path="/cookies" element={<Cookies />} />
                   <Route path="/experimentar" element={<Pricing />} />
 
                   {/* App Portal Routes */}

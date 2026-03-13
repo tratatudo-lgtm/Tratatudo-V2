@@ -79,7 +79,7 @@ export function Pricing() {
               </ul>
 
               <Link
-                to={plan.price === "Custom" ? "/contacto" : "/experimentar"}
+                to={plan.price === "Custom" ? "/contacto" : "/login"}
                 className={`w-full py-4 rounded-2xl font-bold text-center block transition-all ${plan.popular ? 'bg-primary text-white hover:bg-primary-dark shadow-lg shadow-primary/20' : 'bg-white text-slate-900 border border-slate-200 hover:bg-slate-50'}`}
               >
                 {plan.cta}

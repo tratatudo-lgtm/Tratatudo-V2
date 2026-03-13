@@ -126,7 +126,7 @@ export function Instance() {
 
   if (error) {
     return (
-      <div className="h-[calc(100vh-10rem)] flex flex-col items-center justify-center gap-4">
+      <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
         <ErrorState message={error} />
         <button 
           onClick={fetchInstanceData}
@@ -140,7 +140,7 @@ export function Instance() {
 
   if (!data?.instance) {
     return (
-      <div className="h-[calc(100vh-10rem)] flex flex-col items-center justify-center gap-4">
+      <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
         <div className="bg-white p-12 rounded-3xl border border-slate-200 shadow-xl text-center max-w-md">
           <Smartphone className="w-16 h-16 text-slate-200 mx-auto mb-6" />
           <h3 className="text-xl font-bold text-slate-900 mb-2">Sem instância configurada</h3>
@@ -193,14 +193,14 @@ export function Instance() {
               <div className="flex flex-col items-end gap-2">
                 <div className={cn(
                   "px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2",
-                  instance.status.toLowerCase() === 'online' ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
-                  instance.status.toLowerCase() === 'reconnecting' ? "bg-orange-50 text-orange-600 border border-orange-100" :
+                  instance.status.toLowerCase() === 'conectado' ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                  instance.status.toLowerCase() === 'reconectando' ? "bg-orange-50 text-orange-600 border border-orange-100" :
                   "bg-red-50 text-red-600 border border-red-100"
                 )}>
                   <div className={cn(
                     "w-2 h-2 rounded-full",
-                    instance.status.toLowerCase() === 'online' ? "bg-emerald-500 animate-pulse" :
-                    instance.status.toLowerCase() === 'reconnecting' ? "bg-orange-500 animate-spin" :
+                    instance.status.toLowerCase() === 'conectado' ? "bg-emerald-500 animate-pulse" :
+                    instance.status.toLowerCase() === 'reconectando' ? "bg-orange-500 animate-spin" :
                     "bg-red-500"
                   )}></div>
                   {instance.status}

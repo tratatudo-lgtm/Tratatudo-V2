@@ -23,7 +23,7 @@ export function Contact() {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-slate-900">Email</p>
-                      <p className="text-slate-600">info@tratatudo.pt</p>
+                      <p className="text-slate-600">geral@tratatudo.pt</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
@@ -32,7 +32,7 @@ export function Contact() {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-slate-900">Telefone</p>
-                      <p className="text-slate-600">+351 210 000 000</p>
+                      <p className="text-slate-600">+351 937 230 116</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
@@ -41,7 +41,7 @@ export function Contact() {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-slate-900">Escritório</p>
-                      <p className="text-slate-600">Avenida da Liberdade, Lisboa</p>
+                      <p className="text-slate-600">Valença, Portugal</p>
                     </div>
                   </div>
                 </div>

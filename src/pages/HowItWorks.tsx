@@ -85,9 +85,12 @@ export function HowItWorks() {
 
         <div className="mt-32 text-center space-y-8">
           <h3 className="text-3xl font-display font-bold text-slate-900">Quer ver em ação?</h3>
-          <button className="inline-flex items-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-full font-bold hover:bg-slate-800 transition-all shadow-xl">
+          <Link 
+            to="/contacto"
+            className="inline-flex items-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-full font-bold hover:bg-slate-800 transition-all shadow-xl"
+          >
             <PlayCircle className="w-6 h-6" /> Assistir Demonstração
-          </button>
+          </Link>
         </div>
       </div>
     </div>

@@ -41,9 +41,9 @@ export function Footer() {
             <h4 className="text-white font-bold mb-6">Suporte</h4>
             <ul className="space-y-4 text-sm">
               <li><Link to="/contacto" className="hover:text-white transition-colors">Contacto</Link></li>
-              <li><a href="#" className="hover:text-white transition-colors">Centro de Ajuda</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">API Documentation</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Status</a></li>
+              <li><Link to="/contacto" className="hover:text-white transition-colors">Centro de Ajuda</Link></li>
+              <li><Link to="/contacto" className="hover:text-white transition-colors">API Documentation</Link></li>
+              <li><Link to="/contacto" className="hover:text-white transition-colors">Status</Link></li>
             </ul>
           </div>
 
@@ -52,15 +52,15 @@ export function Footer() {
             <ul className="space-y-4 text-sm">
               <li className="flex items-center gap-3">
                 <Mail className="w-4 h-4 text-primary" />
-                <span>info@tratatudo.pt</span>
+                <span>geral@tratatudo.pt</span>
               </li>
               <li className="flex items-center gap-3">
                 <Phone className="w-4 h-4 text-primary" />
-                <span>+351 210 000 000</span>
+                <span>+351 937 230 116</span>
               </li>
               <li className="flex items-center gap-3">
                 <MapPin className="w-4 h-4 text-primary" />
-                <span>Lisboa, Portugal</span>
+                <span>Valença, Portugal</span>
               </li>
             </ul>
           </div>
@@ -68,11 +68,11 @@ export function Footer() {
 
         <div className="border-t border-slate-800 mt-16 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
           <p>© 2024 TrataTudo. Todos os direitos reservados.</p>
-          <div className="flex gap-8">
-            <a href="#" className="hover:text-white transition-colors">Termos de Serviço</a>
-            <a href="#" className="hover:text-white transition-colors">Privacidade</a>
-            <a href="#" className="hover:text-white transition-colors">Cookies</a>
-          </div>
+            <div className="flex gap-8">
+              <Link to="/termos" className="hover:text-white transition-colors">Termos de Serviço</Link>
+              <Link to="/privacidade" className="hover:text-white transition-colors">Privacidade</Link>
+              <Link to="/cookies" className="hover:text-white transition-colors">Cookies</Link>
+            </div>
         </div>
       </div>
     </footer>
