@@ -205,7 +205,7 @@ async function startServer() {
       .is("used_at", null);
 
     // Store in Supabase
-    const { error } = await supabase
+    const { error: dbError } = await supabase
       .from("auth_otps")
       .insert({ 
         phone_e164, 
@@ -216,33 +216,47 @@ async function startServer() {
         user_agent: req.get('user-agent')
       });
 
-    if (error) {
-      console.error("Supabase error (auth_otps):", error);
-      return res.status(500).json({ ok: false, error: "Erro ao processar código OTP." });
+    if (dbError) {
+      console.error("[OTP DB ERROR]", {
+        error: dbError,
+        phone_e164,
+        expires_at: expiresAt
+      });
+      return res.status(500).json({ 
+        ok: false, 
+        error: "Erro interno ao gerar código",
+        details: dbError.message 
+      });
     }
 
     // --- REAL WHATSAPP LOGIC ---
     try {
-      // Use "hub" as clientId for OTPs if no client is found yet, or just a generic sender
-      // Actually, we need a clientId to get an instance. For OTPs, we usually use the HUB instance.
-      // We'll use a special "system" or "hub" clientId if needed, or just call the API directly.
-      // Since sendWhatsAppNotification needs a clientId, we'll try to find the client first.
       const { data: client } = await supabase
         .from("clients")
         .select("id")
         .eq("phone_e164", phone_e164)
         .single();
       
-      const effectiveClientId = client?.id || "hub"; // Fallback to hub instance
+      const effectiveClientId = client?.id || "hub";
+      
+      // The sendWhatsAppNotification function will handle the "TrataTudo bot" fallback
       await sendWhatsAppNotification(effectiveClientId, phone_e164, `O seu código de acesso TrataTudo é: ${code}. Válido por 10 minutos.`);
-      console.log(`[WHATSAPP OTP] Código enviado para ${phone_e164}`);
-    } catch (err) {
-      console.error("[OTP SEND ERROR]", err);
-      // We don't fail the request if notification fails, but we log it
-    }
-    // ---------------------------
+      
+      console.log("[OTP DEBUG]", {
+        phone_e164,
+        clientId: effectiveClientId,
+        status: "success"
+      });
 
-    res.json({ ok: true, message: "Código enviado com sucesso!" });
+      return res.json({ ok: true, message: "Código enviado com sucesso!" });
+    } catch (err: any) {
+      console.error("[OTP WHATSAPP ERROR]", err);
+      return res.status(500).json({ 
+        ok: true, // Still return ok: true because OTP is in DB, but notify about WhatsApp failure
+        message: "Código gerado mas falha no envio",
+        error: err.message
+      });
+    }
   });
 
   // 2. Verify OTP Code
@@ -1802,10 +1816,16 @@ Responda APENAS em formato JSON:
         .eq("status", "online")
         .single();
 
-      const instanceName = instance?.instance_name || "hub"; // Fallback to hub if no private instance
+      const instanceName = instance?.instance_name || "TrataTudo bot";
+
+      console.log("[OTP DEBUG]", {
+        phone_e164: phone,
+        instanceName,
+        clientId
+      });
 
       if (EVO_URL && EVO_KEY) {
-        await fetch(`${EVO_URL}/message/sendText/${instanceName}`, {
+        const response = await fetch(`${EVO_URL}/message/sendText/${instanceName}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1818,9 +1838,14 @@ Responda APENAS em formato JSON:
           })
         });
 
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Evolution API error: ${response.status} - ${errorText}`);
+        }
+
         // Save to wa_messages
         await supabase.from("wa_messages").insert({
-          client_id: clientId,
+          client_id: clientId === "hub" ? null : clientId,
           phone_e164: phone,
           instance: instanceName,
           direction: "outbound",
@@ -1829,6 +1854,7 @@ Responda APENAS em formato JSON:
       }
     } catch (err) {
       console.error("[NOTIFICATION ERROR]", err);
+      throw err; // Re-throw to be caught by the caller
     }
   }
 
