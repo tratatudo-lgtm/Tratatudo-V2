@@ -42,7 +42,8 @@ export function AdminTickets() {
 
   useEffect(() => {
     const fetchTickets = async () => {
-      const url = `${import.meta.env.VITE_API_URL}/api/admin/tickets`;
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const url = `${baseUrl}/api/admin/tickets`;
       console.log(`[ADMIN] Fetching tickets: ${url}`);
       try {
         const response = await fetch(url, {
@@ -58,7 +59,7 @@ export function AdminTickets() {
           throw new Error(errorData.message || errorData.error || 'Falha ao carregar tickets');
         }
         const data = await response.json();
-        setTickets(data);
+        setTickets(Array.isArray(data?.tickets) ? data.tickets : []);
       } catch (err: any) {
         console.error('[ADMIN] Fetch tickets failed:', err);
         setError(err.message || 'Erro desconhecido');
@@ -72,7 +73,8 @@ export function AdminTickets() {
 
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/tickets/${id}/status`, {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(`${baseUrl}/api/admin/tickets/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),

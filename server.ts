@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config({ path: "/home/ubuntu/Tratatudo-V2/.env" });
 import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
@@ -10,19 +12,7 @@ import rateLimit from "express-rate-limit";
 
 // Initialize Supabase
 const supabaseUrl = process.env.SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || "";
-
-// Use Service Role Key for backend operations to bypass RLS
-const supabaseKey = supabaseServiceKey || supabaseAnonKey;
-const isServiceRole = !!supabaseServiceKey;
-
-console.log("[SUPABASE INIT]", {
-  url: supabaseUrl ? "Present" : "MISSING",
-  keyType: isServiceRole ? "SERVICE_ROLE" : "ANON_KEY",
-  hasKey: !!supabaseKey
-});
-
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Initialize Groq
@@ -43,13 +33,8 @@ const aiRateLimiter = rateLimit({
 });
 
 const JWT_SECRET = process.env.JWT_SECRET || "tratatudo-v2-secret-key-2026";
-const EVO_URL = (process.env.EVO_URL || "").replace(/\/$/, ""); // Remove trailing slash
+const EVO_URL = process.env.EVO_URL || "";
 const EVO_KEY = process.env.EVO_KEY || "";
-
-console.log("[EVO INIT]", {
-  url: EVO_URL ? "Present" : "MISSING",
-  hasKey: !!EVO_KEY
-});
 
 async function startServer() {
   const app = express();
@@ -222,7 +207,7 @@ async function startServer() {
       .is("used_at", null);
 
     // Store in Supabase
-    const { error: dbError } = await supabase
+    const { error } = await supabase
       .from("auth_otps")
       .insert({ 
         phone_e164, 
@@ -233,62 +218,162 @@ async function startServer() {
         user_agent: req.get('user-agent')
       });
 
-    if (dbError) {
-      console.error("[OTP DB ERROR]", {
-        error: dbError,
-        code: dbError.code,
-        message: dbError.message,
-        phone_e164,
-        isServiceRole
-      });
-      
-      // Specific error for permission denied
-      if (dbError.message?.includes("permission denied")) {
-        return res.status(500).json({ 
-          ok: false, 
-          error: "Erro de permissão na base de dados. Contacte o suporte.",
-          details: "Permission denied on auth_otps"
-        });
-      }
-
-      return res.status(500).json({ 
-        ok: false, 
-        error: "Erro interno ao gerar código",
-        details: dbError.message 
-      });
+    if (error) {
+      console.error("Supabase error (auth_otps):", error);
+      return res.status(500).json({ ok: false, error: "Erro ao processar código OTP." });
     }
 
     // --- REAL WHATSAPP LOGIC ---
     try {
-      const { data: client } = await supabase
-        .from("clients")
-        .select("id")
-        .eq("phone_e164", phone_e164)
-        .single();
-      
-      const effectiveClientId = client?.id || "hub";
-      
-      // The sendWhatsAppNotification function will handle the "TrataTudo bot" fallback
-      await sendWhatsAppNotification(effectiveClientId, phone_e164, `O seu código de acesso TrataTudo é: ${code}. Válido por 10 minutos.`);
-      
+      const instanceName = "TrataTudo bot";
+      const evoBase = (EVO_URL || "").replace(/\/$/, "");
+      const encodedInstance = encodeURIComponent(instanceName);
+      const url = `${evoBase}/message/sendText/${encodedInstance}`;
+
       console.log("[OTP DEBUG]", {
         phone_e164,
-        clientId: effectiveClientId,
-        status: "success"
+        instanceName,
+        evoUrlPresent: !!EVO_URL,
+        url
       });
 
-      return res.json({ ok: true, message: "Código enviado com sucesso!" });
-    } catch (err: any) {
-      console.error("[OTP WHATSAPP ERROR]", err);
-      return res.status(500).json({ 
-        ok: true, // Still return ok: true because OTP is in DB, but notify about WhatsApp failure
-        message: "Código gerado mas falha no envio",
-        error: err.message
+      if (!evoBase || !EVO_KEY) {
+        return res.status(500).json({ ok: false, error: "Configuração WhatsApp em falta" });
+      }
+
+      const evoRes = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVO_KEY
+        },
+        body: JSON.stringify({
+          number: phone_e164.replace("+", ""),
+          text: `O seu código de acesso TrataTudo é: ${code}. Válido por 10 minutos.`,
+          delay: 1000
+        })
       });
+
+      const evoText = await evoRes.text();
+
+      if (!evoRes.ok) {
+        console.error("[OTP SEND ERROR]", {
+          status: evoRes.status,
+          body: evoText,
+          phone_e164,
+          instanceName,
+          url
+        });
+        return res.status(502).json({ ok: false, error: "Código gerado mas falha no envio" });
+      }
+
+      console.log("[WHATSAPP OTP] Código enviado para", phone_e164);
+      return res.json({ ok: true, message: "Código enviado com sucesso!" });
+
+    } catch (err) {
+      console.error("[OTP SEND ERROR]", err);
+      return res.status(502).json({ ok: false, error: "Código gerado mas falha no envio" });
     }
+    // ---------------------------
+
+    return res.status(500).json({ ok: false, error: "Fluxo OTP terminou sem resposta válida." });
   });
 
   // 2. Verify OTP Code
+
+  // TEMP: Dev login bypass for Hub testing
+  
+  // TEMP: Dev login via browser (GET)
+  app.get("/dev-login", async (req, res) => {
+    try {
+      let phone_e164 = req.query.phone as string;
+
+      if (!phone_e164) {
+        return res.status(400).send("Número em falta");
+      }
+
+      phone_e164 = normalizePhone(phone_e164);
+
+      const { data: client, error } = await supabase
+        .from("clients")
+        .select("id, company_name, phone_e164")
+        .eq("phone_e164", phone_e164)
+        .single();
+
+      if (error || !client) {
+        return res.status(404).send("Cliente não encontrado");
+      }
+
+      const token = jwt.sign(
+        { clientId: client.id, phone_e164: client.phone_e164 },
+        JWT_SECRET,
+        { expiresIn: "24h" }
+      );
+
+      res.cookie("hub_session", token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: "/",
+        maxAge: 24 * 60 * 60 * 1000,
+      });
+
+      return res.redirect("https://app.tratatudo.pt/app");
+
+    } catch (err) {
+      console.error("[DEV LOGIN GET ERROR]", err);
+      return res.status(500).send("Erro interno");
+    }
+  });
+
+app.post("/api/auth/dev-login", async (req, res) => {
+    try {
+      let { phone_e164 } = req.body;
+      if (!phone_e164) {
+        return res.status(400).json({ ok: false, error: "Número é obrigatório." });
+      }
+
+      phone_e164 = normalizePhone(phone_e164);
+
+      const { data: client, error: clientError } = await supabase
+        .from("clients")
+        .select("id, company_name, phone_e164")
+        .eq("phone_e164", phone_e164)
+        .single();
+
+      if (clientError || !client) {
+        return res.status(404).json({ ok: false, error: "Cliente não registado no sistema." });
+      }
+
+      const token = jwt.sign(
+        { clientId: client.id, phone_e164: client.phone_e164 },
+        JWT_SECRET,
+        { expiresIn: "24h" }
+      );
+
+      res.cookie("hub_session", token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: "/",
+        maxAge: 24 * 60 * 60 * 1000,
+      });
+
+      return res.json({
+        ok: true,
+        message: "Login de teste efetuado com sucesso!",
+        client: {
+          id: client.id,
+          company_name: client.company_name,
+          phone_e164: client.phone_e164
+        }
+      });
+    } catch (err: any) {
+      console.error("[DEV LOGIN ERROR]", err);
+      return res.status(500).json({ ok: false, error: err?.message || "Erro interno" });
+    }
+  });
+
   app.post("/api/auth/verify-otp", async (req, res) => {
     let { phone_e164, code } = req.body;
     if (!phone_e164 || !code) {
@@ -663,13 +748,15 @@ async function startServer() {
         return res.status(400).json({ ok: false, error: "Instância não encontrada ou offline" });
       }
 
-      // Send via Evolution API
+      const EVO_URL = process.env.EVO_URL;
+      const EVO_KEY = process.env.EVO_KEY;
+
       if (!EVO_URL || !EVO_KEY) {
         return res.status(500).json({ ok: false, error: "Configuração do WhatsApp em falta" });
       }
 
-      const encodedInstance = encodeURIComponent(instance.instance_name);
-      const evoRes = await fetch(`${EVO_URL}/message/sendText/${encodedInstance}`, {
+      // Send via Evolution API
+      const evoRes = await fetch(`${EVO_URL}/message/sendText/${instance.instance_name}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -833,125 +920,6 @@ Responda APENAS em formato JSON com os seguintes campos:
     }
   });
 
-  // 9.2. AI General Insights (Dashboard/Global)
-  app.post("/api/client/ai/insights", requireClientSession, aiRateLimiter, async (req: any, res) => {
-    const clientId = req.clientId;
-    const { context } = req.body; // 'dashboard', 'messages', etc.
-
-    try {
-      // Gather context data
-      const { data: stats } = await supabase.rpc('get_client_stats', { p_client_id: clientId });
-      const { data: recentTickets } = await supabase
-        .from("tickets")
-        .select("*")
-        .eq("client_id", clientId)
-        .order("created_at", { ascending: false })
-        .limit(5);
-      
-      const { data: recentMessages } = await supabase
-        .from("wa_messages")
-        .select("*")
-        .eq("client_id", clientId)
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      const prompt = `És um consultor de IA para o TrataTudo. Analisa os dados operacionais do cliente e fornece 3 insights curtos e acionáveis.
-Contexto: ${context || 'geral'}
-Estatísticas: ${JSON.stringify(stats || {})}
-Tickets Recentes: ${JSON.stringify(recentTickets || [])}
-Mensagens Recentes: ${JSON.stringify(recentMessages || [])}
-
-Responda APENAS em formato JSON com os seguintes campos:
-{
-  "insights": [
-    {"title": "título curto", "description": "descrição curta", "type": "info/warning/success/error"},
-    ...
-  ],
-  "summary": "resumo geral da operação em uma frase"
-}`;
-
-      const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" }
-        })
-      });
-
-      if (!groqRes.ok) throw new Error("Erro ao contactar Groq AI");
-      const groqData = await groqRes.json();
-      const analysis = JSON.parse(groqData.choices[0].message.content);
-
-      res.json({ ok: true, ...analysis });
-    } catch (err: any) {
-      console.error("[AI INSIGHTS ERROR]", err);
-      res.status(500).json({ ok: false, error: err.message });
-    }
-  });
-
-  // 9.3. AI Summarize Conversation
-  app.post("/api/client/ai/summarize-chat", requireClientSession, aiRateLimiter, async (req: any, res) => {
-    const clientId = req.clientId;
-    const { phone } = req.body;
-
-    if (!phone) return res.status(400).json({ ok: false, error: "Telefone obrigatório" });
-
-    try {
-      const { data: messages } = await supabase
-        .from("wa_messages")
-        .select("*")
-        .eq("client_id", clientId)
-        .eq("phone_e164", phone)
-        .order("created_at", { ascending: false })
-        .limit(30);
-
-      if (!messages || messages.length === 0) {
-        return res.json({ ok: true, summary: "Sem mensagens para resumir." });
-      }
-
-      const prompt = `Resume a seguinte conversa de WhatsApp entre a empresa e o cliente ${phone}.
-Identifica o problema principal, o estado atual e o sentimento do cliente.
-
-Mensagens (da mais recente para a mais antiga):
-${messages.map(m => `${m.direction === 'inbound' ? 'Cliente' : 'Empresa/Bot'}: ${m.text}`).join('\n')}
-
-Responda APENAS em formato JSON:
-{
-  "summary": "resumo executivo",
-  "main_issue": "problema principal",
-  "sentiment": "Positivo/Negativo/Neutro",
-  "suggested_reply": "sugestão de resposta para o agente"
-}`;
-
-      const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" }
-        })
-      });
-
-      if (!groqRes.ok) throw new Error("Erro ao contactar Groq AI");
-      const groqData = await groqRes.json();
-      const analysis = JSON.parse(groqData.choices[0].message.content);
-
-      res.json({ ok: true, ...analysis });
-    } catch (err: any) {
-      console.error("[AI CHAT SUMMARIZE ERROR]", err);
-      res.status(500).json({ ok: false, error: err.message });
-    }
-  });
-
   // 10. Get Instance Details
   app.get("/api/client/instance", requireClientSession, async (req: any, res) => {
     const clientId = req.clientId;
@@ -1027,10 +995,8 @@ Responda APENAS em formato JSON:
 
       if (!instance) return res.status(404).json({ ok: false, error: "Instância não encontrada." });
 
-      if (!EVO_URL || !EVO_KEY) throw new Error("Configuração da Evolution API em falta");
-
       // Call Evolution API
-      const evoRes = await fetch(`${EVO_URL}/instance/connectionState/${encodeURIComponent(instance.instance_name)}`, {
+      const evoRes = await fetch(`${EVO_URL}/instance/connectionState/${instance.instance_name}`, {
         headers: { "apikey": EVO_KEY }
       });
 
@@ -1319,14 +1285,14 @@ Responda APENAS em formato JSON:
       // Recent activity (Real data)
       const { data: recentActivity } = await supabase
         .from("wa_messages")
-        .select("text, created_at, direction, phone_e164, clients(company_name)")
+        .select("text, created_at, direction, phone_e164")
         .order("created_at", { ascending: false })
         .limit(10);
 
       const activity = (recentActivity || []).map(m => ({
         type: 'message',
         title: `${m.direction === 'inbound' ? 'Recebida' : 'Enviada'}: ${m.text.substring(0, 30)}...`,
-        status: (m.clients as any)?.company_name || m.phone_e164,
+        status: m.phone_e164,
         created_at: m.created_at
       }));
 
@@ -1684,6 +1650,8 @@ Responda APENAS em formato JSON:
       if (fetchError || !client) throw new Error("Cliente não encontrado");
 
       const privateInstanceName = `prod-${String(id).replace(/[^a-zA-Z0-9]/g, '')}`;
+      const EVO_URL = process.env.EVO_URL;
+      const EVO_KEY = process.env.EVO_KEY;
 
       if (!EVO_URL || !EVO_KEY) throw new Error("Configuração da Evolution API em falta");
 
@@ -1747,12 +1715,10 @@ Responda APENAS em formato JSON:
       } catch (dbErr) {
         // Compensating logic: Delete the just-created instance in Evolution if DB update fails
         console.error("[ACTIVATE PRODUCTION ERROR] DB update failed, deleting orphan instance:", dbErr);
-        if (EVO_URL && EVO_KEY) {
-          await fetch(`${EVO_URL}/instance/delete/${encodeURIComponent(privateInstanceName)}`, {
-            method: 'DELETE',
-            headers: { 'apikey': EVO_KEY }
-          }).catch(e => console.error("[CLEANUP ERROR] Failed to delete orphan instance:", e));
-        }
+        await fetch(`${EVO_URL}/instance/delete/${privateInstanceName}`, {
+          method: 'DELETE',
+          headers: { 'apikey': EVO_KEY }
+        }).catch(e => console.error("[CLEANUP ERROR] Failed to delete orphan instance:", e));
         
         throw dbErr;
       }
@@ -1774,6 +1740,8 @@ Responda APENAS em formato JSON:
     if (!client_id) return res.status(400).json({ ok: false, error: "client_id é obrigatório." });
 
     const instance_name = `client-${client_id}`;
+    const EVO_URL = process.env.EVO_URL;
+    const EVO_KEY = process.env.EVO_KEY;
 
     if (!EVO_URL || !EVO_KEY) {
       return res.status(500).json({ ok: false, error: "Configuração da Evolution API em falta (EVO_URL/EVO_KEY)." });
@@ -1843,57 +1811,33 @@ Responda APENAS em formato JSON:
         .eq("status", "online")
         .single();
 
-      const instanceName = instance?.instance_name || "TrataTudo bot";
+      const instanceName = instance?.instance_name || "TrataTudo bot"; // Fallback to hub if no private instance
 
-      console.log("[OTP DEBUG] Notification Attempt", {
-        phone_e164: phone,
-        instanceName,
-        clientId,
-        EVO_URL: EVO_URL ? "Present" : "MISSING"
-      });
-
-      if (!EVO_URL || !EVO_KEY) {
-        throw new Error("Evolution API configuration missing (EVO_URL or EVO_KEY)");
-      }
-
-      const encodedInstance = encodeURIComponent(instanceName);
-      const url = `${EVO_URL}/message/sendText/${encodedInstance}`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': EVO_KEY
-        },
-        body: JSON.stringify({
-          number: phone.replace("+", ""),
-          text: text,
-          delay: 1000
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("[EVO API ERROR]", {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText,
-          url
+      if (EVO_URL && EVO_KEY) {
+        await fetch(`${EVO_URL}/message/sendText/${instanceName}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': EVO_KEY
+          },
+          body: JSON.stringify({
+            number: phone.replace("+", ""),
+            text: text,
+            delay: 1000
+          })
         });
-        throw new Error(`Evolution API error: ${response.status} - ${errorText}`);
-      }
 
         // Save to wa_messages
         await supabase.from("wa_messages").insert({
-          client_id: clientId === "hub" ? null : clientId,
+          client_id: clientId,
           phone_e164: phone,
           instance: instanceName,
           direction: "outbound",
           text: text
         });
+      }
     } catch (err) {
       console.error("[NOTIFICATION ERROR]", err);
-      throw err; // Re-throw to be caught by the caller
     }
   }
 
@@ -2127,8 +2071,11 @@ Responda APENAS em formato JSON:
       }
 
       // Send response back via Evolution API
+      const EVO_URL = process.env.EVO_URL;
+      const EVO_KEY = process.env.EVO_KEY;
+
       if (EVO_URL && EVO_KEY) {
-        await fetch(`${EVO_URL}/message/sendText/${encodeURIComponent(instance)}`, {
+        await fetch(`${EVO_URL}/message/sendText/${instance}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -2157,6 +2104,9 @@ Responda APENAS em formato JSON:
 
   // 15. Evolution API: Health Check & Sync
   const checkInstancesHealth = async () => {
+    const EVO_URL = process.env.EVO_URL;
+    const EVO_KEY = process.env.EVO_KEY;
+
     if (!EVO_URL || !EVO_KEY) return;
 
     try {
@@ -2225,20 +2175,22 @@ Responda APENAS em formato JSON:
     const sessionId = req.cookies.tratatudo_admin_session;
     if (!sessionId) return res.status(401).json({ error: "Não autorizado." });
 
-    const { data: alerts, error } = await supabase
-      .from("system_alerts")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(10);
+      const { data: alerts, error } = await supabase
+        .from("system_alerts")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(10);
 
-    if (error) return res.status(500).json({ error: error.message });
-    res.json(alerts);
-  });
+      if (error) return res.status(500).json({ error: error.message });
+      res.json(alerts);
+    });
 
-  startServer().catch(err => {
-    console.error("CRITICAL: Failed to start server:", err);
-    process.exit(1);
-  });
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("CRITICAL: Failed to start server:", err);
+  process.exit(1);
+});
