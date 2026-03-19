@@ -15,9 +15,26 @@ import {
   ShieldCheck,
   Zap,
   Activity,
-  Loader2
+  Loader2,
+  PieChart as PieChartIcon,
+  BarChart3
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  Legend
+} from 'recharts';
 import { cn, extractArrayResponse, extractObjectResponse } from '../../lib/utils';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { LoadingState, ErrorState } from '../../components/States';
@@ -48,6 +65,11 @@ interface DashboardData {
     status: string;
     created_at: string;
   }>;
+  charts?: {
+    daily: Array<{ date: string; tickets: number; complaints: number; resolved: number }>;
+    statusDistribution: { aberto: number; analise: number; resolvido: number };
+    typeDistribution: { pedido: number; reclamacao: number; outro: number };
+  };
 }
 
 const shortcuts = [
@@ -92,6 +114,19 @@ export function Dashboard() {
               activity: extractArrayResponse(result, 'activity')
             };
             
+            // Fetch chart data
+            try {
+              const chartRes = await fetch(`${import.meta.env.VITE_API_URL}/api/client/dashboard/charts`, {
+                credentials: 'include'
+              });
+              if (chartRes.ok) {
+                const chartData = await chartRes.json();
+                mappedData.charts = chartData;
+              }
+            } catch (e) {
+              console.error("[APP] Failed to fetch chart data:", e);
+            }
+
             setData(mappedData);
             setLoading(false);
             return;
@@ -226,6 +261,151 @@ export function Dashboard() {
             </div>
           </motion.div>
         ))}
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Main Evolution Chart */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              <h3 className="font-bold text-slate-900">Evolução de Pedidos</h3>
+            </div>
+            <select className="text-xs bg-slate-50 border-none rounded-lg px-2 py-1 outline-none font-bold text-slate-500">
+              <option>Últimos 30 dias</option>
+            </select>
+          </div>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data?.charts?.daily || []}>
+                <defs>
+                  <linearGradient id="colorTickets" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4285F4" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#4285F4" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="date" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fontSize: 10, fill: '#94a3b8'}}
+                  tickFormatter={(str) => {
+                    const d = new Date(str);
+                    return d.toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' });
+                  }}
+                />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="tickets" 
+                  name="Pedidos"
+                  stroke="#4285F4" 
+                  strokeWidth={3}
+                  fillOpacity={1} 
+                  fill="url(#colorTickets)" 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="complaints" 
+                  name="Reclamações"
+                  stroke="#ef4444" 
+                  strokeWidth={2}
+                  fill="transparent"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+
+        {/* Distribution Charts */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm"
+          >
+            <div className="flex items-center gap-2 mb-6">
+              <PieChartIcon className="w-5 h-5 text-primary" />
+              <h3 className="font-bold text-slate-900 text-sm">Estado dos Tickets</h3>
+            </div>
+            <div className="h-[200px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Aberto', value: data?.charts?.statusDistribution.aberto || 0 },
+                      { name: 'Análise', value: data?.charts?.statusDistribution.analise || 0 },
+                      { name: 'Resolvido', value: data?.charts?.statusDistribution.resolvido || 0 },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    <Cell fill="#f97316" />
+                    <Cell fill="#3b82f6" />
+                    <Cell fill="#22c55e" />
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex justify-center gap-4 mt-4">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                <span className="text-[10px] font-bold text-slate-500">Aberto</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                <span className="text-[10px] font-bold text-slate-500">Análise</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                <span className="text-[10px] font-bold text-slate-500">Resolvido</span>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm"
+          >
+            <div className="flex items-center gap-2 mb-6">
+              <BarChart3 className="w-5 h-5 text-primary" />
+              <h3 className="font-bold text-slate-900 text-sm">Tipos de Pedido</h3>
+            </div>
+            <div className="h-[200px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={[
+                  { name: 'Pedidos', value: data?.charts?.typeDistribution.pedido || 0 },
+                  { name: 'Reclamações', value: data?.charts?.typeDistribution.reclamacao || 0 },
+                  { name: 'Outros', value: data?.charts?.typeDistribution.outro || 0 },
+                ]}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                  <Tooltip cursor={{fill: 'transparent'}} />
+                  <Bar dataKey="value" fill="#4285F4" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

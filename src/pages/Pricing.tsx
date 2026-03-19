@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Check, Zap, Shield, Users } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Check, Zap, Shield, Users, Loader2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 
 const plans = [
   {
+    id: "starter",
     name: "Starter",
     price: "49",
     desc: "Ideal para pequenas juntas ou negócios locais.",
@@ -13,6 +14,7 @@ const plans = [
     popular: false
   },
   {
+    id: "pro",
     name: "Profissional",
     price: "99",
     desc: "A escolha perfeita para organizações em crescimento.",
@@ -21,6 +23,7 @@ const plans = [
     popular: true
   },
   {
+    id: "enterprise",
     name: "Enterprise",
     price: "Custom",
     desc: "Soluções à medida para grandes instituições.",
@@ -31,6 +34,42 @@ const plans = [
 ];
 
 export function Pricing() {
+  const [loading, setLoading] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const handleCheckout = async (planId: string) => {
+    if (planId === "enterprise") {
+      navigate("/contacto");
+      return;
+    }
+
+    setLoading(planId);
+    try {
+      const response = await fetch('/api/client/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId })
+      });
+
+      if (response.status === 401) {
+        navigate("/login");
+        return;
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || 'Erro ao iniciar checkout');
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert('Erro ao iniciar o pagamento. Por favor, tente novamente.');
+    } finally {
+      setLoading(null);
+    }
+  };
+
   return (
     <div className="pt-32 pb-24">
       <div className="container mx-auto px-4">
@@ -78,12 +117,21 @@ export function Pricing() {
                 ))}
               </ul>
 
-              <Link
-                to={plan.price === "Custom" ? "/contacto" : "/login"}
-                className={`w-full py-4 rounded-2xl font-bold text-center block transition-all ${plan.popular ? 'bg-primary text-white hover:bg-primary-dark shadow-lg shadow-primary/20' : 'bg-white text-slate-900 border border-slate-200 hover:bg-slate-50'}`}
+              <button
+                onClick={() => handleCheckout(plan.id)}
+                disabled={loading !== null}
+                className={`w-full py-4 rounded-2xl font-bold text-center block transition-all flex items-center justify-center gap-2 ${
+                  plan.popular 
+                    ? 'bg-primary text-white hover:bg-primary-dark shadow-lg shadow-primary/20' 
+                    : 'bg-white text-slate-900 border border-slate-200 hover:bg-slate-50'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                {plan.cta}
-              </Link>
+                {loading === plan.id ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  plan.cta
+                )}
+              </button>
             </motion.div>
           ))}
         </div>

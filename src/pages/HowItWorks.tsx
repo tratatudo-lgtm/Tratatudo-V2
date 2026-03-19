@@ -15,19 +15,19 @@ const steps = [
     icon: <Scan />,
     title: "1. Conexão Instantânea",
     desc: "Basta fazer scan do QR Code com o seu telemóvel para ligar o seu número de WhatsApp ao TrataTudo. Sem configurações técnicas complexas.",
-    image: "https://picsum.photos/seed/step1/600/400"
+    image: "https://images.unsplash.com/photo-1556742049-02e53f40d997?auto=format&fit=crop&q=80&w=600&h=400"
   },
   {
     icon: <Settings2 />,
     title: "2. Personalização do Fluxo",
     desc: "Defina as suas mensagens de boas-vindas, horários de funcionamento e crie menus de opções para os seus utilizadores.",
-    image: "https://picsum.photos/seed/step2/600/400"
+    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=600&h=400"
   },
   {
     icon: <MessageSquare />,
     title: "3. Gestão Centralizada",
     desc: "As mensagens começam a cair no seu painel. A sua equipa pode responder manualmente ou deixar a automação tratar do trabalho pesado.",
-    image: "https://picsum.photos/seed/step3/600/400"
+    image: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=600&h=400"
   }
 ];
 

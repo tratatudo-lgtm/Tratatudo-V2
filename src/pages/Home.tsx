@@ -86,7 +86,7 @@ export function Home() {
             >
               <div className="absolute -inset-4 bg-primary/5 blur-3xl rounded-full -z-10" />
               <img 
-                src="https://picsum.photos/seed/dashboard/1200/800" 
+                src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=1200&h=800" 
                 alt="Dashboard TrataTudo" 
                 className="rounded-2xl shadow-2xl border border-slate-200 mx-auto"
                 referrerPolicy="no-referrer"
@@ -182,7 +182,7 @@ export function Home() {
             <div className="lg:w-1/2 relative">
               <div className="absolute -inset-4 bg-primary/10 blur-3xl rounded-full -z-10" />
               <img 
-                src="https://picsum.photos/seed/process/800/1000" 
+                src="https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&q=80&w=800&h=1000" 
                 alt="Processo TrataTudo" 
                 className="rounded-3xl shadow-2xl"
                 referrerPolicy="no-referrer"

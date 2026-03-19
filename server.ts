@@ -5,6 +5,8 @@ import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import Groq from "groq-sdk";
+import Stripe from "stripe";
+import rateLimit from "express-rate-limit";
 
 // Initialize Supabase
 const supabaseUrl = process.env.SUPABASE_URL || "";
@@ -14,7 +16,23 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Initialize Groq
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+// Initialize Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2023-10-16" as any,
+});
+
+// AI Rate Limiter (10 requests per minute per IP)
+const aiRateLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 10,
+  message: { ok: false, error: "Limite de requisições de IA excedido. Tente novamente em 1 minuto." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const JWT_SECRET = process.env.JWT_SECRET || "tratatudo-v2-secret-key-2026";
+const EVO_URL = process.env.EVO_URL || "";
+const EVO_KEY = process.env.EVO_KEY || "";
 
 async function startServer() {
   const app = express();
@@ -282,6 +300,68 @@ async function startServer() {
   });
 
   // 5. Dashboard Stats
+  // Dashboard Charts Data
+  app.get("/api/client/dashboard/charts", requireClientSession, async (req: any, res) => {
+    try {
+      const clientId = req.client.id;
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+
+      // Get tickets by day for the last 30 days
+      const { data: tickets, error: ticketsError } = await supabase
+        .from('tickets')
+        .select('created_at, type, status')
+        .eq('client_id', clientId)
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .order('created_at', { ascending: true });
+
+      if (ticketsError) throw ticketsError;
+
+      // Process data for charts
+      const dailyStats: Record<string, { date: string; tickets: number; complaints: number; resolved: number }> = {};
+      
+      // Initialize last 30 days
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(now.getTime() - (i * 24 * 60 * 60 * 1000));
+        const dateStr = d.toISOString().split('T')[0];
+        dailyStats[dateStr] = { date: dateStr, tickets: 0, complaints: 0, resolved: 0 };
+      }
+
+      tickets?.forEach(t => {
+        const dateStr = new Date(t.created_at).toISOString().split('T')[0];
+        if (dailyStats[dateStr]) {
+          dailyStats[dateStr].tickets++;
+          if (t.type?.toLowerCase() === 'reclamação') dailyStats[dateStr].complaints++;
+          if (t.status?.toLowerCase() === 'resolvido') dailyStats[dateStr].resolved++;
+        }
+      });
+
+      // Distribution by status
+      const statusDistribution = {
+        aberto: tickets?.filter(t => t.status?.toLowerCase() === 'aberto').length || 0,
+        analise: tickets?.filter(t => t.status?.toLowerCase() === 'em análise').length || 0,
+        resolvido: tickets?.filter(t => t.status?.toLowerCase() === 'resolvido').length || 0
+      };
+
+      // Distribution by type
+      const typeDistribution = {
+        pedido: tickets?.filter(t => t.type?.toLowerCase() === 'pedido').length || 0,
+        reclamacao: tickets?.filter(t => t.type?.toLowerCase() === 'reclamação').length || 0,
+        outro: tickets?.filter(t => t.type?.toLowerCase() !== 'pedido' && t.type?.toLowerCase() !== 'reclamação').length || 0
+      };
+
+      res.json({
+        ok: true,
+        daily: Object.values(dailyStats),
+        statusDistribution,
+        typeDistribution
+      });
+    } catch (error: any) {
+      console.error("[API] Dashboard charts error:", error);
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
   app.get("/api/client/dashboard/stats", requireClientSession, async (req: any, res) => {
     const clientId = req.clientId;
     const client = req.client;
@@ -557,6 +637,85 @@ async function startServer() {
     }
   });
 
+  // 9.1. AI Analyze Ticket
+  app.post("/api/client/tickets/:id/analyze", requireClientSession, aiRateLimiter, async (req: any, res) => {
+    const clientId = req.clientId;
+    const { id } = req.params;
+
+    try {
+      // Verify ownership
+      const { data: ticket } = await supabase
+        .from("tickets")
+        .select("*")
+        .eq("id", id)
+        .eq("client_id", clientId)
+        .single();
+
+      if (!ticket) return res.status(403).json({ ok: false, error: "Acesso negado." });
+
+      // Get messages
+      const { data: messages } = await supabase
+        .from("ticket_messages")
+        .select("*")
+        .eq("ticket_id", id)
+        .order("created_at", { ascending: true });
+
+      if (!messages || messages.length === 0) {
+        return res.json({ 
+          ok: true, 
+          analysis: {
+            summary: "Sem mensagens suficientes para análise.",
+            probable_cause: "N/A",
+            suggested_solution: "Aguardar mais interações do cliente.",
+            next_steps: ["Aguardar mensagens"],
+            sentiment: "Neutro"
+          }
+        });
+      }
+
+      // Call Groq AI
+      const prompt = `Analise o seguinte ticket de suporte e as mensagens trocadas.
+Ticket: ${ticket.subject} (${ticket.type})
+Prioridade: ${ticket.priority}
+Status: ${ticket.status}
+
+Mensagens:
+${messages.map(m => `${m.direction === 'inbound' ? 'Cliente' : 'Sistema/Agente'}: ${m.text}`).join('\n')}
+
+Responda APENAS em formato JSON com os seguintes campos:
+{
+  "summary": "resumo curto",
+  "probable_cause": "causa provável",
+  "suggested_solution": "solução sugerida",
+  "next_steps": ["passo 1", "passo 2"],
+  "sentiment": "Positivo/Negativo/Neutro"
+}`;
+
+      const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: prompt }],
+          response_format: { type: "json_object" }
+        })
+      });
+
+      if (!groqRes.ok) throw new Error("Erro ao chamar API de IA");
+
+      const groqData = await groqRes.json();
+      const analysis = JSON.parse(groqData.choices[0].message.content);
+
+      res.json({ ok: true, analysis });
+    } catch (err: any) {
+      console.error("[AI ANALYZE ERROR]", err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   // 10. Get Instance Details
   app.get("/api/client/instance", requireClientSession, async (req: any, res) => {
     const clientId = req.clientId;
@@ -619,6 +778,47 @@ async function startServer() {
     }
   });
 
+  // 10.1. Sync Instance Status
+  app.post("/api/client/instance/sync", requireClientSession, async (req: any, res) => {
+    const clientId = req.clientId;
+
+    try {
+      const { data: instance } = await supabase
+        .from("client_instances")
+        .select("*")
+        .eq("client_id", clientId)
+        .single();
+
+      if (!instance) return res.status(404).json({ ok: false, error: "Instância não encontrada." });
+
+      // Call Evolution API
+      const evoRes = await fetch(`${EVO_URL}/instance/connectionState/${instance.instance_name}`, {
+        headers: { "apikey": EVO_KEY }
+      });
+
+      if (!evoRes.ok) throw new Error("Erro ao consultar Evolution API");
+
+      const evoData = await evoRes.json();
+      const newState = evoData.instance?.state || "DISCONNECTED";
+
+      // Update in Supabase
+      const { error: updateError } = await supabase
+        .from("client_instances")
+        .update({ 
+          status: newState === "open" ? "online" : "offline",
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", instance.id);
+
+      if (updateError) throw updateError;
+
+      res.json({ ok: true, state: newState });
+    } catch (err: any) {
+      console.error("[SYNC INSTANCE ERROR]", err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   // 11. Get Subscription Details
   app.get("/api/client/subscription", requireClientSession, async (req: any, res) => {
     const clientId = req.clientId;
@@ -664,6 +864,90 @@ async function startServer() {
     } catch (err: any) {
       res.status(500).json({ ok: false, error: err.message });
     }
+  });
+
+  // 11.1. Stripe Checkout
+  app.post("/api/client/stripe/checkout", requireClientSession, async (req: any, res) => {
+    const { priceId } = req.body;
+    const client = req.client;
+
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: "subscription",
+        success_url: `${process.env.APP_URL}/app/dashboard?success=true`,
+        cancel_url: `${process.env.APP_URL}/app/subscription?canceled=true`,
+        customer_email: client.email,
+        metadata: {
+          clientId: client.id,
+        },
+      });
+
+      res.json({ ok: true, url: session.url });
+    } catch (err: any) {
+      console.error("[STRIPE CHECKOUT ERROR]", err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // 11.2. Stripe Webhook
+  app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req: any, res) => {
+    const sig = req.headers["stripe-signature"];
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET || "");
+    } catch (err: any) {
+      console.error("[STRIPE WEBHOOK ERROR]", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event
+    switch (event.type) {
+      case "checkout.session.completed":
+        const session = event.data.object as any;
+        const clientId = session.metadata.clientId;
+        const customerId = session.customer;
+        const subscriptionId = session.subscription;
+
+        // Update client and subscription
+        await supabase
+          .from("clients")
+          .update({ 
+            stripe_customer_id: customerId,
+            status: 'active'
+          })
+          .eq("id", clientId);
+
+        await supabase
+          .from("subscriptions")
+          .upsert({
+            client_id: clientId,
+            stripe_subscription_id: subscriptionId,
+            status: 'active',
+            plan: 'Pro', // Default to Pro for now, can be derived from priceId
+            updated_at: new Date().toISOString()
+          });
+        
+        console.log(`[STRIPE] Checkout completed for client ${clientId}`);
+        break;
+      
+      case "customer.subscription.deleted":
+        const subDeleted = event.data.object as any;
+        await supabase
+          .from("subscriptions")
+          .update({ status: 'canceled' })
+          .eq("stripe_subscription_id", subDeleted.id);
+        break;
+    }
+
+    res.json({ received: true });
   });
 
   // 12. Get Client Settings
@@ -962,7 +1246,122 @@ async function startServer() {
         .single();
 
       if (error) throw error;
+
+      // Send notification if resolved and NOT already notified (Race-safe atomic update)
+      if (status === 'resolvido') {
+        const { data: updatedTicket, error: updateError } = await supabase
+          .from("tickets")
+          .update({ notified_resolved_at: new Date().toISOString() })
+          .eq("id", id)
+          .is("notified_resolved_at", null)
+          .select()
+          .single();
+
+        if (!updateError && updatedTicket) {
+          try {
+            // Use tracking_code instead of unsafe split ID
+            // Destination: Use phone_e164 or fallback to customer_contact if it exists
+            const destination = updatedTicket.phone_e164 || (updatedTicket as any).customer_contact;
+            if (destination) {
+              await sendWhatsAppNotification(updatedTicket.client_id, destination, `O seu ticket #${updatedTicket.tracking_code} foi resolvido com sucesso!`);
+            }
+          } catch (notifyErr) {
+            console.error("[NOTIFICATION ERROR]", notifyErr);
+          }
+        }
+      }
+
       res.json({ ok: true, ticket: data });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // 11. Admin Client Management
+  app.get("/api/admin/clients", requireAdminSession, async (req: any, res) => {
+    try {
+      const { data: clients, error } = await supabase
+        .from("clients")
+        .select(`
+          *,
+          subscriptions (*)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      res.json({ ok: true, clients });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/admin/clients", requireAdminSession, async (req: any, res) => {
+    const { company_name, email, phone_e164, status, bot_instructions } = req.body;
+    try {
+      const { data, error } = await supabase
+        .from("clients")
+        .insert({
+          company_name,
+          email,
+          phone_e164,
+          status: status || 'trial',
+          bot_instructions: bot_instructions || "És um assistente prestativo.",
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Create default subscription
+      await supabase.from("subscriptions").insert({
+        client_id: data.id,
+        plan: 'Trial',
+        status: 'active',
+        started_at: new Date().toISOString()
+      });
+
+      res.json({ ok: true, client: data });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.put("/api/admin/clients/:id", requireAdminSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { company_name, email, phone_e164, status, bot_instructions } = req.body;
+    try {
+      const { data, error } = await supabase
+        .from("clients")
+        .update({
+          company_name,
+          email,
+          phone_e164,
+          status,
+          bot_instructions,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      res.json({ ok: true, client: data });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.delete("/api/admin/clients/:id", requireAdminSession, async (req: any, res) => {
+    const { id } = req.params;
+    try {
+      const { error } = await supabase
+        .from("clients")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+      res.json({ ok: true, message: "Cliente removido com sucesso." });
     } catch (err: any) {
       res.status(500).json({ ok: false, error: err.message });
     }
@@ -1054,39 +1453,94 @@ async function startServer() {
   app.post("/api/admin/clients/:id/activate-production", requireAdminSession, async (req: any, res) => {
     const { id } = req.params;
     try {
-      // 1. Update Client
-      const { error: clientError } = await supabase
+      // 0. Get Client Info
+      const { data: client, error: fetchError } = await supabase
         .from("clients")
-        .update({ 
-          status: 'active', 
-          trial_end: null 
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (fetchError || !client) throw new Error("Cliente não encontrado");
+
+      const privateInstanceName = `prod-${String(id).replace(/[^a-zA-Z0-9]/g, '')}`;
+      const EVO_URL = process.env.EVO_URL;
+      const EVO_KEY = process.env.EVO_KEY;
+
+      if (!EVO_URL || !EVO_KEY) throw new Error("Configuração da Evolution API em falta");
+
+      // 1. Create REAL Instance in Evolution API
+      console.log(`[ADMIN] Creating dedicated instance: ${privateInstanceName}`);
+      const createRes = await fetch(`${EVO_URL}/instance/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVO_KEY
+        },
+        body: JSON.stringify({
+          instanceName: privateInstanceName,
+          token: Math.random().toString(36).substring(2, 15),
+          qrcode: true
         })
-        .eq("id", id);
+      });
 
-      if (clientError) throw clientError;
+      if (!createRes.ok) {
+        const errData = await createRes.json().catch(() => ({}));
+        // If instance already exists, we might want to continue, but usually it's a real error
+        if (createRes.status !== 403) { // Evolution often returns 403 if exists
+           throw new Error(errData.message || "Erro ao criar instância na Evolution API");
+        }
+      }
 
-      // 2. Update Subscription
-      await supabase
-        .from("subscriptions")
-        .update({ 
-          plan: 'Pro', 
-          status: 'active',
-          ends_at: null // Or set a real end date if monthly
-        })
-        .eq("client_id", id);
+      // 2. Update Client and Subscription (with compensation logic)
+      try {
+        const { error: clientError } = await supabase
+          .from("clients")
+          .update({ 
+            status: 'active', 
+            trial_end: null 
+          })
+          .eq("id", id);
 
-      // 3. Update Instance to Private
-      const privateInstanceName = `prod-${id.split('-')[0]}`;
-      await supabase
-        .from("client_instances")
-        .update({
-          instance_name: privateInstanceName,
-          is_hub: false,
-          status: 'offline' // Needs to be connected via QR
-        })
-        .eq("client_id", id);
+        if (clientError) throw clientError;
 
-      res.json({ ok: true, message: "Produção ativada com sucesso!", instance_name: privateInstanceName });
+        // 3. Update Subscription
+        await supabase
+          .from("subscriptions")
+          .update({ 
+            plan: 'Pro', 
+            status: 'active',
+            ends_at: null
+          })
+          .eq("client_id", id);
+
+        // 4. Update Instance Record (or create if somehow missing)
+        const { error: instError } = await supabase
+          .from("client_instances")
+          .upsert({
+            client_id: id,
+            instance_name: privateInstanceName,
+            is_hub: false,
+            status: 'offline',
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'client_id' });
+
+        if (instError) throw instError;
+      } catch (dbErr) {
+        // Compensating logic: Delete the just-created instance in Evolution if DB update fails
+        console.error("[ACTIVATE PRODUCTION ERROR] DB update failed, deleting orphan instance:", dbErr);
+        await fetch(`${EVO_URL}/instance/delete/${privateInstanceName}`, {
+          method: 'DELETE',
+          headers: { 'apikey': EVO_KEY }
+        }).catch(e => console.error("[CLEANUP ERROR] Failed to delete orphan instance:", e));
+        
+        throw dbErr;
+      }
+
+      res.json({ 
+        ok: true, 
+        message: "Produção ativada e instância dedicada criada!", 
+        instance_name: privateInstanceName 
+      });
     } catch (err: any) {
       console.error("[ACTIVATE PRODUCTION ERROR]", err);
       res.status(500).json({ ok: false, error: err.message });
@@ -1148,6 +1602,48 @@ async function startServer() {
       res.status(500).json({ ok: false, error: "Erro interno ao criar instância." });
     }
   });
+
+  // --- HELPERS ---
+
+  async function sendWhatsAppNotification(clientId: string, phone: string, text: string) {
+    try {
+      // Get client instance
+      const { data: instance } = await supabase
+        .from("client_instances")
+        .select("instance_name")
+        .eq("client_id", clientId)
+        .eq("status", "online")
+        .single();
+
+      const instanceName = instance?.instance_name || "hub"; // Fallback to hub if no private instance
+
+      if (EVO_URL && EVO_KEY) {
+        await fetch(`${EVO_URL}/message/sendText/${instanceName}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': EVO_KEY
+          },
+          body: JSON.stringify({
+            number: phone.replace("+", ""),
+            text: text,
+            delay: 1000
+          })
+        });
+
+        // Save to wa_messages
+        await supabase.from("wa_messages").insert({
+          client_id: clientId,
+          phone_e164: phone,
+          instance: instanceName,
+          direction: "outbound",
+          text: text
+        });
+      }
+    } catch (err) {
+      console.error("[NOTIFICATION ERROR]", err);
+    }
+  }
 
   // --- MULTI-TENANT & AI LOGIC ---
 
@@ -1257,8 +1753,59 @@ async function startServer() {
     }
   });
 
+  // 12. Public Checkout (for Bot)
+  app.get("/api/public/stripe/checkout", async (req, res) => {
+    const { clientId, planId } = req.query;
+    if (!clientId) return res.status(400).json({ error: "Missing clientId" });
+
+    try {
+      const { data: client, error: clientError } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", clientId)
+        .single();
+
+      if (clientError || !client) throw new Error("Client not found");
+
+      const priceId = planId === 'pro' ? process.env.STRIPE_PRICE_ID_PRO : process.env.STRIPE_PRICE_ID_STARTER;
+      if (!priceId) throw new Error("Price ID not configured");
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: 'subscription',
+        success_url: `${process.env.APP_URL}/app/dashboard?success=true`,
+        cancel_url: `${process.env.APP_URL}/pricing?canceled=true`,
+        customer_email: client.email || undefined,
+        metadata: {
+          clientId: client.id,
+          planId: planId as string
+        }
+      });
+
+      if (session.url) {
+        res.redirect(session.url);
+      } else {
+        throw new Error("Failed to create session");
+      }
+    } catch (err: any) {
+      console.error("[PUBLIC CHECKOUT ERROR]", err);
+      res.status(500).send(`Erro ao processar checkout: ${err.message}`);
+    }
+  });
+
   async function processAIResponse(clientId: string, phone: string, userText: string, instructions: string, instance: string) {
     try {
+      // Check for payment intent keywords
+      const paymentKeywords = ['pagar', 'pagamento', 'assinar', 'comprar', 'preço', 'valor', 'mensalidade', 'checkout'];
+      const wantsToPay = paymentKeywords.some(k => userText.toLowerCase().includes(k));
+
+      if (wantsToPay) {
+        const checkoutUrl = `${process.env.APP_URL}/api/public/stripe/checkout?clientId=${clientId}&planId=pro`;
+        await sendWhatsAppNotification(clientId, phone, `Para assinar o nosso plano Profissional e desbloquear todas as funcionalidades, clique no link seguro de pagamento abaixo:\n\n${checkoutUrl}\n\nApós o pagamento, a sua conta será ativada automaticamente.`);
+        return;
+      }
+
       // Get recent history for context
       const { data: history } = await supabase
         .from("wa_messages")
@@ -1306,6 +1853,20 @@ async function startServer() {
                 sender_type: "system",
                 text: `Ticket criado automaticamente via AI.\nDados: ${JSON.stringify(reportData)}`
               });
+
+              // Send notification to user (Idempotent check - though here it's a new ticket)
+              try {
+                // Use tracking_code instead of unsafe split ID
+                await sendWhatsAppNotification(clientId, phone, `O seu pedido foi registado com sucesso! Ticket #${ticket.tracking_code}.\nEm breve um assistente irá analisar.`);
+                
+                // Mark as notified
+                await supabase
+                  .from("tickets")
+                  .update({ notified_opened_at: new Date().toISOString() })
+                  .eq("id", ticket.id);
+              } catch (notifyErr) {
+                console.error("[NOTIFICATION ERROR]", notifyErr);
+              }
             }
           }
         } catch (e) {

@@ -56,7 +56,8 @@ export function AdminClients() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newClient, setNewClient] = useState({ phone_e164: '', company_name: '', contact_name: '' });
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [newClient, setNewClient] = useState({ phone_e164: '', company_name: '', contact_name: '', email: '', bot_instructions: '' });
   const [creating, setCreating] = useState(false);
 
   const { logout } = useAdminAuth();
@@ -108,11 +109,55 @@ export function AdminClients() {
 
       await fetchClients();
       setIsModalOpen(false);
-      setNewClient({ phone_e164: '', company_name: '', contact_name: '' });
+      setNewClient({ phone_e164: '', company_name: '', contact_name: '', email: '', bot_instructions: '' });
     } catch (err: any) {
       alert(err.message);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleUpdateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClient || creating) return;
+
+    try {
+      setCreating(true);
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/clients/${editingClient.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingClient),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Falha ao atualizar cliente');
+      }
+
+      await fetchClients();
+      setEditingClient(null);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDeleteClient = async (id: string) => {
+    if (!confirm('Tem certeza que deseja apagar este cliente? Esta ação é irreversível.')) return;
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/clients/${id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (!response.ok) throw new Error('Falha ao apagar cliente');
+      
+      setClients(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      alert('Erro ao apagar cliente');
     }
   };
 
@@ -250,13 +295,13 @@ export function AdminClients() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do Contacto (Opcional)</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Email (Opcional)</label>
                   <input 
-                    type="text" 
-                    placeholder="João Silva"
+                    type="email" 
+                    placeholder="email@empresa.com"
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm"
-                    value={newClient.contact_name}
-                    onChange={e => setNewClient({...newClient, contact_name: e.target.value})}
+                    value={newClient.email}
+                    onChange={e => setNewClient({...newClient, email: e.target.value})}
                   />
                 </div>
                 <button 
@@ -266,6 +311,81 @@ export function AdminClients() {
                 >
                   {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : "Criar Cliente Trial"}
                 </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {editingClient && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h3 className="font-bold text-slate-900">Editar Cliente: {editingClient.company_name}</h3>
+                <button onClick={() => setEditingClient(null)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <form onSubmit={handleUpdateClient} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Empresa</label>
+                    <input 
+                      type="text" 
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm"
+                      value={editingClient.company_name}
+                      onChange={e => setEditingClient({...editingClient, company_name: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Email</label>
+                    <input 
+                      type="email" 
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm"
+                      value={editingClient.email || ''}
+                      onChange={e => setEditingClient({...editingClient, email: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Telefone</label>
+                  <input 
+                    type="text" 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm"
+                    value={editingClient.phone || ''}
+                    onChange={e => setEditingClient({...editingClient, phone: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Instruções do Bot (Prompt)</label>
+                  <textarea 
+                    rows={6}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm font-mono"
+                    value={editingClient.bot_instructions || ''}
+                    onChange={e => setEditingClient({...editingClient, bot_instructions: e.target.value})}
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button 
+                    type="button"
+                    onClick={() => setEditingClient(null)}
+                    className="flex-1 px-6 py-4 border border-slate-200 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={creating}
+                    className="flex-2 bg-primary text-white px-8 py-4 rounded-2xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : "Guardar Alterações"}
+                  </button>
+                </div>
               </form>
             </motion.div>
           </div>
@@ -366,6 +486,20 @@ export function AdminClients() {
                         title="Ver Tickets"
                       >
                         <ClipboardList className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => setEditingClient(client)}
+                        className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-blue-500 transition-all shadow-sm"
+                        title="Editar Cliente"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteClient(client.id)}
+                        className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-red-500 transition-all shadow-sm"
+                        title="Apagar Cliente"
+                      >
+                        <XCircle className="w-4 h-4" />
                       </button>
                     </div>
                   </td>

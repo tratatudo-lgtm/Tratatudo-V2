@@ -43,6 +43,7 @@ export function Instance() {
   const { user } = useAuth();
   const [data, setData] = useState<{ instance: InstanceData | null; stats: Stats } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchInstanceData = async () => {
@@ -89,6 +90,23 @@ export function Instance() {
       setError(err.message || 'Erro desconhecido');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const syncInstance = async () => {
+    try {
+      setSyncing(true);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/client/instance/sync`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        await fetchInstanceData();
+      }
+    } catch (err) {
+      console.error('[APP] Sync failed:', err);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -238,11 +256,22 @@ export function Instance() {
 
           {/* Action Footer */}
           <div className="bg-slate-50/50 p-6 border-t border-slate-100 flex flex-col sm:flex-row gap-4">
-            <button className="flex-1 bg-white border border-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
-              <RefreshCw className="w-4 h-4" /> Reiniciar Instância
+            <button 
+              onClick={fetchInstanceData}
+              className="flex-1 bg-white border border-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+            >
+              <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} /> Atualizar Dados
             </button>
-            <button className="flex-1 bg-primary text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all flex items-center justify-center gap-2">
-              <Zap className="w-4 h-4" /> Sincronizar Agora
+            <button 
+              onClick={syncInstance}
+              disabled={syncing}
+              className={cn(
+                "flex-1 bg-primary text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all flex items-center justify-center gap-2",
+                syncing && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+              {syncing ? 'A Sincronizar...' : 'Sincronizar Agora'}
             </button>
           </div>
         </motion.div>
