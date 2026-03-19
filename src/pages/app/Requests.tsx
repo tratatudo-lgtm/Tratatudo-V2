@@ -1,25 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ClipboardList, 
-  Search, 
-  Filter, 
-  Plus, 
-  MoreVertical, 
-  CheckCircle2, 
-  Clock, 
-  AlertCircle,
+import {
+  ClipboardList,
+  Search,
+  Plus,
   ChevronRight,
   X,
   MessageSquare,
-  History,
   FileText,
-  ArrowRight,
   ShieldAlert,
   Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, extractArrayResponse } from '../../lib/utils';
-import { LoadingState, ErrorState, EmptyState } from '../../components/States';
+import { LoadingState, ErrorState } from '../../components/States';
 
 interface Ticket {
   id: string;
@@ -41,6 +34,70 @@ interface TicketMessage {
   created_at: string;
 }
 
+function normalizeTicket(raw: any): Ticket {
+  return {
+    id: String(raw?.id ?? ''),
+    tracking_code: String(
+      raw?.tracking_code ??
+      raw?.numero_pedido ??
+      raw?.code ??
+      `TICKET-${raw?.id ?? 'N/A'}`
+    ),
+    type: String(
+      raw?.type ??
+      raw?.kind ??
+      raw?.tipo ??
+      raw?.category ??
+      'Pedido'
+    ),
+    subject: String(
+      raw?.subject ??
+      raw?.assunto ??
+      raw?.category ??
+      raw?.kind ??
+      'Sem assunto'
+    ),
+    description: String(
+      raw?.description ??
+      raw?.descricao ??
+      raw?.content ??
+      ''
+    ),
+    status: String(
+      raw?.status ??
+      'Aberto'
+    ),
+    priority: String(
+      raw?.priority ??
+      raw?.prioridade ??
+      'Média'
+    ),
+    created_at: String(
+      raw?.created_at ??
+      raw?.data_criacao ??
+      new Date().toISOString()
+    ),
+    updated_at: raw?.updated_at ? String(raw.updated_at) : undefined,
+  };
+}
+
+function normalizeTicketMessage(raw: any): TicketMessage {
+  return {
+    id: String(raw?.id ?? ''),
+    ticket_id: String(raw?.ticket_id ?? ''),
+    sender_type:
+      raw?.sender_type === 'user' || raw?.sender_type === 'agent' || raw?.sender_type === 'bot'
+        ? raw.sender_type
+        : raw?.role === 'user'
+        ? 'user'
+        : raw?.role === 'agent'
+        ? 'agent'
+        : 'bot',
+    text: String(raw?.text ?? raw?.content ?? ''),
+    created_at: String(raw?.created_at ?? new Date().toISOString()),
+  };
+}
+
 export function Requests() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -57,32 +114,38 @@ export function Requests() {
       `${import.meta.env.VITE_API_URL}/api/tickets`,
       `${import.meta.env.VITE_API_URL}/api/pedidos`
     ];
-    
-    let lastError = null;
-    
+
+    let lastError: any = null;
+
     try {
       setLoading(true);
+      setError(null);
+
       for (const url of endpoints) {
         console.log(`[APP] Fetching tickets: ${url}`);
         try {
           const res = await fetch(url, {
             credentials: 'include'
           });
-          
-          if (res.ok) {
-            const data = await res.json();
-            setTickets(extractArrayResponse<Ticket>(data, 'tickets'));
-            setLoading(false);
-            return;
-          }
+
+          if (!res.ok) continue;
+
+          const data = await res.json();
+          const extracted = extractArrayResponse<any>(data, 'tickets');
+          const normalized = extracted.map(normalizeTicket);
+
+          setTickets(normalized);
+          setLoading(false);
+          return;
         } catch (e) {
           lastError = e;
         }
       }
+
       throw lastError || new Error('Falha ao carregar tickets');
     } catch (err: any) {
       console.error('[APP] Fetch tickets failed:', err);
-      setError(err.message || 'Erro desconhecido');
+      setError(err?.message || 'Erro desconhecido');
     } finally {
       setLoading(false);
     }
@@ -91,19 +154,25 @@ export function Requests() {
   const fetchTicketMessages = async (ticketId: string) => {
     const url = `${import.meta.env.VITE_API_URL}/api/tickets/${ticketId}/messages`;
     console.log(`[APP] Fetching messages for ticket ${ticketId}: ${url}`);
+
     try {
       setLoadingMessages(true);
+
       const res = await fetch(url, {
         credentials: 'include'
       });
+
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.message || errorData.error || 'Falha ao carregar mensagens do ticket');
       }
+
       const data = await res.json();
-      setMessages(extractArrayResponse<TicketMessage>(data, 'messages'));
+      const extracted = extractArrayResponse<any>(data, 'messages');
+      setMessages(extracted.map(normalizeTicketMessage));
     } catch (err: any) {
       console.error(`[APP] Fetch ticket messages failed for ${ticketId}:`, err);
+      setMessages([]);
     } finally {
       setLoadingMessages(false);
     }
@@ -125,25 +194,33 @@ export function Requests() {
 
   const filters = ['Todos', 'Em aberto', 'Em análise', 'Resolvidos', 'Reclamações', 'Pedidos'];
 
-  const filteredTickets = tickets.filter(t => {
-    const matchesSearch = t.tracking_code.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         t.subject.toLowerCase().includes(searchQuery.toLowerCase());
-    
+  const filteredTickets = tickets.filter((t) => {
+    const trackingCode = String(t.tracking_code || '');
+    const subject = String(t.subject || '');
+    const status = String(t.status || '');
+    const type = String(t.type || '');
+
+    const matchesSearch =
+      trackingCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      subject.toLowerCase().includes(searchQuery.toLowerCase());
+
     if (filter === 'Todos') return matchesSearch;
-    if (filter === 'Em aberto') return matchesSearch && t.status.toLowerCase() === 'aberto';
-    if (filter === 'Em análise') return matchesSearch && t.status.toLowerCase() === 'em análise';
-    if (filter === 'Resolvidos') return matchesSearch && t.status.toLowerCase() === 'resolvido';
-    if (filter === 'Reclamações') return matchesSearch && t.type.toLowerCase() === 'reclamação';
-    if (filter === 'Pedidos') return matchesSearch && t.type.toLowerCase() === 'pedido';
-    
+    if (filter === 'Em aberto') return matchesSearch && status.toLowerCase() === 'aberto';
+    if (filter === 'Em análise') return matchesSearch && status.toLowerCase() === 'em análise';
+    if (filter === 'Resolvidos') return matchesSearch && status.toLowerCase() === 'resolvido';
+    if (filter === 'Reclamações') return matchesSearch && type.toLowerCase() === 'reclamação';
+    if (filter === 'Pedidos') return matchesSearch && type.toLowerCase() === 'pedido';
+
     return matchesSearch;
   });
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('pt-PT', { 
-      day: '2-digit', 
-      month: 'short', 
+    if (Number.isNaN(date.getTime())) return 'Data inválida';
+
+    return date.toLocaleDateString('pt-PT', {
+      day: '2-digit',
+      month: 'short',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -156,9 +233,9 @@ export function Requests() {
 
   if (error) {
     return (
-      <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
+      <div className="h-[calc(100vh-10rem)] flex flex-col items-center justify-center">
         <ErrorState message={error} />
-        <button 
+        <button
           onClick={fetchTickets}
           className="mt-4 bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-primary/90 transition-all"
         >
@@ -170,7 +247,6 @@ export function Requests() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold text-slate-900">Pedidos e Solicitações</h1>
@@ -181,14 +257,13 @@ export function Requests() {
         </button>
       </div>
 
-      {/* Filters & Search */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Pesquisar por código ou assunto..." 
+            <input
+              type="text"
+              placeholder="Pesquisar por código ou assunto..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary transition-all"
@@ -201,8 +276,8 @@ export function Requests() {
                 onClick={() => setFilter(f)}
                 className={cn(
                   "px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all",
-                  filter === f 
-                    ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                  filter === f
+                    ? "bg-primary text-white shadow-lg shadow-primary/20"
                     : "bg-slate-50 text-slate-600 hover:bg-slate-100"
                 )}
               >
@@ -213,7 +288,6 @@ export function Requests() {
         </div>
       </div>
 
-      {/* Main Table/List */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           {filteredTickets.length === 0 ? (
@@ -236,81 +310,97 @@ export function Requests() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
-                {filteredTickets.map((req) => (
-                  <tr 
-                    key={req.id} 
-                    className={cn(
-                      "hover:bg-slate-50 transition-colors group cursor-pointer",
-                      req.priority.toLowerCase() === 'alta' && req.status.toLowerCase() !== 'resolvido' ? "bg-red-50/30" : ""
-                    )}
-                    onClick={() => setSelectedId(req.id)}
-                  >
-                    <td className="px-6 py-4 font-mono font-bold text-slate-900">{req.tracking_code}</td>
-                    <td className="px-6 py-4">
-                      <span className={cn(
-                        "text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider",
-                        req.type.toLowerCase() === 'pedido' ? "bg-blue-50 text-blue-600" :
-                        req.type.toLowerCase() === 'reclamação' ? "bg-red-50 text-red-600" :
-                        "bg-slate-100 text-slate-600"
-                      )}>
-                        {req.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-medium text-slate-700 max-w-xs truncate">{req.subject}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className={cn(
-                          "w-2 h-2 rounded-full",
-                          req.status.toLowerCase() === 'aberto' ? "bg-orange-500" :
-                          req.status.toLowerCase() === 'em análise' ? "bg-blue-500" :
-                          "bg-green-500"
-                        )}></div>
-                        <span className="font-medium text-slate-600">{req.status}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={cn(
-                        "text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider",
-                        req.priority.toLowerCase() === 'alta' ? "bg-red-500 text-white" :
-                        req.priority.toLowerCase() === 'média' ? "bg-orange-50 text-orange-600" :
-                        "bg-slate-100 text-slate-600"
-                      )}>
-                        {req.priority}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-400">{formatDate(req.created_at).split(',')[0]}</td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="p-2 text-slate-400 hover:bg-white hover:text-primary rounded-lg transition-all shadow-sm border border-transparent hover:border-slate-200">
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filteredTickets.map((req) => {
+                  const priority = String(req.priority || 'Média');
+                  const status = String(req.status || 'Aberto');
+                  const type = String(req.type || 'Pedido');
+
+                  return (
+                    <tr
+                      key={req.id}
+                      className={cn(
+                        "hover:bg-slate-50 transition-colors group cursor-pointer",
+                        priority.toLowerCase() === 'alta' && status.toLowerCase() !== 'resolvido' ? "bg-red-50/30" : ""
+                      )}
+                      onClick={() => setSelectedId(req.id)}
+                    >
+                      <td className="px-6 py-4 font-mono font-bold text-slate-900">{req.tracking_code}</td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider",
+                            type.toLowerCase() === 'pedido'
+                              ? "bg-blue-50 text-blue-600"
+                              : type.toLowerCase() === 'reclamação'
+                              ? "bg-red-50 text-red-600"
+                              : "bg-slate-100 text-slate-600"
+                          )}
+                        >
+                          {type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 font-medium text-slate-700 max-w-xs truncate">{req.subject}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={cn(
+                              "w-2 h-2 rounded-full",
+                              status.toLowerCase() === 'aberto'
+                                ? "bg-orange-500"
+                                : status.toLowerCase() === 'em análise'
+                                ? "bg-blue-500"
+                                : "bg-green-500"
+                            )}
+                          />
+                          <span className="font-medium text-slate-600">{status}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider",
+                            priority.toLowerCase() === 'alta'
+                              ? "bg-red-500 text-white"
+                              : priority.toLowerCase() === 'média'
+                              ? "bg-orange-50 text-orange-600"
+                              : "bg-slate-100 text-slate-600"
+                          )}
+                        >
+                          {priority}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-xs text-slate-400">{formatDate(req.created_at).split(',')[0]}</td>
+                      <td className="px-6 py-4 text-right">
+                        <button className="p-2 text-slate-400 hover:bg-white hover:text-primary rounded-lg transition-all shadow-sm border border-transparent hover:border-slate-200">
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
         </div>
       </div>
 
-      {/* Detail Side Panel */}
       <AnimatePresence>
         {selectedId && selectedRequest && (
           <>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedId(null)}
               className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40"
             />
-            <motion.div 
+            <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className="fixed right-0 top-0 bottom-0 w-full max-w-xl bg-white shadow-2xl z-50 flex flex-col"
             >
-              {/* Detail Header */}
               <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -321,7 +411,7 @@ export function Requests() {
                     <p className="text-xs text-slate-500">Detalhes do Ticket</p>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setSelectedId(null)}
                   className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
                 >
@@ -329,29 +419,34 @@ export function Requests() {
                 </button>
               </div>
 
-              {/* Detail Content */}
               <div className="flex-1 overflow-y-auto p-6 space-y-8">
-                {/* Status & Priority Badges */}
                 <div className="flex flex-wrap gap-3">
                   <div className="bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100 flex items-center gap-2">
-                    <div className={cn(
-                      "w-2 h-2 rounded-full",
-                      selectedRequest.status.toLowerCase() === 'aberto' ? "bg-orange-500" :
-                      selectedRequest.status.toLowerCase() === 'em análise' ? "bg-blue-500" :
-                      "bg-green-500"
-                    )}></div>
+                    <div
+                      className={cn(
+                        "w-2 h-2 rounded-full",
+                        selectedRequest.status.toLowerCase() === 'aberto'
+                          ? "bg-orange-500"
+                          : selectedRequest.status.toLowerCase() === 'em análise'
+                          ? "bg-blue-500"
+                          : "bg-green-500"
+                      )}
+                    />
                     <span className="text-xs font-bold text-slate-700">{selectedRequest.status}</span>
                   </div>
-                  <div className={cn(
-                    "px-4 py-2 rounded-2xl border flex items-center gap-2",
-                    selectedRequest.priority.toLowerCase() === 'alta' ? "bg-red-50 border-red-100 text-red-600" : "bg-slate-50 border-slate-100 text-slate-600"
-                  )}>
+                  <div
+                    className={cn(
+                      "px-4 py-2 rounded-2xl border flex items-center gap-2",
+                      selectedRequest.priority.toLowerCase() === 'alta'
+                        ? "bg-red-50 border-red-100 text-red-600"
+                        : "bg-slate-50 border-slate-100 text-slate-600"
+                    )}
+                  >
                     <ShieldAlert className="w-3.5 h-3.5" />
                     <span className="text-xs font-bold">Prioridade {selectedRequest.priority}</span>
                   </div>
                 </div>
 
-                {/* Info Grid */}
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tipo</p>
@@ -363,7 +458,6 @@ export function Requests() {
                   </div>
                 </div>
 
-                {/* Description */}
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Assunto & Descrição</p>
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
@@ -372,7 +466,6 @@ export function Requests() {
                   </div>
                 </div>
 
-                {/* Associated Messages */}
                 <div>
                   <div className="flex items-center gap-2 mb-4">
                     <MessageSquare className="w-4 h-4 text-slate-400" />
@@ -385,12 +478,20 @@ export function Requests() {
                   ) : messages.length > 0 ? (
                     <div className="space-y-3">
                       {messages.map((m) => (
-                        <div key={m.id} className={cn(
-                          "p-3 rounded-xl text-xs max-w-[90%]",
-                          m.sender_type === 'user' ? "bg-slate-100 text-slate-700" : "bg-primary text-white ml-auto"
-                        )}>
+                        <div
+                          key={m.id}
+                          className={cn(
+                            "p-3 rounded-xl text-xs max-w-[90%]",
+                            m.sender_type === 'user' ? "bg-slate-100 text-slate-700" : "bg-primary text-white ml-auto"
+                          )}
+                        >
                           <p>{m.text}</p>
-                          <p className={cn("text-[8px] mt-1 text-right", m.sender_type === 'user' ? "text-slate-400" : "text-white/60")}>
+                          <p
+                            className={cn(
+                              "text-[8px] mt-1 text-right",
+                              m.sender_type === 'user' ? "text-slate-400" : "text-white/60"
+                            )}
+                          >
                             {formatDate(m.created_at).split(',')[1]?.trim() || formatDate(m.created_at)}
                           </p>
                         </div>
@@ -401,17 +502,15 @@ export function Requests() {
                   )}
                 </div>
 
-                {/* Observations */}
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Observações Internas</p>
-                  <textarea 
+                  <textarea
                     placeholder="Adicione uma nota interna..."
                     className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-primary min-h-[100px] transition-all"
                   />
                 </div>
               </div>
 
-              {/* Detail Footer */}
               <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3">
                 <button className="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all">
                   Resolver Pedido
