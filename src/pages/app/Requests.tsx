@@ -124,7 +124,7 @@ export function Requests() {
       });
       if (!res.ok) throw new Error('Falha na análise de IA');
       const data = await res.json();
-      setAnalysis(data);
+      setAnalysis(data?.analysis || null);
     } catch (err: any) {
       console.error('[APP] AI Analysis failed:', err);
     } finally {
