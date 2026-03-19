@@ -39,11 +39,66 @@ async function startServer() {
   const PORT = Number(process.env.PORT || 3002);
 
   app.use(cors({
-    origin: true, // Allow all origins for now, or specify Vercel URL
+    origin: ["https://app.tratatudo.pt", "https://tratatudo.pt", "https://www.tratatudo.pt"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Cookie"]
   }));
+
+  // 11.2. Stripe Webhook - MUST be before express.json() to use raw body
+  app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req: any, res) => {
+    const sig = req.headers["stripe-signature"];
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET || "");
+    } catch (err: any) {
+      console.error("[STRIPE WEBHOOK ERROR]", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event
+    switch (event.type) {
+      case "checkout.session.completed":
+        const session = event.data.object as any;
+        const clientId = session.metadata.clientId;
+        const customerId = session.customer;
+        const subscriptionId = session.subscription;
+
+        // Update client and subscription
+        await supabase
+          .from("clients")
+          .update({ 
+            stripe_customer_id: customerId,
+            status: 'active'
+          })
+          .eq("id", clientId);
+
+        await supabase
+          .from("subscriptions")
+          .upsert({
+            client_id: clientId,
+            stripe_subscription_id: subscriptionId,
+            status: 'active',
+            plan: 'Pro', // Default to Pro for now, can be derived from priceId
+            updated_at: new Date().toISOString()
+          });
+        
+        console.log(`[STRIPE] Checkout completed for client ${clientId}`);
+        break;
+      
+      case "customer.subscription.deleted":
+        const subDeleted = event.data.object as any;
+        await supabase
+          .from("subscriptions")
+          .update({ status: 'canceled' })
+          .eq("stripe_subscription_id", subDeleted.id);
+        break;
+    }
+
+    res.json({ received: true });
+  });
+
   app.use(express.json());
   app.use(cookieParser());
 
@@ -125,12 +180,14 @@ async function startServer() {
 
   // 1. Send OTP Code
   app.post("/api/auth/send-otp", async (req, res) => {
-    const { phone_e164 } = req.body;
+    let { phone_e164 } = req.body;
     if (!phone_e164) {
       return res.status(400).json({ ok: false, error: "Número de WhatsApp é obrigatório." });
     }
 
-    // Validate format (simple check)
+    phone_e164 = normalizePhone(phone_e164);
+
+    // Validate format
     if (!phone_e164.startsWith("+") || phone_e164.length < 10) {
       return res.status(400).json({ ok: false, error: "Formato de número inválido. Use +351..." });
     }
@@ -165,7 +222,24 @@ async function startServer() {
     }
 
     // --- REAL WHATSAPP LOGIC ---
-    console.log(`[WHATSAPP OTP] Código ${code} para ${phone_e164}`);
+    try {
+      // Use "hub" as clientId for OTPs if no client is found yet, or just a generic sender
+      // Actually, we need a clientId to get an instance. For OTPs, we usually use the HUB instance.
+      // We'll use a special "system" or "hub" clientId if needed, or just call the API directly.
+      // Since sendWhatsAppNotification needs a clientId, we'll try to find the client first.
+      const { data: client } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("phone_e164", phone_e164)
+        .single();
+      
+      const effectiveClientId = client?.id || "hub"; // Fallback to hub instance
+      await sendWhatsAppNotification(effectiveClientId, phone_e164, `O seu código de acesso TrataTudo é: ${code}. Válido por 10 minutos.`);
+      console.log(`[WHATSAPP OTP] Código enviado para ${phone_e164}`);
+    } catch (err) {
+      console.error("[OTP SEND ERROR]", err);
+      // We don't fail the request if notification fails, but we log it
+    }
     // ---------------------------
 
     res.json({ ok: true, message: "Código enviado com sucesso!" });
@@ -173,10 +247,12 @@ async function startServer() {
 
   // 2. Verify OTP Code
   app.post("/api/auth/verify-otp", async (req, res) => {
-    const { phone_e164, code } = req.body;
+    let { phone_e164, code } = req.body;
     if (!phone_e164 || !code) {
       return res.status(400).json({ ok: false, error: "Número e código são obrigatórios." });
     }
+
+    phone_e164 = normalizePhone(phone_e164);
 
     const { data: otp, error: fetchError } = await supabase
       .from("auth_otps")
@@ -310,7 +386,7 @@ async function startServer() {
       // Get tickets by day for the last 30 days
       const { data: tickets, error: ticketsError } = await supabase
         .from('tickets')
-        .select('created_at, type, status')
+        .select('created_at, kind, status')
         .eq('client_id', clientId)
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: true });
@@ -331,7 +407,7 @@ async function startServer() {
         const dateStr = new Date(t.created_at).toISOString().split('T')[0];
         if (dailyStats[dateStr]) {
           dailyStats[dateStr].tickets++;
-          if (t.type?.toLowerCase() === 'reclamação') dailyStats[dateStr].complaints++;
+          if (t.kind?.toLowerCase() === 'reclamação') dailyStats[dateStr].complaints++;
           if (t.status?.toLowerCase() === 'resolvido') dailyStats[dateStr].resolved++;
         }
       });
@@ -345,9 +421,9 @@ async function startServer() {
 
       // Distribution by type
       const typeDistribution = {
-        pedido: tickets?.filter(t => t.type?.toLowerCase() === 'pedido').length || 0,
-        reclamacao: tickets?.filter(t => t.type?.toLowerCase() === 'reclamação').length || 0,
-        outro: tickets?.filter(t => t.type?.toLowerCase() !== 'pedido' && t.type?.toLowerCase() !== 'reclamação').length || 0
+        pedido: tickets?.filter(t => t.kind?.toLowerCase() === 'pedido').length || 0,
+        reclamacao: tickets?.filter(t => t.kind?.toLowerCase() === 'reclamação').length || 0,
+        outro: tickets?.filter(t => t.kind?.toLowerCase() !== 'pedido' && t.kind?.toLowerCase() !== 'reclamação').length || 0
       };
 
       res.json({
@@ -675,7 +751,7 @@ async function startServer() {
 
       // Call Groq AI
       const prompt = `Analise o seguinte ticket de suporte e as mensagens trocadas.
-Ticket: ${ticket.subject} (${ticket.type})
+Ticket: ${ticket.subject} (${ticket.kind})
 Prioridade: ${ticket.priority}
 Status: ${ticket.status}
 
@@ -1278,23 +1354,6 @@ Responda APENAS em formato JSON com os seguintes campos:
   });
 
   // 11. Admin Client Management
-  app.get("/api/admin/clients", requireAdminSession, async (req: any, res) => {
-    try {
-      const { data: clients, error } = await supabase
-        .from("clients")
-        .select(`
-          *,
-          subscriptions (*)
-        `)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      res.json({ ok: true, clients });
-    } catch (err: any) {
-      res.status(500).json({ ok: false, error: err.message });
-    }
-  });
-
   app.post("/api/admin/clients", requireAdminSession, async (req: any, res) => {
     const { company_name, email, phone_e164, status, bot_instructions } = req.body;
     try {
@@ -1604,6 +1663,15 @@ Responda APENAS em formato JSON com os seguintes campos:
   });
 
   // --- HELPERS ---
+
+  function normalizePhone(phone: string): string {
+    if (!phone) return "";
+    let cleaned = phone.replace(/\D/g, "");
+    if (cleaned.startsWith("351") && cleaned.length === 9) return "+" + cleaned;
+    if (cleaned.length === 9) return "+351" + cleaned;
+    if (!cleaned.startsWith("+") && cleaned.length > 0) return "+" + cleaned;
+    return phone;
+  }
 
   async function sendWhatsAppNotification(clientId: string, phone: string, text: string) {
     try {
@@ -1989,8 +2057,9 @@ Responda APENAS em formato JSON com os seguintes campos:
     res.json(alerts);
   });
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  startServer().catch(err => {
+    console.error("CRITICAL: Failed to start server:", err);
+    process.exit(1);
   });
 }
 
