@@ -13,7 +13,8 @@ import {
   AlertCircle,
   ChevronRight,
   ArrowLeft,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { cn, extractArrayResponse } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -48,6 +49,8 @@ export function Messages() {
   const [isMobileListOpen, setIsMobileListOpen] = useState(true);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
+  const [chatSummary, setChatSummary] = useState<any>(null);
   const { user } = useAuth();
   const clientId = user?.client_id;
 
@@ -98,6 +101,7 @@ export function Messages() {
     console.log(`[APP] Fetching history for ${phone}: ${url}`);
     try {
       setLoadingHistory(true);
+      setChatSummary(null); // Reset summary when changing conversation
       const res = await fetch(url, {
         credentials: 'include'
       });
@@ -111,6 +115,27 @@ export function Messages() {
       console.error(`[APP] Fetch history failed for ${phone}:`, err);
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  const summarizeChat = async () => {
+    if (!selectedPhone || summarizing) return;
+    try {
+      setSummarizing(true);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/client/ai/summarize-chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: selectedPhone }),
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setChatSummary(data);
+      }
+    } catch (err) {
+      console.error("[APP] Chat summary failed:", err);
+    } finally {
+      setSummarizing(false);
     }
   };
 
@@ -359,6 +384,17 @@ export function Messages() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button 
+                    onClick={summarizeChat}
+                    disabled={summarizing}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-xl text-[10px] font-bold hover:bg-slate-800 transition-all shadow-sm",
+                      summarizing && "opacity-50"
+                    )}
+                  >
+                    {summarizing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Bot className="w-3 h-3 text-primary" />}
+                    {summarizing ? 'A resumir...' : 'Resumo IA'}
+                  </button>
                   <button className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg transition-colors">
                     <Smartphone className="w-5 h-5" />
                   </button>
@@ -370,6 +406,48 @@ export function Messages() {
 
               {/* Messages Area */}
               <div className="flex-1 p-6 overflow-y-auto space-y-6">
+                {/* AI Summary Card */}
+                <AnimatePresence>
+                  {chatSummary && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mb-6"
+                    >
+                      <div className="bg-slate-900 rounded-2xl p-4 text-white shadow-lg border border-primary/20 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl"></div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Bot className="w-4 h-4 text-primary" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Resumo da Conversa</span>
+                          </div>
+                          <button onClick={() => setChatSummary(null)} className="text-slate-500 hover:text-white transition-colors">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="space-y-3">
+                          <p className="text-xs text-slate-300 leading-relaxed">{chatSummary?.summary}</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                              <p className="text-[8px] font-bold text-primary uppercase tracking-widest mb-1">Problema Principal</p>
+                              <p className="text-[10px] text-slate-300">{chatSummary?.main_issue}</p>
+                            </div>
+                            <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                              <p className="text-[8px] font-bold text-primary uppercase tracking-widest mb-1">Sentimento</p>
+                              <p className="text-[10px] text-slate-300">{chatSummary?.sentiment}</p>
+                            </div>
+                          </div>
+                          <div className="p-2 bg-primary/10 rounded-lg border border-primary/20">
+                            <p className="text-[8px] font-bold text-primary uppercase tracking-widest mb-1">Sugestão de Resposta</p>
+                            <p className="text-[10px] text-slate-200 italic">"{chatSummary?.suggested_reply}"</p>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 {loadingHistory ? (
                   <div className="flex justify-center py-12">
                     <Loader2 className="w-8 h-8 text-primary animate-spin" />

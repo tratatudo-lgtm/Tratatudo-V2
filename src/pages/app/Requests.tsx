@@ -124,7 +124,7 @@ export function Requests() {
       });
       if (!res.ok) throw new Error('Falha na análise de IA');
       const data = await res.json();
-      setAnalysis(data.analysis);
+      setAnalysis(data);
     } catch (err: any) {
       console.error('[APP] AI Analysis failed:', err);
     } finally {
@@ -404,25 +404,31 @@ export function Requests() {
                       >
                         <div className="p-3 bg-white/5 rounded-xl border border-white/10">
                           <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Resumo</p>
-                          <p className="text-xs text-slate-300 leading-relaxed">{analysis.summary}</p>
+                          <p className="text-xs text-slate-300 leading-relaxed">{analysis?.summary}</p>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div className="p-3 bg-white/5 rounded-xl border border-white/10">
                             <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Causa Provável</p>
-                            <p className="text-xs text-slate-300">{analysis.probable_cause}</p>
+                            <p className="text-xs text-slate-300">{analysis?.probable_cause}</p>
                           </div>
                           <div className="p-3 bg-white/5 rounded-xl border border-white/10">
                             <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Sentimento</p>
-                            <p className="text-xs text-slate-300 capitalize">{analysis.sentiment}</p>
+                            <p className="text-xs text-slate-300 capitalize">{analysis?.sentiment}</p>
                           </div>
                         </div>
                         <div className="p-3 bg-white/5 rounded-xl border border-white/10">
                           <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Solução Sugerida</p>
-                          <p className="text-xs text-slate-300 leading-relaxed">{analysis.suggested_solution}</p>
+                          <p className="text-xs text-slate-300 leading-relaxed">{analysis?.suggested_solution}</p>
                         </div>
                         <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
                           <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Próximos Passos</p>
-                          <p className="text-xs text-emerald-100">{analysis.next_steps}</p>
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {Array.isArray(analysis?.next_steps) ? analysis?.next_steps.map((step: string, i: number) => (
+                              <span key={i} className="px-2 py-0.5 bg-white/10 rounded-md text-[9px] text-emerald-100 border border-white/5">
+                                {step}
+                              </span>
+                            )) : <p className="text-xs text-emerald-100">{analysis?.next_steps}</p>}
+                          </div>
                         </div>
                       </motion.div>
                     ) : (

@@ -58,7 +58,8 @@ export function AdminInstances() {
   const { logout } = useAdminAuth();
 
   const fetchInstances = async () => {
-    const url = `${import.meta.env.VITE_API_URL}/api/admin/instances`;
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    const url = `${baseUrl}/api/admin/instances`;
     console.log(`[ADMIN] Fetching instances: ${url}`);
     try {
       setLoading(true);

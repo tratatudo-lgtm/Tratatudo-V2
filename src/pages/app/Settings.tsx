@@ -46,9 +46,10 @@ export function Settings() {
   });
 
   const fetchSettings = async () => {
+    const baseUrl = import.meta.env.VITE_API_URL || '';
     const endpoints = [
-      `${import.meta.env.VITE_API_URL}/api/client/settings`,
-      `${import.meta.env.VITE_API_URL}/api/settings`
+      `${baseUrl}/api/client/settings`,
+      `${baseUrl}/api/settings`
     ];
     
     let lastError = null;
@@ -95,7 +96,8 @@ export function Settings() {
   }, []);
 
   const handleSave = async () => {
-    const url = `${import.meta.env.VITE_API_URL}/api/client/settings`;
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    const url = `${baseUrl}/api/client/settings`;
     console.log(`[APP] Saving client settings: ${url}`);
     try {
       setSaving(true);

@@ -350,7 +350,7 @@ export function AdminDashboard() {
               </Link>
             </div>
             <div className="divide-y divide-slate-50">
-              {data?.recentActivity.map((item, i) => (
+              {data?.recentActivity?.map((item, i) => (
                 <div key={i} className="p-6 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className={cn(

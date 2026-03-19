@@ -63,7 +63,8 @@ export function AdminClients() {
   const { logout } = useAdminAuth();
 
   const fetchClients = async () => {
-    const url = `${import.meta.env.VITE_API_URL}/api/admin/clients`;
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    const url = `${baseUrl}/api/admin/clients`;
     console.log(`[ADMIN] Fetching clients: ${url}`);
     try {
       setLoading(true);

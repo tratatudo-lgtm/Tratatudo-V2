@@ -792,6 +792,125 @@ Responda APENAS em formato JSON com os seguintes campos:
     }
   });
 
+  // 9.2. AI General Insights (Dashboard/Global)
+  app.post("/api/client/ai/insights", requireClientSession, aiRateLimiter, async (req: any, res) => {
+    const clientId = req.clientId;
+    const { context } = req.body; // 'dashboard', 'messages', etc.
+
+    try {
+      // Gather context data
+      const { data: stats } = await supabase.rpc('get_client_stats', { p_client_id: clientId });
+      const { data: recentTickets } = await supabase
+        .from("tickets")
+        .select("*")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      
+      const { data: recentMessages } = await supabase
+        .from("wa_messages")
+        .select("*")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      const prompt = `És um consultor de IA para o TrataTudo. Analisa os dados operacionais do cliente e fornece 3 insights curtos e acionáveis.
+Contexto: ${context || 'geral'}
+Estatísticas: ${JSON.stringify(stats || {})}
+Tickets Recentes: ${JSON.stringify(recentTickets || [])}
+Mensagens Recentes: ${JSON.stringify(recentMessages || [])}
+
+Responda APENAS em formato JSON com os seguintes campos:
+{
+  "insights": [
+    {"title": "título curto", "description": "descrição curta", "type": "info/warning/success/error"},
+    ...
+  ],
+  "summary": "resumo geral da operação em uma frase"
+}`;
+
+      const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: prompt }],
+          response_format: { type: "json_object" }
+        })
+      });
+
+      if (!groqRes.ok) throw new Error("Erro ao contactar Groq AI");
+      const groqData = await groqRes.json();
+      const analysis = JSON.parse(groqData.choices[0].message.content);
+
+      res.json({ ok: true, ...analysis });
+    } catch (err: any) {
+      console.error("[AI INSIGHTS ERROR]", err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // 9.3. AI Summarize Conversation
+  app.post("/api/client/ai/summarize-chat", requireClientSession, aiRateLimiter, async (req: any, res) => {
+    const clientId = req.clientId;
+    const { phone } = req.body;
+
+    if (!phone) return res.status(400).json({ ok: false, error: "Telefone obrigatório" });
+
+    try {
+      const { data: messages } = await supabase
+        .from("wa_messages")
+        .select("*")
+        .eq("client_id", clientId)
+        .eq("phone_e164", phone)
+        .order("created_at", { ascending: false })
+        .limit(30);
+
+      if (!messages || messages.length === 0) {
+        return res.json({ ok: true, summary: "Sem mensagens para resumir." });
+      }
+
+      const prompt = `Resume a seguinte conversa de WhatsApp entre a empresa e o cliente ${phone}.
+Identifica o problema principal, o estado atual e o sentimento do cliente.
+
+Mensagens (da mais recente para a mais antiga):
+${messages.map(m => `${m.direction === 'inbound' ? 'Cliente' : 'Empresa/Bot'}: ${m.text}`).join('\n')}
+
+Responda APENAS em formato JSON:
+{
+  "summary": "resumo executivo",
+  "main_issue": "problema principal",
+  "sentiment": "Positivo/Negativo/Neutro",
+  "suggested_reply": "sugestão de resposta para o agente"
+}`;
+
+      const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: prompt }],
+          response_format: { type: "json_object" }
+        })
+      });
+
+      if (!groqRes.ok) throw new Error("Erro ao contactar Groq AI");
+      const groqData = await groqRes.json();
+      const analysis = JSON.parse(groqData.choices[0].message.content);
+
+      res.json({ ok: true, ...analysis });
+    } catch (err: any) {
+      console.error("[AI CHAT SUMMARIZE ERROR]", err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   // 10. Get Instance Details
   app.get("/api/client/instance", requireClientSession, async (req: any, res) => {
     const clientId = req.clientId;

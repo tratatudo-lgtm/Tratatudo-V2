@@ -218,51 +218,51 @@ export function Subscription() {
               </div>
 
               {/* Usage Section */}
-              <div className="space-y-8">
-                <div>
-                  <div className="flex justify-between items-end mb-3">
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <MessageSquare className="w-4 h-4 text-primary" /> Mensagens Processadas
-                      </h4>
-                      <p className="text-xs text-slate-500">Utilização este mês</p>
-                    </div>
-                    <span className="text-sm font-bold text-slate-900">
-                      {usage.messages.toLocaleString()} <span className="text-slate-400 font-normal">/ {messageLimit.toLocaleString()}</span>
-                    </span>
+            <div className="p-8 space-y-8">
+              <div>
+                <div className="flex justify-between items-end mb-3">
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-primary" /> Mensagens Processadas
+                    </h4>
+                    <p className="text-xs text-slate-500">Utilização este mês</p>
                   </div>
-                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${messageProgress}%` }}
-                      transition={{ duration: 1, ease: "easeOut" }}
-                      className={cn(
-                        "h-full rounded-full",
-                        messageProgress > 90 ? "bg-red-500" : messageProgress > 70 ? "bg-orange-500" : "bg-primary"
-                      )}
-                    ></motion.div>
-                  </div>
+                  <span className="text-sm font-bold text-slate-900">
+                    {usage?.messages?.toLocaleString() || '0'} <span className="text-slate-400 font-normal">/ {messageLimit.toLocaleString()}</span>
+                  </span>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <ClipboardList className="w-5 h-5 text-orange-500" />
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Limite: N/A</span>
-                    </div>
-                    <p className="text-2xl font-bold text-slate-900">{usage.tickets}</p>
-                    <p className="text-xs text-slate-500 font-medium">Pedidos Gerados</p>
-                  </div>
-                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <AlertCircle className="w-5 h-5 text-red-500" />
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Limite: N/A</span>
-                    </div>
-                    <p className="text-2xl font-bold text-slate-900">{usage.complaints}</p>
-                    <p className="text-xs text-slate-500 font-medium">Reclamações Registadas</p>
-                  </div>
+                <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${messageProgress}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className={cn(
+                      "h-full rounded-full",
+                      messageProgress > 90 ? "bg-red-500" : messageProgress > 70 ? "bg-orange-500" : "bg-primary"
+                    )}
+                  ></motion.div>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <ClipboardList className="w-5 h-5 text-orange-500" />
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Limite: N/A</span>
+                  </div>
+                  <p className="text-2xl font-bold text-slate-900">{usage?.tickets || 0}</p>
+                  <p className="text-xs text-slate-500 font-medium">Pedidos Gerados</p>
+                </div>
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Limite: N/A</span>
+                  </div>
+                  <p className="text-2xl font-bold text-slate-900">{usage?.complaints || 0}</p>
+                  <p className="text-xs text-slate-500 font-medium">Reclamações Registadas</p>
+                </div>
+              </div>
+            </div>
             </div>
 
             {/* Actions Footer */}

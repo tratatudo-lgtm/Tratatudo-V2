@@ -84,6 +84,28 @@ export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [aiInsights, setAiInsights] = useState<{ insights: any[], summary: string } | null>(null);
+  const [loadingAI, setLoadingAI] = useState(false);
+
+  const fetchAIInsights = async () => {
+    try {
+      setLoadingAI(true);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/client/ai/insights`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context: 'dashboard' }),
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiInsights(data);
+      }
+    } catch (err) {
+      console.error("[APP] AI Insights failed:", err);
+    } finally {
+      setLoadingAI(false);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -129,6 +151,7 @@ export function Dashboard() {
 
             setData(mappedData);
             setLoading(false);
+            fetchAIInsights();
             return;
           }
         } catch (err: any) {
@@ -239,6 +262,82 @@ export function Dashboard() {
           Última atualização: {new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
         </div>
       </div>
+
+      {/* AI Insights Section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-2xl"
+      >
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2"></div>
+        
+        <div className="relative z-10">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/20 rounded-2xl border border-primary/30">
+                <Bot className="w-8 h-8 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Assistente de IA TrataTudo</h2>
+                <p className="text-slate-400 text-sm">Insights inteligentes sobre a sua operação em tempo real.</p>
+              </div>
+            </div>
+            <button 
+              onClick={fetchAIInsights}
+              disabled={loadingAI}
+              className={cn(
+                "px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all flex items-center justify-center gap-2",
+                loadingAI && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {loadingAI ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+              {loadingAI ? 'A analisar...' : 'Atualizar Insights'}
+            </button>
+          </div>
+
+          {aiInsights ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {aiInsights.insights?.map((insight: any, idx: number) => (
+                <motion.div 
+                  key={idx}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: idx * 0.1 }}
+                  className={cn(
+                    "p-5 rounded-2xl border backdrop-blur-sm transition-all hover:scale-[1.02]",
+                    insight.type === 'warning' ? "bg-orange-500/10 border-orange-500/20" :
+                    insight.type === 'error' ? "bg-red-500/10 border-red-500/20" :
+                    insight.type === 'success' ? "bg-emerald-500/10 border-emerald-500/20" :
+                    "bg-white/5 border-white/10"
+                  )}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className={cn(
+                      "w-2 h-2 rounded-full",
+                      insight.type === 'warning' ? "bg-orange-500" :
+                      insight.type === 'error' ? "bg-red-500" :
+                      insight.type === 'success' ? "bg-emerald-500" :
+                      "bg-primary"
+                    )}></div>
+                    <h4 className="font-bold text-sm">{insight.title}</h4>
+                  </div>
+                  <p className="text-xs text-slate-300 leading-relaxed">{insight.description}</p>
+                </motion.div>
+              ))}
+              <div className="md:col-span-3 mt-4 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                <p className="text-sm text-slate-300 italic">"{aiInsights.summary}"</p>
+              </div>
+            </div>
+          ) : (
+            <div className="p-12 text-center bg-white/5 rounded-3xl border border-white/10 border-dashed">
+              <Bot className="w-12 h-12 text-slate-600 mx-auto mb-4 opacity-20" />
+              <p className="text-slate-400 text-sm">Clica em "Atualizar Insights" para gerar uma análise da tua operação.</p>
+            </div>
+          )}
+        </div>
+      </motion.div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -421,7 +520,7 @@ export function Dashboard() {
               <button className="text-xs text-primary font-bold hover:underline">Ver histórico completo</button>
             </div>
             <div className="divide-y divide-slate-50">
-              {data?.activity.map((item, i) => (
+              {data?.activity?.map((item, i) => (
                 <div key={i} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
                   <div className={cn(
                     "p-2 rounded-lg bg-slate-50",
