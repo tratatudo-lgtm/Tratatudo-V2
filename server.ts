@@ -10,7 +10,19 @@ import rateLimit from "express-rate-limit";
 
 // Initialize Supabase
 const supabaseUrl = process.env.SUPABASE_URL || "";
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || "";
+
+// Use Service Role Key for backend operations to bypass RLS
+const supabaseKey = supabaseServiceKey || supabaseAnonKey;
+const isServiceRole = !!supabaseServiceKey;
+
+console.log("[SUPABASE INIT]", {
+  url: supabaseUrl ? "Present" : "MISSING",
+  keyType: isServiceRole ? "SERVICE_ROLE" : "ANON_KEY",
+  hasKey: !!supabaseKey
+});
+
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Initialize Groq
@@ -31,8 +43,13 @@ const aiRateLimiter = rateLimit({
 });
 
 const JWT_SECRET = process.env.JWT_SECRET || "tratatudo-v2-secret-key-2026";
-const EVO_URL = process.env.EVO_URL || "";
+const EVO_URL = (process.env.EVO_URL || "").replace(/\/$/, ""); // Remove trailing slash
 const EVO_KEY = process.env.EVO_KEY || "";
+
+console.log("[EVO INIT]", {
+  url: EVO_URL ? "Present" : "MISSING",
+  hasKey: !!EVO_KEY
+});
 
 async function startServer() {
   const app = express();
@@ -219,9 +236,21 @@ async function startServer() {
     if (dbError) {
       console.error("[OTP DB ERROR]", {
         error: dbError,
+        code: dbError.code,
+        message: dbError.message,
         phone_e164,
-        expires_at: expiresAt
+        isServiceRole
       });
+      
+      // Specific error for permission denied
+      if (dbError.message?.includes("permission denied")) {
+        return res.status(500).json({ 
+          ok: false, 
+          error: "Erro de permissão na base de dados. Contacte o suporte.",
+          details: "Permission denied on auth_otps"
+        });
+      }
+
       return res.status(500).json({ 
         ok: false, 
         error: "Erro interno ao gerar código",
@@ -634,15 +663,13 @@ async function startServer() {
         return res.status(400).json({ ok: false, error: "Instância não encontrada ou offline" });
       }
 
-      const EVO_URL = process.env.EVO_URL;
-      const EVO_KEY = process.env.EVO_KEY;
-
+      // Send via Evolution API
       if (!EVO_URL || !EVO_KEY) {
         return res.status(500).json({ ok: false, error: "Configuração do WhatsApp em falta" });
       }
 
-      // Send via Evolution API
-      const evoRes = await fetch(`${EVO_URL}/message/sendText/${instance.instance_name}`, {
+      const encodedInstance = encodeURIComponent(instance.instance_name);
+      const evoRes = await fetch(`${EVO_URL}/message/sendText/${encodedInstance}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1000,8 +1027,10 @@ Responda APENAS em formato JSON:
 
       if (!instance) return res.status(404).json({ ok: false, error: "Instância não encontrada." });
 
+      if (!EVO_URL || !EVO_KEY) throw new Error("Configuração da Evolution API em falta");
+
       // Call Evolution API
-      const evoRes = await fetch(`${EVO_URL}/instance/connectionState/${instance.instance_name}`, {
+      const evoRes = await fetch(`${EVO_URL}/instance/connectionState/${encodeURIComponent(instance.instance_name)}`, {
         headers: { "apikey": EVO_KEY }
       });
 
@@ -1655,8 +1684,6 @@ Responda APENAS em formato JSON:
       if (fetchError || !client) throw new Error("Cliente não encontrado");
 
       const privateInstanceName = `prod-${String(id).replace(/[^a-zA-Z0-9]/g, '')}`;
-      const EVO_URL = process.env.EVO_URL;
-      const EVO_KEY = process.env.EVO_KEY;
 
       if (!EVO_URL || !EVO_KEY) throw new Error("Configuração da Evolution API em falta");
 
@@ -1720,10 +1747,12 @@ Responda APENAS em formato JSON:
       } catch (dbErr) {
         // Compensating logic: Delete the just-created instance in Evolution if DB update fails
         console.error("[ACTIVATE PRODUCTION ERROR] DB update failed, deleting orphan instance:", dbErr);
-        await fetch(`${EVO_URL}/instance/delete/${privateInstanceName}`, {
-          method: 'DELETE',
-          headers: { 'apikey': EVO_KEY }
-        }).catch(e => console.error("[CLEANUP ERROR] Failed to delete orphan instance:", e));
+        if (EVO_URL && EVO_KEY) {
+          await fetch(`${EVO_URL}/instance/delete/${encodeURIComponent(privateInstanceName)}`, {
+            method: 'DELETE',
+            headers: { 'apikey': EVO_KEY }
+          }).catch(e => console.error("[CLEANUP ERROR] Failed to delete orphan instance:", e));
+        }
         
         throw dbErr;
       }
@@ -1745,8 +1774,6 @@ Responda APENAS em formato JSON:
     if (!client_id) return res.status(400).json({ ok: false, error: "client_id é obrigatório." });
 
     const instance_name = `client-${client_id}`;
-    const EVO_URL = process.env.EVO_URL;
-    const EVO_KEY = process.env.EVO_KEY;
 
     if (!EVO_URL || !EVO_KEY) {
       return res.status(500).json({ ok: false, error: "Configuração da Evolution API em falta (EVO_URL/EVO_KEY)." });
@@ -1818,30 +1845,43 @@ Responda APENAS em formato JSON:
 
       const instanceName = instance?.instance_name || "TrataTudo bot";
 
-      console.log("[OTP DEBUG]", {
+      console.log("[OTP DEBUG] Notification Attempt", {
         phone_e164: phone,
         instanceName,
-        clientId
+        clientId,
+        EVO_URL: EVO_URL ? "Present" : "MISSING"
       });
 
-      if (EVO_URL && EVO_KEY) {
-        const response = await fetch(`${EVO_URL}/message/sendText/${instanceName}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': EVO_KEY
-          },
-          body: JSON.stringify({
-            number: phone.replace("+", ""),
-            text: text,
-            delay: 1000
-          })
-        });
+      if (!EVO_URL || !EVO_KEY) {
+        throw new Error("Evolution API configuration missing (EVO_URL or EVO_KEY)");
+      }
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Evolution API error: ${response.status} - ${errorText}`);
-        }
+      const encodedInstance = encodeURIComponent(instanceName);
+      const url = `${EVO_URL}/message/sendText/${encodedInstance}`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVO_KEY
+        },
+        body: JSON.stringify({
+          number: phone.replace("+", ""),
+          text: text,
+          delay: 1000
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[EVO API ERROR]", {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+          url
+        });
+        throw new Error(`Evolution API error: ${response.status} - ${errorText}`);
+      }
 
         // Save to wa_messages
         await supabase.from("wa_messages").insert({
@@ -1851,7 +1891,6 @@ Responda APENAS em formato JSON:
           direction: "outbound",
           text: text
         });
-      }
     } catch (err) {
       console.error("[NOTIFICATION ERROR]", err);
       throw err; // Re-throw to be caught by the caller
@@ -2088,11 +2127,8 @@ Responda APENAS em formato JSON:
       }
 
       // Send response back via Evolution API
-      const EVO_URL = process.env.EVO_URL;
-      const EVO_KEY = process.env.EVO_KEY;
-
       if (EVO_URL && EVO_KEY) {
-        await fetch(`${EVO_URL}/message/sendText/${instance}`, {
+        await fetch(`${EVO_URL}/message/sendText/${encodeURIComponent(instance)}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -2121,9 +2157,6 @@ Responda APENAS em formato JSON:
 
   // 15. Evolution API: Health Check & Sync
   const checkInstancesHealth = async () => {
-    const EVO_URL = process.env.EVO_URL;
-    const EVO_KEY = process.env.EVO_KEY;
-
     if (!EVO_URL || !EVO_KEY) return;
 
     try {
