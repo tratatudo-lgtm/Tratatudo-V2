@@ -90,16 +90,24 @@ export function Dashboard() {
   const fetchAIInsights = async () => {
     try {
       setLoadingAI(true);
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/client/ai/insights`, {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${baseUrl}/api/client/ai/insights`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ context: 'dashboard' }),
         credentials: 'include'
       });
-      if (res.ok) {
-        const data = await res.json();
-        setAiInsights(data);
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao gerar insights');
       }
+
+      const data = await res.json();
+      setAiInsights({
+        insights: Array.isArray(data?.insights) ? data.insights : [],
+        summary: data?.summary || ''
+      });
     } catch (err) {
       console.error("[APP] AI Insights failed:", err);
     } finally {

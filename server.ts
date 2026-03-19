@@ -920,6 +920,127 @@ Responda APENAS em formato JSON com os seguintes campos:
     }
   });
 
+
+  // 9.2. AI Dashboard Insights
+  app.post("/api/client/ai/insights", requireClientSession, aiRateLimiter, async (req: any, res) => {
+    const clientId = req.clientId;
+    try {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const { count: totalMessages } = await supabase
+        .from("wa_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("client_id", clientId);
+
+      const { count: messagesToday } = await supabase
+        .from("wa_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("client_id", clientId)
+        .gt("created_at", startOfDay.toISOString());
+
+      const { count: totalTickets } = await supabase
+        .from("tickets")
+        .select("*", { count: "exact", head: true })
+        .eq("client_id", clientId);
+
+      const { count: openTickets } = await supabase
+        .from("tickets")
+        .select("*", { count: "exact", head: true })
+        .eq("client_id", clientId)
+        .in("status", ["aberto", "em análise", "pendente"]);
+
+      const { count: complaints } = await supabase
+        .from("tickets")
+        .select("*", { count: "exact", head: true })
+        .eq("client_id", clientId)
+        .eq("kind", "reclamação");
+
+      const { data: recentTickets } = await supabase
+        .from("tickets")
+        .select("subject, status, priority, kind, created_at")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      const fallback = {
+        insights: [
+          {
+            type: openTickets && openTickets > 0 ? "warning" : "success",
+            title: "Estado dos pedidos",
+            description: openTickets && openTickets > 0
+              ? `Tem ${openTickets} pedido(s) ainda em aberto.`
+              : "Não existem pedidos pendentes neste momento."
+          },
+          {
+            type: messagesToday && messagesToday > 0 ? "info" : "warning",
+            title: "Atividade de hoje",
+            description: `Foram processadas ${messagesToday || 0} mensagem(ns) hoje.`
+          },
+          {
+            type: complaints && complaints > 0 ? "warning" : "success",
+            title: "Reclamações",
+            description: complaints && complaints > 0
+              ? `Existem ${complaints} reclamação(ões) registadas.`
+              : "Não existem reclamações registadas."
+          }
+        ],
+        summary: `Operação com ${totalMessages || 0} mensagens, ${totalTickets || 0} tickets e ${openTickets || 0} pedidos em aberto.`
+      };
+
+      if (!process.env.GROQ_API_KEY) {
+        return res.json({ ok: true, ...fallback });
+      }
+
+      const prompt = `Analisa a operação de um cliente TrataTudo e devolve APENAS JSON com:
+{
+  "insights": [
+    { "type": "info|warning|success|error", "title": "titulo curto", "description": "descrição curta" },
+    { "type": "info|warning|success|error", "title": "titulo curto", "description": "descrição curta" },
+    { "type": "info|warning|success|error", "title": "titulo curto", "description": "descrição curta" }
+  ],
+  "summary": "resumo executivo curto"
+}
+
+Contexto:
+- totalMessages: ${totalMessages || 0}
+- messagesToday: ${messagesToday || 0}
+- totalTickets: ${totalTickets || 0}
+- openTickets: ${openTickets || 0}
+- complaints: ${complaints || 0}
+- recentTickets: ${JSON.stringify(recentTickets || [])}`;
+
+      const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: prompt }],
+          response_format: { type: "json_object" }
+        })
+      });
+
+      if (!groqRes.ok) {
+        return res.json({ ok: true, ...fallback });
+      }
+
+      const groqData = await groqRes.json();
+      const parsed = JSON.parse(groqData.choices[0].message.content);
+
+      return res.json({
+        ok: true,
+        insights: Array.isArray(parsed?.insights) ? parsed.insights : fallback.insights,
+        summary: parsed?.summary || fallback.summary
+      });
+    } catch (err: any) {
+      console.error("[AI INSIGHTS ERROR]", err);
+      return res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   // 10. Get Instance Details
   app.get("/api/client/instance", requireClientSession, async (req: any, res) => {
     const clientId = req.clientId;
