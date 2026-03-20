@@ -188,31 +188,6 @@ export function Requests() {
     }
   };
 
-  const updateTicketStatus = async (ticketId: string, newStatus: string) => {
-    try {
-      const baseUrl = import.meta.env.VITE_API_URL || '';
-      const res = await fetch(`${baseUrl}/api/client/tickets/${ticketId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-        credentials: 'include'
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Falha ao atualizar estado');
-      }
-
-      const data = await res.json();
-      const updatedTicket = data?.ticket;
-
-      if (updatedTicket) {
-        setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: updatedTicket.status } : t));
-      }
-    } catch (err) {
-      console.error('[APP] Update ticket status failed:', err);
-    }
-  };
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
