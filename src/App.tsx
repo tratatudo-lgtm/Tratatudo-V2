@@ -55,7 +55,11 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
               </svg>
             </div>
             <h1 className="text-2xl font-black text-slate-900 mb-2">ERRO DEBUG 777</h1>
-            <p className="text-slate-600 mb-8">Ocorreu um erro inesperado na aplicação. Por favor, recarregue a página.</p>
+            <p className="text-slate-600 mb-4">Ocorreu um erro inesperado na aplicação.</p>
+            <div className="mb-6 p-3 rounded-xl bg-red-50 border border-red-200 text-left">
+              <p className="text-xs font-bold text-red-700 mb-1">Erro técnico</p>
+              <pre className="text-[11px] text-red-800 whitespace-pre-wrap break-words">{String(this.state?.error?.message || 'Sem detalhe')}</pre>
+            </div>
             <button 
               onClick={() => window.location.reload()}
               className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20"
