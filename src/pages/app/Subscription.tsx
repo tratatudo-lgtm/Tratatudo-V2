@@ -42,6 +42,8 @@ const benefits = [
   'Relatórios mensais detalhados'
 ];
 
+
+
 export function Subscription() {
   const [data, setData] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -312,7 +314,36 @@ export function Subscription() {
               <p className="text-slate-400 text-sm leading-relaxed mb-8">
                 A nossa equipa de suporte está disponível para o ajudar a tirar o máximo partido do TrataTudo.
               </p>
-              <button className="w-full bg-white text-slate-900 py-4 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group">
+              <button
+                className="w-full bg-white text-slate-900 py-4 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group"
+                onClick={async () => {
+                  const description = window.prompt('Descreve o problema ou pedido de suporte:');
+                  if (!description || !description.trim()) return;
+
+                  try {
+                    const res = await fetch('https://api.tratatudo.pt/api/client/tickets', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({
+                        type: 'suporte',
+                        subject: 'Pedido de suporte',
+                        description,
+                        priority: 'alta'
+                      })
+                    });
+
+                    if (!res.ok) {
+                      const errorData = await res.json().catch(() => ({}));
+                      throw new Error(errorData.error || 'Falha ao criar pedido de suporte');
+                    }
+
+                    alert('Pedido de suporte enviado com sucesso.');
+                  } catch (e) {
+                    alert('Erro ao enviar pedido de suporte.');
+                  }
+                }}
+              >
                 Contactar Suporte <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
