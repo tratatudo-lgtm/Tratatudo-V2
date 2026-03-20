@@ -58,7 +58,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
             <p className="text-slate-600 mb-4">Ocorreu um erro inesperado na aplicação.</p>
             <div className="mb-6 p-3 rounded-xl bg-red-50 border border-red-200 text-left">
               <p className="text-xs font-bold text-red-700 mb-1">Erro técnico</p>
-              <pre className="text-[11px] text-red-800 whitespace-pre-wrap break-words">{String(this.state?.error?.message || 'Sem detalhe')}</pre>
+              <pre className="text-[11px] text-red-800 whitespace-pre-wrap break-words">'Erro capturado - ver consola'</pre>
             </div>
             <button 
               onClick={() => window.location.reload()}
