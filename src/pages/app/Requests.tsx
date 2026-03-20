@@ -150,16 +150,20 @@ export function Requests() {
   const filters = ['Todos', 'Em aberto', 'Em análise', 'Resolvidos', 'Reclamações', 'Pedidos'];
 
   const filteredTickets = tickets.filter(t => {
-    const matchesSearch = t.tracking_code.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         t.subject.toLowerCase().includes(searchQuery.toLowerCase());
-    
+    const trackingCode = String(t.tracking_code || '').toLowerCase();
+    const subject = String(t.subject || '').toLowerCase();
+    const status = String(t.status || '').toLowerCase();
+    const type = String(t.type || '').toLowerCase();
+    const q = searchQuery.toLowerCase();
+
+    const matchesSearch = trackingCode.includes(q) || subject.includes(q);
+
     if (filter === 'Todos') return matchesSearch;
-    if (filter === 'Em aberto') return matchesSearch && t.status.toLowerCase() === 'aberto';
-    if (filter === 'Em análise') return matchesSearch && t.status.toLowerCase() === 'em análise';
-    if (filter === 'Resolvidos') return matchesSearch && t.status.toLowerCase() === 'resolvido';
-    if (filter === 'Reclamações') return matchesSearch && t.type.toLowerCase() === 'reclamação';
-    if (filter === 'Pedidos') return matchesSearch && t.type.toLowerCase() === 'pedido';
-    
+    if (filter === 'Em aberto') return matchesSearch && status === 'aberto';
+    if (filter === 'Em análise') return matchesSearch && status === 'em análise';
+    if (filter === 'Resolvidos') return matchesSearch && status === 'resolvido';
+    if (filter === 'Reclamações') return matchesSearch && (type === 'reclamação' || type === 'reclamacao');
+    if (filter === 'Pedidos') return matchesSearch && type === 'pedido';
     return matchesSearch;
   });
 
