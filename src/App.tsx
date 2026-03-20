@@ -9,9 +9,6 @@ import { AdminLayout } from './components/admin/AdminLayout';
 // Auth & Protection
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
-import { AuthProvider } from './lib/auth/AuthContext';
-import { AdminAuthProvider } from './lib/auth/AdminAuthContext';
-import { NotificationProvider } from './components/NotificationProvider';
 
 // Public Pages
 import { Home } from './pages/Home';
@@ -22,7 +19,6 @@ import { AdminLogin } from './pages/admin/Login';
 import { Dashboard } from './pages/app/Dashboard';
 import { Messages } from './pages/app/Messages';
 import { Requests } from './pages/app/Requests';
-import { Instance } from './pages/app/Instance';
 import Subscription from './pages/app/Subscription';
 import { Settings } from './pages/app/Settings';
 
@@ -83,67 +79,55 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <AdminAuthProvider>
-          <NotificationProvider>
-            <BrowserRouter>
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/admin/login" element={<AdminLogin />} />
+      <BrowserRouter>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
 
-                {/* App Routes (Client Hub) */}
-                <Route 
-                  path="/app" 
-                  element={
-                    <ProtectedRoute>
-                      <AppLayout>
-                        <Outlet />
-                      </AppLayout>
-                    </ProtectedRoute>
-                  }
-                >
-                  <Route index element={<Navigate to="dashboard" replace />} />
-                  <Route path="dashboard" element={<Dashboard />} />
-                  <Route path="messages" element={<Messages />} />
-                  <Route path="mensagens" element={<Messages />} />
-                  <Route path="tickets" element={<Requests />} />
-                  <Route path="pedidos" element={<Requests />} />
-                  <Route path="instance" element={<Instance />} />
-                  <Route path="instancia" element={<Instance />} />
-                  <Route path="subscription" element={<Subscription />} />
-                  <Route path="subscricao" element={<Subscription />} />
-                  <Route path="settings" element={<Settings />} />
-                  <Route path="definicoes" element={<Settings />} />
-                </Route>
+          {/* App Routes (Client Hub) */}
+          <Route 
+            path="/app" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Outlet />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="messages" element={<Messages />} />
+            <Route path="tickets" element={<Requests />} />
+            <Route path="subscription" element={<Subscription />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
 
-                {/* Admin Routes */}
-                <Route 
-                  path="/admin" 
-                  element={
-                    <AdminProtectedRoute>
-                      <AdminLayout>
-                        <Outlet />
-                      </AdminLayout>
-                    </AdminProtectedRoute>
-                  }
-                >
-                  <Route index element={<Navigate to="dashboard" replace />} />
-                  <Route path="dashboard" element={<AdminDashboard />} />
-                  <Route path="clients" element={<AdminClients />} />
-                  <Route path="instances" element={<AdminInstances />} />
-                  <Route path="tickets" element={<AdminTickets />} />
-                  <Route path="subscriptions" element={<AdminSubscriptions />} />
-                </Route>
+          {/* Admin Routes */}
+          <Route 
+            path="/admin" 
+            element={
+              <AdminProtectedRoute>
+                <AdminLayout>
+                  <Outlet />
+                </AdminLayout>
+              </AdminProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="clients" element={<AdminClients />} />
+            <Route path="instances" element={<AdminInstances />} />
+            <Route path="tickets" element={<AdminTickets />} />
+            <Route path="subscriptions" element={<AdminSubscriptions />} />
+          </Route>
 
-                {/* Fallback */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </BrowserRouter>
-          </NotificationProvider>
-        </AdminAuthProvider>
-      </AuthProvider>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
     </ErrorBoundary>
   );
 }
