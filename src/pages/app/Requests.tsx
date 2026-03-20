@@ -101,6 +101,7 @@ export function Requests() {
       const res = await fetch(url, {
         credentials: 'include'
       });
+      alert(`STATUS response -> ${res.status}`);
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.message || errorData.error || 'Falha ao carregar mensagens do ticket');
@@ -164,8 +165,11 @@ export function Requests() {
 
   const updateTicketStatus = async (ticketId: string, newStatus: string) => {
         try {
+      alert(`STATUS click -> ${newStatus} ${ticketId}`);
       const baseUrl = 'https://api.tratatudo.pt';
-      const res = await fetch(`${baseUrl}/api/client/tickets/${ticketId}/status`, {
+      const url = `${baseUrl}/api/client/tickets/${ticketId}/status`;
+      alert(`STATUS url -> ${url}`);
+      const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),

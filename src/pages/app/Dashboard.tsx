@@ -90,7 +90,7 @@ export function Dashboard() {
   const fetchAIInsights = async () => {
     try {
       setLoadingAI(true);
-      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const baseUrl = 'https://api.tratatudo.pt';
       const res = await fetch(`${baseUrl}/api/client/ai/insights`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
