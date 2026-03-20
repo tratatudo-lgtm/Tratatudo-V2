@@ -22,6 +22,7 @@ import { AdminLogin } from './pages/admin/Login';
 import { Dashboard } from './pages/app/Dashboard';
 import { Messages } from './pages/app/Messages';
 import { Requests } from './pages/app/Requests';
+import { Instance } from './pages/app/Instance';
 import Subscription from './pages/app/Subscription';
 import { Settings } from './pages/app/Settings';
 
@@ -106,9 +107,15 @@ function App() {
                   <Route index element={<Navigate to="dashboard" replace />} />
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="messages" element={<Messages />} />
+                  <Route path="mensagens" element={<Messages />} />
                   <Route path="tickets" element={<Requests />} />
+                  <Route path="pedidos" element={<Requests />} />
+                  <Route path="instance" element={<Instance />} />
+                  <Route path="instancia" element={<Instance />} />
                   <Route path="subscription" element={<Subscription />} />
+                  <Route path="subscricao" element={<Subscription />} />
                   <Route path="settings" element={<Settings />} />
+                  <Route path="definicoes" element={<Settings />} />
                 </Route>
 
                 {/* Admin Routes */}
