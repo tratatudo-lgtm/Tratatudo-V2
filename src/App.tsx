@@ -94,11 +94,7 @@ function App() {
           <Route 
             path="/app" 
             element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Outlet />
-                </AppLayout>
-              </ProtectedRoute>
+              <AppLayout><Outlet /></AppLayout>
             }
           >
             <Route index element={<Navigate to="dashboard" replace />} />
@@ -113,11 +109,7 @@ function App() {
           <Route 
             path="/admin" 
             element={
-              <AdminProtectedRoute>
-                <AdminLayout>
-                  <Outlet />
-                </AdminLayout>
-              </AdminProtectedRoute>
+              <AdminLayout><Outlet /></AdminLayout>
             }
           >
             <Route index element={<Navigate to="dashboard" replace />} />
