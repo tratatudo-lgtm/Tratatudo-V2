@@ -54,6 +54,14 @@ export function Requests() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('Todos');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showNewTicketModal, setShowNewTicketModal] = useState(false);
+  const [creatingTicket, setCreatingTicket] = useState(false);
+  const [newTicket, setNewTicket] = useState({
+    type: 'pedido',
+    subject: '',
+    description: '',
+    priority: 'média'
+  });
 
   const fetchTickets = async () => {
     const endpoints = [
@@ -75,7 +83,12 @@ export function Requests() {
           
           if (res.ok) {
             const data = await res.json();
-            setTickets(extractArrayResponse<Ticket>(data, 'tickets'));
+            const rawTickets = extractArrayResponse<any>(data, 'tickets');
+            const normalizedTickets = rawTickets.map((t: any) => ({
+              ...t,
+              type: t.type || t.kind || ''
+            }));
+            setTickets(normalizedTickets);
             setLoading(false);
             return;
           }
@@ -196,6 +209,51 @@ export function Requests() {
   };
 
 
+  const createTicket = async () => {
+    if (!newTicket.type || !newTicket.subject.trim() || !newTicket.description.trim()) {
+      alert('Preenche tipo, assunto e descrição.');
+      return;
+    }
+
+    try {
+      setCreatingTicket(true);
+      const baseUrl = 'https://api.tratatudo.pt';
+      const res = await fetch(`${baseUrl}/api/client/tickets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTicket),
+        credentials: 'include'
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao criar ticket');
+      }
+
+      const data = await res.json();
+      const created = data?.ticket;
+
+      if (created) {
+        const normalized = { ...created, type: created.type || created.kind || '' };
+        setTickets(prev => [normalized, ...prev]);
+        setSelectedId(created.id);
+      }
+
+      setShowNewTicketModal(false);
+      setNewTicket({
+        type: 'pedido',
+        subject: '',
+        description: '',
+        priority: 'média'
+      });
+    } catch (err) {
+      console.error('[APP] Create ticket failed:', err);
+      alert(`Erro ao criar ticket: ${String(err)}`);
+    } finally {
+      setCreatingTicket(false);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('pt-PT', { 
@@ -233,10 +291,108 @@ export function Requests() {
           <h1 className="text-2xl font-display font-bold text-slate-900">Pedidos e Solicitações</h1>
           <p className="text-slate-500">Acompanhe todos os tickets gerados pelo bot WhatsApp.</p>
         </div>
-        <button className="w-full sm:w-auto bg-primary text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 flex items-center justify-center gap-2 hover:bg-primary-dark transition-all">
+        <button
+          onClick={() => setShowNewTicketModal(true)}
+          className="w-full sm:w-auto bg-primary text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 flex items-center justify-center gap-2 hover:bg-primary-dark transition-all"
+        >
           <Plus className="w-4 h-4" /> Novo Ticket
         </button>
       </div>
+
+      <AnimatePresence>
+        {showNewTicketModal ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Novo Ticket</h3>
+                  <p className="text-sm text-slate-500">Crie um pedido ou uma reclamação manualmente.</p>
+                </div>
+                <button
+                  onClick={() => setShowNewTicketModal(false)}
+                  className="p-2 rounded-full hover:bg-slate-100 transition-all"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Tipo</label>
+                  <select
+                    value={newTicket.type}
+                    onChange={(e) => setNewTicket(prev => ({ ...prev, type: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-primary"
+                  >
+                    <option value="pedido">Pedido</option>
+                    <option value="reclamação">Reclamação</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Assunto</label>
+                  <input
+                    type="text"
+                    value={newTicket.subject}
+                    onChange={(e) => setNewTicket(prev => ({ ...prev, subject: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-primary"
+                    placeholder="Ex.: Iluminação pública avariada"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Descrição</label>
+                  <textarea
+                    value={newTicket.description}
+                    onChange={(e) => setNewTicket(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-primary min-h-[120px]"
+                    placeholder="Descreva o pedido ou reclamação..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Prioridade</label>
+                  <select
+                    value={newTicket.priority}
+                    onChange={(e) => setNewTicket(prev => ({ ...prev, priority: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-primary"
+                  >
+                    <option value="baixa">Baixa</option>
+                    <option value="média">Média</option>
+                    <option value="alta">Alta</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
+                <button
+                  onClick={() => setShowNewTicketModal(false)}
+                  className="flex-1 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 font-bold text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={createTicket}
+                  disabled={creatingTicket}
+                  className="flex-1 py-3 rounded-2xl bg-primary text-white font-bold text-sm shadow-lg shadow-primary/20 disabled:opacity-50"
+                >
+                  {creatingTicket ? 'A criar...' : 'Criar Ticket'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       {/* Filters & Search */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4">
