@@ -162,6 +162,58 @@ export function Requests() {
     return matchesSearch;
   });
 
+  const updateTicketStatus = async (ticketId: string, newStatus: string) => {
+    try {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${baseUrl}/api/client/tickets/${ticketId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+        credentials: 'include'
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao atualizar estado');
+      }
+
+      const data = await res.json();
+      const updatedTicket = data?.ticket;
+
+      if (updatedTicket) {
+        setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: updatedTicket.status } : t));
+      }
+    } catch (err) {
+      console.error('[APP] Update ticket status failed:', err);
+    }
+  };
+
+  const updateTicketStatus = async (ticketId: string, newStatus: string) => {
+    try {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${baseUrl}/api/client/tickets/${ticketId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+        credentials: 'include'
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao atualizar estado');
+      }
+
+      const data = await res.json();
+      const updatedTicket = data?.ticket;
+
+      if (updatedTicket) {
+        setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: updatedTicket.status } : t));
+      }
+    } catch (err) {
+      console.error('[APP] Update ticket status failed:', err);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('pt-PT', { 
@@ -420,6 +472,20 @@ export function Requests() {
                           <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Solução Sugerida</p>
                           <p className="text-xs text-slate-300 leading-relaxed">{analysis?.suggested_solution}</p>
                         </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Departamento</p>
+                            <p className="text-xs text-slate-300">{analysis?.department}</p>
+                          </div>
+                          <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Urgência</p>
+                            <p className="text-xs text-slate-300">{analysis?.urgency}</p>
+                          </div>
+                        </div>
+                        <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                          <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1">Ação Recomendada</p>
+                          <p className="text-xs text-amber-100 leading-relaxed">{analysis?.recommended_action}</p>
+                        </div>
                         <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
                           <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Próximos Passos</p>
                           <div className="flex flex-wrap gap-1.5 mt-2">
@@ -500,14 +566,26 @@ export function Requests() {
               </div>
 
               {/* Detail Footer */}
-              <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3">
-                <button className="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all">
-                  Resolver Pedido
+              <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3 flex-wrap">
+                <button
+                  onClick={() => updateTicketStatus(selectedRequest.id, 'em análise')}
+                  className="flex-1 min-w-[140px] py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all"
+                >
+                  Marcar em análise
                 </button>
-                <button className="px-4 py-3 border border-slate-200 rounded-xl font-bold text-sm text-slate-600 hover:bg-white transition-all">
-                  Alterar Estado
+                <button
+                  onClick={() => updateTicketStatus(selectedRequest.id, 'resolvido')}
+                  className="flex-1 min-w-[140px] py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all"
+                >
+                  Marcar resolvido
                 </button>
-              </div>
+                <button
+                  onClick={() => updateTicketStatus(selectedRequest.id, 'fechado')}
+                  className="flex-1 min-w-[140px] py-3 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-900 transition-all"
+                >
+                  Fechar ticket
+                </button>
+            </div>
             </motion.div>
           </>
         )}
