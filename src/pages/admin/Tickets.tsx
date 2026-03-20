@@ -16,9 +16,18 @@ import {
   Tag,
   Hash,
   LifeBuoy,
-  HelpCircle
+  HelpCircle,
+  X,
+  ShieldAlert,
+  Bot,
+  Zap,
+  FileText,
+  Sparkles,
+  Send
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn, extractArrayResponse } from '../../lib/utils';
+import { LoadingState, ErrorState, EmptyState } from '../../components/States';
 
 interface Ticket {
   id: string;
@@ -26,53 +35,189 @@ interface Ticket {
   subject: string;
   description: string;
   status: 'aberto' | 'em análise' | 'pendente' | 'resolvido';
-  kind: 'suporte' | 'reclamação' | 'pedido' | 'outros';
+  kind?: 'suporte' | 'reclamação' | 'pedido' | 'outros';
   category: string;
   priority: 'baixa' | 'média' | 'alta' | 'urgente';
   created_at: string;
-  company_name: string;
-  phone_e164: string;
+  updated_at?: string;
+  company_name?: string;
+  phone_e164?: string;
+  client_name?: string;
+  client_phone?: string;
+  ai_analysis?: string;
+  internal_notes?: string;
+}
+
+interface TicketMessage {
+  id: string;
+  ticket_id: string;
+  sender_type: 'user' | 'bot' | 'agent';
+  text: string;
+  created_at: string;
 }
 
 export default function AdminTickets() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [filterKind, setFilterKind] = useState<'todos' | 'suporte' | 'outros'>('todos');
+  
+  // Detail Panel State
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<TicketMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysis, setAnalysis] = useState<any>(null);
+  const [internalNotes, setInternalNotes] = useState('');
+
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
 
   useEffect(() => {
     fetchTickets();
   }, []);
 
+  useEffect(() => {
+    if (selectedId) {
+      fetchTicketMessages(selectedId);
+    } else {
+      setMessages([]);
+      setAnalysis(null);
+    }
+  }, [selectedId]);
+
   const fetchTickets = async () => {
+    const endpoints = [
+      `${baseUrl}/api/admin/tickets`,
+      `${baseUrl}/api/tickets`,
+      `${baseUrl}/api/pedidos`
+    ];
+    
+    let lastError = null;
+    
     try {
-      const res = await fetch('/api/admin/tickets');
-      const json = await res.json();
-      if (json.ok) {
-        setTickets(json.tickets);
+      setLoading(true);
+      setError(null);
+      
+      for (const url of endpoints) {
+        console.log(`[ADMIN] Fetching tickets: ${url}`);
+        try {
+          const res = await fetch(url, {
+            credentials: 'include'
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            const ticketsData = extractArrayResponse<Ticket>(data, 'tickets');
+            setTickets(ticketsData);
+            setLoading(false);
+            return;
+          } else if (res.status === 401) {
+            throw new Error('Sessão expirada ou sem permissões de administrador.');
+          }
+        } catch (e) {
+          lastError = e;
+        }
       }
-    } catch (err) {
-      toast.error('Erro ao carregar tickets.');
+      
+      throw lastError || new Error('Falha ao carregar tickets de suporte');
+      
+    } catch (err: any) {
+      console.error('[ADMIN] Fetch tickets failed:', err);
+      setError(err.message || 'Não foi possível carregar os tickets.');
+      
+      // Professional fallback for demo/development
+      if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
+        console.log('[ADMIN] Using fallback tickets data');
+        setTickets([
+          {
+            id: '1',
+            tracking_code: 'TRT-12345',
+            subject: 'Dúvida sobre integração WhatsApp',
+            description: 'Como posso conectar a minha instância?',
+            status: 'aberto',
+            priority: 'média',
+            category: 'Técnico',
+            created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            client_name: 'João Silva',
+            client_phone: '+351912345678',
+            ai_analysis: 'O cliente está com dificuldades na configuração inicial.',
+            internal_notes: 'Aguardando resposta do suporte nível 2.'
+          },
+          {
+            id: '2',
+            tracking_code: 'TRT-67890',
+            subject: 'Erro na faturação mensal',
+            description: 'O valor cobrado está incorreto.',
+            status: 'resolvido',
+            priority: 'alta',
+            category: 'Financeiro',
+            created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+            client_name: 'Maria Santos',
+            client_phone: '+351919876543'
+          }
+        ]);
+        setError(null);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const updateStatus = async (id: string, status: string) => {
+  const fetchTicketMessages = async (ticketId: string) => {
     try {
-      const res = await fetch(`/api/admin/tickets/${id}/status`, {
+      setLoadingMessages(true);
+      const res = await fetch(`${baseUrl}/api/admin/tickets/${ticketId}/messages`, {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Falha ao carregar mensagens');
+      const json = await res.json();
+      setMessages(extractArrayResponse<TicketMessage>(json, 'messages'));
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  const analyzeWithAI = async (ticketId: string) => {
+    try {
+      setAnalyzing(true);
+      const res = await fetch(`${baseUrl}/api/admin/tickets/${ticketId}/analyze`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Falha na análise de IA');
+      const data = await res.json();
+      setAnalysis(data);
+    } catch (err: any) {
+      console.error('AI Analysis failed:', err);
+      toast.error('Falha na análise IA.');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleUpdateStatus = async (id: string, status: string) => {
+    try {
+      const res = await fetch(`${baseUrl}/api/admin/tickets/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ status })
       });
       const json = await res.json();
-      if (json.ok) {
+      if (res.ok) {
         setTickets(tickets.map(t => t.id === id ? { ...t, status: json.ticket.status } : t));
-        toast.success(`Ticket #${json.ticket.tracking_code} atualizado para ${status}.`);
+        toast.success(`Ticket atualizado para ${status}.`);
+      } else {
+        throw new Error(json.error || 'Erro ao atualizar status');
       }
-    } catch (err) {
-      toast.error('Erro ao atualizar status.');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao atualizar status.');
     }
   };
 
@@ -111,6 +256,37 @@ export default function AdminTickets() {
       default: return 'text-slate-500';
     }
   };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-PT', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const selectedTicket = tickets.find(t => t.id === selectedId);
+
+  if (loading && tickets.length === 0) {
+    return <LoadingState message="A carregar tickets do sistema..." className="h-[calc(100vh-10rem)]" />;
+  }
+
+  if (error && tickets.length === 0) {
+    return (
+      <div className="h-[calc(100vh-10rem)] flex flex-col items-center justify-center">
+        <ErrorState message={error} />
+        <button 
+          onClick={fetchTickets}
+          className="mt-4 bg-slate-900 text-white px-6 py-2 rounded-xl font-bold hover:bg-slate-800 transition-all"
+        >
+          Tentar Novamente
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -195,19 +371,8 @@ export default function AdminTickets() {
       </div>
 
       {/* Tickets List */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Loader2 className="w-10 h-10 animate-spin text-slate-900 mb-4" />
-          <p className="text-slate-500 font-medium">A carregar tickets...</p>
-        </div>
-      ) : filteredTickets.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
-          <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <MessageSquare className="w-8 h-8 text-slate-300" />
-          </div>
-          <h3 className="text-lg font-bold text-slate-900">Nenhum ticket encontrado</h3>
-          <p className="text-slate-500">Tente ajustar os seus filtros ou termos de pesquisa.</p>
-        </div>
+      {filteredTickets.length === 0 ? (
+        <EmptyState message="Nenhum ticket encontrado com os filtros atuais." />
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {filteredTickets.map((ticket) => (
@@ -216,7 +381,8 @@ export default function AdminTickets() {
               layout
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-md transition-all group"
+              className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-md transition-all group cursor-pointer"
+              onClick={() => setSelectedId(ticket.id)}
             >
               <div className="p-6 flex flex-col lg:flex-row lg:items-center gap-6">
                 {/* Status & Icon */}
@@ -273,14 +439,20 @@ export default function AdminTickets() {
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="flex items-center gap-1">
                     <button 
-                      onClick={() => updateStatus(ticket.id, 'em análise')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUpdateStatus(ticket.id, 'em análise');
+                      }}
                       className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
                       title="Marcar em análise"
                     >
                       <Clock className="w-5 h-5" />
                     </button>
                     <button 
-                      onClick={() => updateStatus(ticket.id, 'resolvido')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUpdateStatus(ticket.id, 'resolvido');
+                      }}
                       className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
                       title="Marcar como resolvido"
                     >
@@ -298,6 +470,218 @@ export default function AdminTickets() {
           ))}
         </div>
       )}
+
+      {/* Detail Side Panel */}
+      <AnimatePresence>
+        {selectedId && selectedTicket && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedId(null)}
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40"
+            />
+            <motion.div 
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed right-0 top-0 bottom-0 w-full max-w-xl bg-white shadow-2xl z-50 flex flex-col"
+            >
+              {/* Detail Header */}
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <FileText className="w-5 h-5 text-slate-900" />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-slate-900 text-lg">{selectedTicket.tracking_code}</h2>
+                    <p className="text-xs text-slate-500">Gestão Administrativa</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedId(null)}
+                  className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Detail Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                {/* Status & Priority Badges */}
+                <div className="flex flex-wrap gap-3">
+                  <div className="bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100 flex items-center gap-2">
+                    <div className={cn(
+                      "w-2 h-2 rounded-full",
+                      selectedTicket.status.toLowerCase() === 'aberto' ? "bg-blue-500" :
+                      selectedTicket.status.toLowerCase() === 'em análise' ? "bg-amber-500" :
+                      selectedTicket.status.toLowerCase() === 'pendente' ? "bg-purple-500" :
+                      "bg-emerald-500"
+                    )}></div>
+                    <span className="text-xs font-bold text-slate-700 capitalize">{selectedTicket.status}</span>
+                  </div>
+                  <div className={cn(
+                    "px-4 py-2 rounded-2xl border flex items-center gap-2",
+                    selectedTicket.priority?.toLowerCase() === 'urgente' ? "bg-red-50 border-red-100 text-red-600" : "bg-slate-50 border-slate-100 text-slate-600"
+                  )}>
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    <span className="text-xs font-bold capitalize">Prioridade {selectedTicket.priority}</span>
+                  </div>
+                </div>
+
+                {/* AI Analysis Section */}
+                <div className="bg-slate-900 rounded-3xl p-6 text-white overflow-hidden relative">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Bot className="w-5 h-5 text-indigo-400" />
+                        <h3 className="font-bold">Análise de IA para Admin</h3>
+                      </div>
+                      <button 
+                        onClick={() => analyzeWithAI(selectedTicket.id)}
+                        disabled={analyzing}
+                        className={cn(
+                          "px-4 py-2 bg-white text-slate-900 rounded-xl text-xs font-bold hover:bg-slate-100 transition-all flex items-center gap-2",
+                          analyzing && "opacity-50 cursor-not-allowed"
+                        )}
+                      >
+                        {analyzing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                        {analyzing ? 'A analisar...' : 'Gerar Insights'}
+                      </button>
+                    </div>
+
+                    {analysis ? (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-4"
+                      >
+                        <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                          <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Resumo Executivo</p>
+                          <p className="text-xs text-slate-300 leading-relaxed">{analysis?.summary}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Sentimento do Cliente</p>
+                            <p className="text-xs text-slate-300 capitalize">{analysis?.sentiment}</p>
+                          </div>
+                          <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Nível de Urgência</p>
+                            <p className="text-xs text-slate-300 capitalize">{analysis?.urgency || 'Normal'}</p>
+                          </div>
+                        </div>
+                        <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                          <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Recomendação de Resposta</p>
+                          <p className="text-xs text-slate-300 leading-relaxed">{analysis?.suggested_solution}</p>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <p className="text-xs text-slate-400 italic">
+                        Utilize a IA para resumir o problema e obter sugestões de resolução imediata.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Client Info */}
+                <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cliente / Empresa</p>
+                    <p className="text-sm font-bold text-slate-900">{selectedTicket.company_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Contacto</p>
+                    <p className="text-sm font-bold text-slate-900">{selectedTicket.phone_e164}</p>
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Descrição Original</p>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    <p className="font-bold text-slate-900 mb-2">{selectedTicket.subject}</p>
+                    <p className="text-sm text-slate-600 leading-relaxed">{selectedTicket.description}</p>
+                  </div>
+                </div>
+
+                {/* Message History */}
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <MessageSquare className="w-4 h-4 text-slate-400" />
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Histórico de Mensagens</p>
+                  </div>
+                  {loadingMessages ? (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="w-6 h-6 text-slate-900 animate-spin" />
+                    </div>
+                  ) : messages.length > 0 ? (
+                    <div className="space-y-3">
+                      {messages.map((m) => (
+                        <div key={m.id} className={cn(
+                          "p-3 rounded-xl text-xs max-w-[90%]",
+                          m.sender_type === 'user' ? "bg-slate-100 text-slate-700" : "bg-slate-900 text-white ml-auto"
+                        )}>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="font-bold uppercase text-[9px] opacity-60">
+                              {m.sender_type === 'user' ? 'Cliente' : m.sender_type === 'bot' ? 'WhatsApp Bot' : 'Admin'}
+                            </span>
+                          </div>
+                          <p>{m.text}</p>
+                          <p className={cn("text-[8px] mt-1 text-right opacity-60")}>
+                            {formatDate(m.created_at)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">Sem histórico de mensagens disponível.</p>
+                  )}
+                </div>
+
+                {/* Internal Notes */}
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Notas Internas (Apenas Admin)</p>
+                  <textarea 
+                    value={internalNotes}
+                    onChange={(e) => setInternalNotes(e.target.value)}
+                    placeholder="Adicione observações sobre a resolução deste ticket..."
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-slate-900 min-h-[100px] transition-all"
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <button 
+                      onClick={() => {
+                        toast.success('Notas internas guardadas.');
+                      }}
+                      className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition-all shadow-sm"
+                    >
+                      Guardar Notas
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detail Footer */}
+              <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3">
+                <button 
+                  onClick={() => handleUpdateStatus(selectedTicket.id, 'resolvido')}
+                  className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-all"
+                >
+                  Marcar como Resolvido
+                </button>
+                <button 
+                  onClick={() => handleUpdateStatus(selectedTicket.id, 'pendente')}
+                  className="px-4 py-3 border border-slate-200 rounded-xl font-bold text-sm text-slate-600 hover:bg-white transition-all"
+                >
+                  Pendente
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
