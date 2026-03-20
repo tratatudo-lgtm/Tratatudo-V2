@@ -845,9 +845,7 @@ app.post("/api/auth/dev-login", async (req, res) => {
   app.post("/api/client/tickets/:id/analyze", requireClientSession, aiRateLimiter, async (req: any, res) => {
     const clientId = req.clientId;
     const { id } = req.params;
-
     try {
-      // Verify ownership
       const { data: ticket } = await supabase
         .from("tickets")
         .select("*")
@@ -855,44 +853,62 @@ app.post("/api/auth/dev-login", async (req, res) => {
         .eq("client_id", clientId)
         .single();
 
-      if (!ticket) return res.status(403).json({ ok: false, error: "Acesso negado." });
+      if (!ticket) {
+        return res.status(403).json({ ok: false, error: "Acesso negado." });
+      }
 
-      // Get messages
       const { data: messages } = await supabase
         .from("ticket_messages")
         .select("*")
         .eq("ticket_id", id)
         .order("created_at", { ascending: true });
 
-      if (!messages || messages.length === 0) {
-        return res.json({ 
-          ok: true, 
-          analysis: {
-            summary: "Sem mensagens suficientes para análise.",
-            probable_cause: "N/A",
-            suggested_solution: "Aguardar mais interações do cliente.",
-            next_steps: ["Aguardar mensagens"],
-            sentiment: "Neutro"
-          }
-        });
+      const fallback = {
+        summary: `Ticket sobre ${ticket.subject || 'situação reportada'}.`,
+        probable_cause: ticket.kind === 'reclamação'
+          ? "Incidente reportado pelo cliente que requer validação operacional."
+          : "Necessidade operacional a confirmar no terreno ou pelo serviço responsável.",
+        suggested_solution: "Encaminhar para o serviço responsável, validar no local e atualizar o cliente com a resolução prevista.",
+        next_steps: [
+          "Validar detalhes do pedido",
+          "Encaminhar para o departamento responsável",
+          "Definir intervenção ou resposta",
+          "Atualizar estado do ticket"
+        ],
+        sentiment: "Neutro",
+        department: ticket.kind === 'reclamação' ? "Atendimento / Operações" : "Operações / Manutenção",
+        urgency: String(ticket.priority || '').toLowerCase().includes('high') || String(ticket.priority || '').toLowerCase().includes('alta') ? "Alta" : "Normal",
+        recommended_action: "Encaminhar para a equipa responsável com prioridade adequada."
+      };
+
+      if (!process.env.GROQ_API_KEY) {
+        return res.json({ ok: true, analysis: fallback });
       }
 
-      // Call Groq AI
-      const prompt = `Analise o seguinte ticket de suporte e as mensagens trocadas.
-Ticket: ${ticket.subject} (${ticket.kind})
-Prioridade: ${ticket.priority}
-Status: ${ticket.status}
+      const messagesText = Array.isArray(messages) && messages.length > 0
+        ? messages.map(m => `${m.direction === 'inbound' ? 'Cliente' : 'Sistema/Agente'}: ${m.text}`).join('\n')
+        : 'Sem mensagens associadas';
 
+      const prompt = `Analisa o seguinte ticket de suporte e devolve uma resposta operacional útil. Mesmo que não existam mensagens, tens de analisar o assunto, descrição, prioridade, tipo e estado.
+
+Assunto: ${ticket.subject || 'Sem assunto'}
+Descrição: ${ticket.description || 'Sem descrição'}
+Tipo: ${ticket.kind || ticket.type || 'outro'}
+Prioridade: ${ticket.priority || 'Não definida'}
+Estado: ${ticket.status || 'Desconhecido'}
 Mensagens:
-${messages.map(m => `${m.direction === 'inbound' ? 'Cliente' : 'Sistema/Agente'}: ${m.text}`).join('\n')}
+${messagesText}
 
-Responda APENAS em formato JSON com os seguintes campos:
+Responde APENAS em JSON:
 {
   "summary": "resumo curto",
   "probable_cause": "causa provável",
   "suggested_solution": "solução sugerida",
   "next_steps": ["passo 1", "passo 2"],
-  "sentiment": "Positivo/Negativo/Neutro"
+  "sentiment": "Positivo/Negativo/Neutro",
+  "department": "departamento recomendado",
+  "urgency": "Baixa/Normal/Alta/Crítica",
+  "recommended_action": "ação recomendada"
 }`;
 
       const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -908,135 +924,66 @@ Responda APENAS em formato JSON com os seguintes campos:
         })
       });
 
-      if (!groqRes.ok) throw new Error("Erro ao chamar API de IA");
+      if (!groqRes.ok) {
+        return res.json({ ok: true, analysis: fallback });
+      }
 
       const groqData = await groqRes.json();
-      const analysis = JSON.parse(groqData.choices[0].message.content);
+      const parsed = JSON.parse(groqData?.choices?.[0]?.message?.content || "{}");
 
-      res.json({ ok: true, analysis });
+      const analysis = {
+        summary: parsed.summary || fallback.summary,
+        probable_cause: parsed.probable_cause || fallback.probable_cause,
+        suggested_solution: parsed.suggested_solution || fallback.suggested_solution,
+        next_steps: Array.isArray(parsed.next_steps) ? parsed.next_steps : fallback.next_steps,
+        sentiment: parsed.sentiment || fallback.sentiment,
+        department: parsed.department || fallback.department,
+        urgency: parsed.urgency || fallback.urgency,
+        recommended_action: parsed.recommended_action || fallback.recommended_action
+      };
+
+      return res.json({ ok: true, analysis });
     } catch (err: any) {
       console.error("[AI ANALYZE ERROR]", err);
-      res.status(500).json({ ok: false, error: err.message });
+      return res.status(500).json({ ok: false, error: err.message });
     }
   });
 
-
-  // 9.2. AI Dashboard Insights
-  app.post("/api/client/ai/insights", requireClientSession, aiRateLimiter, async (req: any, res) => {
+  // 9.3. Client Update Ticket Status
+  app.patch("/api/client/tickets/:id/status", requireClientSession, async (req: any, res) => {
     const clientId = req.clientId;
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const allowedStatuses = ["aberto", "em análise", "resolvido", "fechado"];
+    if (!allowedStatuses.includes(String(status || "").toLowerCase())) {
+      return res.status(400).json({ ok: false, error: "Estado inválido." });
+    }
+
     try {
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const { count: totalMessages } = await supabase
-        .from("wa_messages")
-        .select("*", { count: "exact", head: true })
-        .eq("client_id", clientId);
-
-      const { count: messagesToday } = await supabase
-        .from("wa_messages")
-        .select("*", { count: "exact", head: true })
-        .eq("client_id", clientId)
-        .gt("created_at", startOfDay.toISOString());
-
-      const { count: totalTickets } = await supabase
+      const { data: ticket } = await supabase
         .from("tickets")
-        .select("*", { count: "exact", head: true })
-        .eq("client_id", clientId);
-
-      const { count: openTickets } = await supabase
-        .from("tickets")
-        .select("*", { count: "exact", head: true })
+        .select("id")
+        .eq("id", id)
         .eq("client_id", clientId)
-        .in("status", ["aberto", "em análise", "pendente"]);
+        .single();
 
-      const { count: complaints } = await supabase
-        .from("tickets")
-        .select("*", { count: "exact", head: true })
-        .eq("client_id", clientId)
-        .eq("kind", "reclamação");
-
-      const { data: recentTickets } = await supabase
-        .from("tickets")
-        .select("subject, status, priority, kind, created_at")
-        .eq("client_id", clientId)
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      const fallback = {
-        insights: [
-          {
-            type: openTickets && openTickets > 0 ? "warning" : "success",
-            title: "Estado dos pedidos",
-            description: openTickets && openTickets > 0
-              ? `Tem ${openTickets} pedido(s) ainda em aberto.`
-              : "Não existem pedidos pendentes neste momento."
-          },
-          {
-            type: messagesToday && messagesToday > 0 ? "info" : "warning",
-            title: "Atividade de hoje",
-            description: `Foram processadas ${messagesToday || 0} mensagem(ns) hoje.`
-          },
-          {
-            type: complaints && complaints > 0 ? "warning" : "success",
-            title: "Reclamações",
-            description: complaints && complaints > 0
-              ? `Existem ${complaints} reclamação(ões) registadas.`
-              : "Não existem reclamações registadas."
-          }
-        ],
-        summary: `Operação com ${totalMessages || 0} mensagens, ${totalTickets || 0} tickets e ${openTickets || 0} pedidos em aberto.`
-      };
-
-      if (!process.env.GROQ_API_KEY) {
-        return res.json({ ok: true, ...fallback });
+      if (!ticket) {
+        return res.status(403).json({ ok: false, error: "Acesso negado." });
       }
 
-      const prompt = `Analisa a operação de um cliente TrataTudo e devolve APENAS JSON com:
-{
-  "insights": [
-    { "type": "info|warning|success|error", "title": "titulo curto", "description": "descrição curta" },
-    { "type": "info|warning|success|error", "title": "titulo curto", "description": "descrição curta" },
-    { "type": "info|warning|success|error", "title": "titulo curto", "description": "descrição curta" }
-  ],
-  "summary": "resumo executivo curto"
-}
+      const { data: updated, error } = await supabase
+        .from("tickets")
+        .update({ status })
+        .eq("id", id)
+        .eq("client_id", clientId)
+        .select("*")
+        .single();
 
-Contexto:
-- totalMessages: ${totalMessages || 0}
-- messagesToday: ${messagesToday || 0}
-- totalTickets: ${totalTickets || 0}
-- openTickets: ${openTickets || 0}
-- complaints: ${complaints || 0}
-- recentTickets: ${JSON.stringify(recentTickets || [])}`;
+      if (error) throw error;
 
-      const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" }
-        })
-      });
-
-      if (!groqRes.ok) {
-        return res.json({ ok: true, ...fallback });
-      }
-
-      const groqData = await groqRes.json();
-      const parsed = JSON.parse(groqData.choices[0].message.content);
-
-      return res.json({
-        ok: true,
-        insights: Array.isArray(parsed?.insights) ? parsed.insights : fallback.insights,
-        summary: parsed?.summary || fallback.summary
-      });
+      return res.json({ ok: true, ticket: updated });
     } catch (err: any) {
-      console.error("[AI INSIGHTS ERROR]", err);
       return res.status(500).json({ ok: false, error: err.message });
     }
   });
@@ -1406,14 +1353,14 @@ Contexto:
       // Recent activity (Real data)
       const { data: recentActivity } = await supabase
         .from("wa_messages")
-        .select("text, created_at, direction, phone_e164")
+        .select("text, created_at, direction, phone_e164, clients(company_name)")
         .order("created_at", { ascending: false })
         .limit(10);
 
       const activity = (recentActivity || []).map(m => ({
         type: 'message',
         title: `${m.direction === 'inbound' ? 'Recebida' : 'Enviada'}: ${m.text.substring(0, 30)}...`,
-        status: m.phone_e164,
+        status: (m.clients as any)?.company_name || m.phone_e164,
         created_at: m.created_at
       }));
 
