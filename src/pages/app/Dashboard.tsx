@@ -331,6 +331,15 @@ export function Dashboard() {
                     <h4 className="font-bold text-sm">{insight.title}</h4>
                   </div>
                   <p className="text-xs text-slate-300 leading-relaxed">{insight.description}</p>
+
+                  {insight.action_href ? (
+                    <a
+                      href={insight.action_href}
+                      className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                    >
+                      {insight.action_label || 'Abrir'}
+                    </a>
+                  ) : null}
                 </motion.div>
               ))}
               <div className="md:col-span-3 mt-4 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
