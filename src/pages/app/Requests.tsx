@@ -163,6 +163,7 @@ export function Requests() {
   });
 
   const updateTicketStatus = async (ticketId: string, newStatus: string) => {
+    alert(`CLICK ${newStatus} ${ticketId}`);
     try {
       const baseUrl = import.meta.env.VITE_API_URL || '';
       const res = await fetch(`${baseUrl}/api/client/tickets/${ticketId}/status`, {
