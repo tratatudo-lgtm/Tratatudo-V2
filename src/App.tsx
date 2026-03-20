@@ -1,147 +1,135 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import { Header } from './components/Header';
-import { Footer } from './components/Footer';
-import { Home } from './pages/Home';
-import { HowItWorks } from './pages/HowItWorks';
-import { Features } from './pages/Features';
-import { ForWho } from './pages/ForWho';
-import { Pricing } from './pages/Pricing';
-import { Contact } from './pages/Contact';
-import { Login } from './pages/Login';
-import { Terms } from './pages/Terms';
-import { Privacy } from './pages/Privacy';
-import { Cookies } from './pages/Cookies';
-import { ProtectedRoute } from './components/ProtectedRoute';
-import { AuthProvider } from './lib/auth/AuthContext';
-import { NotificationProvider } from './components/NotificationProvider';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Toaster } from 'sonner';
 
-import { AdminAuthProvider } from './lib/auth/AdminAuthContext';
-import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
-import { ErrorBoundary } from './components/ErrorBoundary';
-
-// App Portal Components
+// Layouts
 import { AppLayout } from './components/app/AppLayout';
+import { AdminLayout } from './components/admin/AdminLayout';
+
+// Auth & Protection
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
+
+// Public Pages
+import { Home } from './pages/Home';
+import { Login } from './pages/Login';
+import { AdminLogin } from './pages/admin/Login';
+
+// App Pages
 import { Dashboard } from './pages/app/Dashboard';
 import { Messages } from './pages/app/Messages';
 import { Requests } from './pages/app/Requests';
-import { Instance } from './pages/app/Instance';
-import { Subscription } from './pages/app/Subscription';
+import Subscription from './pages/app/Subscription';
 import { Settings } from './pages/app/Settings';
 
-// Admin Portal Components
-import { AdminLayout } from './components/admin/AdminLayout';
-import { AdminLogin } from './pages/admin/Login';
+// Admin Pages
 import { AdminDashboard } from './pages/admin/Dashboard';
 import { AdminClients } from './pages/admin/Clients';
 import { AdminInstances } from './pages/admin/Instances';
-import { AdminMessages } from './pages/admin/Messages';
-import { AdminTickets } from './pages/admin/Tickets';
+import AdminTickets from './pages/admin/Tickets';
 import { AdminSubscriptions } from './pages/admin/Subscriptions';
-import { AdminLogs } from './pages/admin/Logs';
 
-function ScrollToTop() {
-  const { pathname } = useLocation();
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
-  return null;
-}
-
-function MainLayout({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
-  const isAppRoute = location.pathname.startsWith('/app');
-  const isAdminRoute = location.pathname.startsWith('/admin');
-  const isLoginPage = location.pathname === '/login' || location.pathname === '/admin/login';
-
-  if (isAppRoute) {
-    return <AppLayout>{children}</AppLayout>;
+// Error Boundary
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
   }
 
-  if (isAdminRoute && location.pathname !== '/admin/login') {
-    return <AdminLayout>{children}</AdminLayout>;
+  static getDerivedStateFromError() {
+    return { hasError: true };
   }
 
-  if (isLoginPage) return <>{children}</>;
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error('App Error:', error, errorInfo);
+  }
 
-  return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <main className="flex-grow">
-        {children}
-      </main>
-      <Footer />
-    </div>
-  );
-}
-
-export default function App() {
-  const [booted, setBooted] = React.useState(false);
-
-  useEffect(() => {
-    console.log("App component mounted, setting booted=true in 500ms");
-    const timer = setTimeout(() => setBooted(true), 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (!booted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h1 className="text-2xl font-black text-slate-900">App boot OK</h1>
-          <p className="text-slate-500">Initializing providers...</p>
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+          <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center border border-slate-200">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-black text-slate-900 mb-2">Algo correu mal</h1>
+            <p className="text-slate-600 mb-8">Ocorreu um erro inesperado na aplicação. Por favor, recarregue a página.</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20"
+            >
+              Recarregar Aplicação
+            </button>
+          </div>
         </div>
-      </div>
+      );
+    }
+
+    return (
+      <>
+        <Toaster position="top-right" richColors closeButton />
+        {this.props.children}
+      </>
     );
   }
+}
 
+function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <AdminAuthProvider>
-          {/* Temporarily disabled NotificationProvider if needed, but let's keep it for now and see if it boots */}
-          <NotificationProvider>
-            <Router>
-              <ScrollToTop />
-              <MainLayout>
-                <Routes>
-                  {/* Public Routes */}
-                  <Route path="/" element={<Home />} />
-                  <Route path="/como-funciona" element={<HowItWorks />} />
-                  <Route path="/funcionalidades" element={<Features />} />
-                  <Route path="/para-quem" element={<ForWho />} />
-                  <Route path="/precos" element={<Pricing />} />
-                  <Route path="/contacto" element={<Contact />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/termos" element={<Terms />} />
-                  <Route path="/privacidade" element={<Privacy />} />
-                  <Route path="/cookies" element={<Cookies />} />
-                  <Route path="/experimentar" element={<Pricing />} />
+      <BrowserRouter>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
 
-                  {/* App Portal Routes */}
-                  <Route path="/app" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                  <Route path="/app/mensagens" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-                  <Route path="/app/pedidos" element={<ProtectedRoute><Requests /></ProtectedRoute>} />
-                  <Route path="/app/instancia" element={<ProtectedRoute><Instance /></ProtectedRoute>} />
-                  <Route path="/app/subscricao" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
-                  <Route path="/app/definicoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          {/* App Routes (Client Hub) */}
+          <Route 
+            path="/app" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Outlet />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="messages" element={<Messages />} />
+            <Route path="tickets" element={<Requests />} />
+            <Route path="subscription" element={<Subscription />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
 
-                  {/* Admin Portal Routes */}
-                  <Route path="/admin/login" element={<AdminLogin />} />
-                  <Route path="/admin/dashboard" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
-                  <Route path="/admin/clients" element={<AdminProtectedRoute><AdminClients /></AdminProtectedRoute>} />
-                  <Route path="/admin/instances" element={<AdminProtectedRoute><AdminInstances /></AdminProtectedRoute>} />
-                  <Route path="/admin/messages" element={<AdminProtectedRoute><AdminMessages /></AdminProtectedRoute>} />
-                  <Route path="/admin/tickets" element={<AdminProtectedRoute><AdminTickets /></AdminProtectedRoute>} />
-                  <Route path="/admin/subscriptions" element={<AdminProtectedRoute><AdminSubscriptions /></AdminProtectedRoute>} />
-                  <Route path="/admin/logs" element={<AdminProtectedRoute><AdminLogs /></AdminProtectedRoute>} />
-                </Routes>
-              </MainLayout>
-            </Router>
-          </NotificationProvider>
-        </AdminAuthProvider>
-      </AuthProvider>
+          {/* Admin Routes */}
+          <Route 
+            path="/admin" 
+            element={
+              <AdminProtectedRoute>
+                <AdminLayout>
+                  <Outlet />
+                </AdminLayout>
+              </AdminProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="clients" element={<AdminClients />} />
+            <Route path="instances" element={<AdminInstances />} />
+            <Route path="tickets" element={<AdminTickets />} />
+            <Route path="subscriptions" element={<AdminSubscriptions />} />
+          </Route>
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
     </ErrorBoundary>
   );
 }
+
+export default App;

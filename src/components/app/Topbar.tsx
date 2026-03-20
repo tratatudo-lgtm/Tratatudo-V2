@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { Menu, Bell, Search, User, ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../lib/auth/AuthContext';
@@ -33,10 +32,10 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         </div>
 
         <div className="flex items-center gap-2 lg:gap-4">
-          <Link to="/app/pedidos" className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg relative">
+          <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg relative">
             <Bell className="w-5 h-5" />
-            <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center">16</span>
-          </Link>
+            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+          </button>
           
           <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
           

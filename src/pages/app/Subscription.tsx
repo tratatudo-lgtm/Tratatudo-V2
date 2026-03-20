@@ -1,385 +1,497 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Zap, 
-  CheckCircle2, 
-  MessageSquare, 
-  ClipboardList, 
-  AlertCircle, 
   CreditCard, 
-  HeadphonesIcon, 
-  ArrowRight,
-  ShieldCheck,
-  Check,
+  CheckCircle2, 
+  AlertCircle, 
+  Zap, 
+  Shield, 
+  Globe, 
+  MessageSquare, 
+  HelpCircle,
   Clock,
-  TrendingUp,
-  Loader2
+  ArrowRight,
+  Loader2,
+  X,
+  Send,
+  LifeBuoy
 } from 'lucide-react';
-import { motion } from 'motion/react';
-import { cn, extractObjectResponse } from '../../lib/utils';
-import { LoadingState, ErrorState } from '../../components/States';
+import { toast } from 'sonner';
 
 interface SubscriptionData {
-  subscription: {
-    status: string;
-    plan: string;
-    started_at: string;
-    ends_at: string;
-  };
-  usage: {
-    messages: number;
-    tickets: number;
-    complaints: number;
-  };
+  plan: string;
+  status: string;
+  started_at: string;
+  ends_at: string | null;
 }
 
-const benefits = [
-  'Respostas automáticas inteligentes',
-  'Gestão de pedidos centralizada',
-  'Sistema de tickets avançado',
-  'Painel de controlo em tempo real',
-  'Integração WhatsApp oficial',
-  'Suporte prioritário 24/7',
-  'Relatórios mensais detalhados'
-];
+interface UsageData {
+  messages: number;
+  tickets: number;
+  complaints: number;
+}
 
+const SupportModal = ({ isOpen, onClose, onSubmit }: { 
+  isOpen: boolean; 
+  onClose: () => void;
+  onSubmit: (data: any) => Promise<void>;
+}) => {
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [category, setCategory] = useState('Geral');
+  const [priority, setPriority] = useState('média');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subject || !message) {
+      toast.error('Por favor, preencha o assunto e a mensagem.');
+      return;
+    }
 
-export function Subscription() {
-  const [data, setData] = useState<SubscriptionData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchSubscription = async () => {
-    const endpoints = [
-      `${import.meta.env.VITE_API_URL}/api/client/subscription`,
-      `${import.meta.env.VITE_API_URL}/api/subscription`
-    ];
-    
-    let lastError = null;
-    
+    setIsSubmitting(true);
     try {
-      setLoading(true);
-      for (const url of endpoints) {
-        console.log(`[APP] Fetching subscription data: ${url}`);
-        try {
-          const res = await fetch(url, {
-            credentials: 'include'
-          });
-          
-          if (res.ok) {
-            const result = await res.json();
-            console.log(`[APP] Subscription data received from ${url}:`, result);
-            
-            const subscription = extractObjectResponse<any>(result, 'subscription');
-            
-            if (result.ok) {
-              setData(result);
-              setLoading(false);
-              return;
-            }
-          }
-        } catch (e) {
-          lastError = e;
-        }
-      }
-      throw lastError || new Error('Falha ao carregar dados da subscrição');
-    } catch (err: any) {
-      console.error('[APP] Fetch subscription failed:', err);
-      setError(err.message || 'Erro desconhecido');
+      await onSubmit({ subject, message, category, priority });
+      setSubject('');
+      setMessage('');
+      onClose();
+    } catch (error) {
+      console.error('Error submitting support ticket:', error);
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200"
+          >
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
+                  <LifeBuoy className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Suporte TrataTudo</h3>
+                  <p className="text-sm text-slate-500">Como podemos ajudar hoje?</p>
+                </div>
+              </div>
+              <button 
+                onClick={onClose}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700">Categoria</label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
+                  >
+                    <option value="Geral">Geral</option>
+                    <option value="Financeiro">Financeiro</option>
+                    <option value="Técnico">Técnico</option>
+                    <option value="Sugestão">Sugestão</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700">Prioridade</label>
+                  <select
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
+                  >
+                    <option value="baixa">Baixa</option>
+                    <option value="média">Média</option>
+                    <option value="alta">Alta</option>
+                    <option value="urgente">Urgente</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-slate-700">Assunto</label>
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Ex: Dúvida sobre faturas"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-slate-700">Mensagem detalhada</label>
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Descreva o seu problema ou dúvida..."
+                  rows={4}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none resize-none"
+                />
+              </div>
+
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 px-6 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-600/20"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      A enviar...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5" />
+                      Enviar Mensagem
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+export default function Subscription() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<{ subscription: SubscriptionData; usage: UsageData } | null>(null);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
 
   useEffect(() => {
     fetchSubscription();
   }, []);
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return 'N/A';
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return 'N/A';
-    return date.toLocaleDateString('pt-PT', { 
-      day: '2-digit', 
-      month: 'short', 
-      year: 'numeric'
-    });
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'trial': return 'Período de teste';
-      case 'active': return 'Subscrição ativa';
-      case 'expired': return 'Subscrição expirada';
-      default: return status;
+  const fetchSubscription = async () => {
+    try {
+      const res = await fetch('/api/client/subscription');
+      const json = await res.json();
+      if (json.ok) {
+        setData(json);
+      } else {
+        setError(json.error);
+      }
+    } catch (err) {
+      setError('Erro ao carregar dados da subscrição.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'trial': return 'bg-blue-50 text-blue-600 border-blue-100';
-      case 'active': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
-      case 'expired': return 'bg-red-50 text-red-600 border-red-100';
-      default: return 'bg-slate-50 text-slate-600 border-slate-100';
+  const handleSupportSubmit = async (supportData: any) => {
+    try {
+      const res = await fetch('/api/client/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: supportData.subject,
+          description: supportData.message,
+          category: supportData.category,
+          priority: supportData.priority
+        })
+      });
+      
+      const json = await res.json();
+      if (json.ok) {
+        toast.success('Ticket de suporte criado com sucesso! O código é ' + json.ticket.tracking_code);
+      } else {
+        toast.error('Erro ao criar ticket: ' + json.error);
+        throw new Error(json.error);
+      }
+    } catch (err) {
+      toast.error('Erro de conexão ao criar ticket.');
+      throw err;
+    }
+  };
+
+  const handleUpgrade = async (plan: string) => {
+    const priceId = plan === 'Pro' ? 'price_pro_id' : 'price_enterprise_id'; // Replace with real IDs
+    try {
+      const res = await fetch('/api/client/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId })
+      });
+      const json = await res.json();
+      if (json.ok && json.url) {
+        window.location.href = json.url;
+      } else {
+        toast.error('Erro ao iniciar checkout: ' + json.error);
+      }
+    } catch (err) {
+      toast.error('Erro de conexão ao iniciar checkout.');
     }
   };
 
   if (loading) {
-    return <LoadingState message="A carregar detalhes da subscrição..." className="h-[calc(100vh-10rem)]" />;
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
-        <ErrorState message={error} />
-        <button 
-          onClick={fetchSubscription}
-          className="mt-4 bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-primary/90 transition-all"
-        >
-          Tentar Novamente
-        </button>
+      <div className="p-8 text-center">
+        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-xl font-bold text-slate-900 mb-2">Erro de Carregamento</h3>
+        <p className="text-slate-600">{error}</p>
       </div>
     );
   }
 
-  if (!data?.subscription) {
-    return (
-      <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
-        <div className="bg-white p-12 rounded-3xl border border-slate-200 shadow-xl text-center max-w-md">
-          <Zap className="w-16 h-16 text-slate-200 mx-auto mb-6" />
-          <h3 className="text-xl font-bold text-slate-900 mb-2">Sem subscrição ativa</h3>
-          <p className="text-slate-500 text-sm mb-8">
-            Não encontrámos nenhuma subscrição associada à sua conta. Contacte o suporte para ativar o seu plano.
-          </p>
-          <button className="bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-primary/90 transition-all">
-            Ver Planos
+  const subscription = data?.subscription;
+  const usage = data?.usage;
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-8 p-4 md:p-8">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Subscrição & Faturação</h1>
+          <p className="text-slate-500 mt-1">Gira o seu plano, veja o uso e aceda ao suporte.</p>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsSupportOpen(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-all shadow-sm"
+          >
+            <HelpCircle className="w-4 h-4" />
+            Contactar Suporte
+          </button>
+          <button className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20">
+            <CreditCard className="w-4 h-4" />
+            Métodos de Pagamento
           </button>
         </div>
       </div>
-    );
-  }
-
-  const { subscription, usage } = data;
-  const messageLimit = 1000; // Default limit for now or fetch from plan
-  const messageProgress = (usage.messages / messageLimit) * 100;
-
-  return (
-    <div className="space-y-8 pb-12">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-display font-bold text-slate-900">A Minha Subscrição</h1>
-        <p className="text-slate-500 text-sm">Gira o teu plano, consulta a utilização e benefícios ativos.</p>
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Plan Card */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="lg:col-span-2 space-y-8"
-        >
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden relative">
-            {/* Decorative Background Element */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none"></div>
-            
-            <div className="p-8 relative">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-                <div className="flex items-center gap-5">
-                  <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center text-white shadow-xl shadow-primary/20">
-                    <Zap className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <h2 className="text-2xl font-bold text-slate-900">
-                        Plano {subscription.plan || 'Atual'}
-                      </h2>
-                      <span className={cn(
-                        "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border",
-                        getStatusColor(subscription.status)
-                      )}>
-                        {getStatusLabel(subscription.status)}
-                      </span>
-                    </div>
-                    <p className="text-slate-500 text-sm flex items-center gap-2">
-                      <Clock className="w-3.5 h-3.5" /> 
-                      {subscription.plan === 'Trial' ? 'Fim do teste: ' : 'Próxima renovação: '}
-                      <span className="font-bold text-slate-900">
-                        {formatDate(subscription.ends_at)}
-                      </span>
-                    </p>
-                  </div>
+        {/* Current Plan Card */}
+        <div className="lg:col-span-2 space-y-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm"
+          >
+            <div className="p-8 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-600/20">
+                  <Zap className="w-6 h-6" />
                 </div>
-                <div className="text-right">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-display font-black text-slate-900">
-                      {subscription.plan === 'Trial' ? 'Grátis' : 'Sob consulta'}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-bold text-slate-900">Plano {subscription?.plan}</h3>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full uppercase tracking-wider">
+                      {subscription?.status}
                     </span>
                   </div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">IVA incluído à taxa legal</p>
+                  <p className="text-sm text-slate-500">Subscrição ativa desde {new Date(subscription?.started_at || '').toLocaleDateString()}</p>
                 </div>
               </div>
+              <div className="text-right">
+                <p className="text-sm text-slate-500">Próxima fatura</p>
+                <p className="text-lg font-bold text-slate-900">
+                  {subscription?.ends_at ? new Date(subscription.ends_at).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+            </div>
 
-              {/* Usage Section */}
-            <div className="p-8 space-y-8">
+            <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500 font-medium">Mensagens</span>
+                  <span className="text-slate-900 font-bold">{usage?.messages} / ∞</span>
+                </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 w-[15%]" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500 font-medium">Tickets</span>
+                  <span className="text-slate-900 font-bold">{usage?.tickets}</span>
+                </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 w-[45%]" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500 font-medium">Reclamações</span>
+                  <span className="text-slate-900 font-bold">{usage?.complaints}</span>
+                </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-red-500 w-[5%]" />
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Features Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-6 bg-white rounded-2xl border border-slate-200 flex gap-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                <Shield className="w-5 h-5" />
+              </div>
               <div>
-                <div className="flex justify-between items-end mb-3">
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4 text-primary" /> Mensagens Processadas
-                    </h4>
-                    <p className="text-xs text-slate-500">Utilização este mês</p>
-                  </div>
-                  <span className="text-sm font-bold text-slate-900">
-                    {usage?.messages?.toLocaleString() || '0'} <span className="text-slate-400 font-normal">/ {messageLimit.toLocaleString()}</span>
-                  </span>
-                </div>
-                <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${messageProgress}%` }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    className={cn(
-                      "h-full rounded-full",
-                      messageProgress > 90 ? "bg-red-500" : messageProgress > 70 ? "bg-orange-500" : "bg-primary"
-                    )}
-                  ></motion.div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="flex items-center justify-between mb-2">
-                    <ClipboardList className="w-5 h-5 text-orange-500" />
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Limite: N/A</span>
-                  </div>
-                  <p className="text-2xl font-bold text-slate-900">{usage?.tickets || 0}</p>
-                  <p className="text-xs text-slate-500 font-medium">Pedidos Gerados</p>
-                </div>
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="flex items-center justify-between mb-2">
-                    <AlertCircle className="w-5 h-5 text-red-500" />
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Limite: N/A</span>
-                  </div>
-                  <p className="text-2xl font-bold text-slate-900">{usage?.complaints || 0}</p>
-                  <p className="text-xs text-slate-500 font-medium">Reclamações Registadas</p>
-                </div>
+                <h4 className="font-bold text-slate-900">Segurança Avançada</h4>
+                <p className="text-sm text-slate-500 mt-1">Proteção de dados e backups diários automáticos.</p>
               </div>
             </div>
-            </div>
-
-            {/* Actions Footer */}
-            <div className="bg-slate-50 p-6 border-t border-slate-100 flex flex-col sm:flex-row gap-4">
-              <button className="flex-1 bg-white border border-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
-                <CreditCard className="w-4 h-4" /> Gerir Faturação
-              </button>
-              <button className="flex-1 bg-primary text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all flex items-center justify-center gap-2">
-                <TrendingUp className="w-4 h-4" /> Alterar Plano
-              </button>
+            <div className="p-6 bg-white rounded-2xl border border-slate-200 flex gap-4">
+              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-900">API de Integração</h4>
+                <p className="text-sm text-slate-500 mt-1">Conecte o TrataTudo aos seus sistemas internos.</p>
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Benefits List */}
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
-            <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-primary" /> O que está incluído no seu plano
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
-              {benefits.map((benefit, i) => (
-                <div key={i} className="flex items-center gap-3 group">
-                  <div className="w-5 h-5 rounded-full bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
-                    <Check className="w-3 h-3 text-emerald-600" />
-                  </div>
-                  <span className="text-sm text-slate-600 font-medium">{benefit}</span>
-                </div>
+        {/* Support & Help Sidebar */}
+        <div className="space-y-6">
+          <div className="p-6 bg-slate-900 rounded-3xl text-white relative overflow-hidden">
+            <div className="relative z-10">
+              <h3 className="text-xl font-bold mb-2">Precisa de ajuda?</h3>
+              <p className="text-slate-400 text-sm mb-6">A nossa equipa de especialistas está pronta para ajudar a escalar o seu negócio.</p>
+              
+              <div className="space-y-4">
+                <button 
+                  onClick={() => setIsSupportOpen(true)}
+                  className="w-full py-3 bg-white text-slate-900 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-100 transition-all"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Abrir Ticket
+                </button>
+                <button className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 transition-all">
+                  <Clock className="w-4 h-4" />
+                  Histórico de Suporte
+                </button>
+              </div>
+            </div>
+            
+            {/* Decorative element */}
+            <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-emerald-500/20 rounded-full blur-3xl" />
+          </div>
+
+          <div className="p-6 bg-white rounded-3xl border border-slate-200">
+            <h4 className="font-bold text-slate-900 mb-4">Perguntas Frequentes</h4>
+            <div className="space-y-4">
+              {[
+                'Como alterar o meu plano?',
+                'Posso cancelar a qualquer momento?',
+                'Como funciona o suporte 24/7?',
+                'Onde encontro as minhas faturas?'
+              ].map((q, i) => (
+                <button key={i} className="w-full flex items-center justify-between text-left group">
+                  <span className="text-sm text-slate-600 group-hover:text-emerald-600 transition-colors">{q}</span>
+                  <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 transition-all" />
+                </button>
               ))}
             </div>
           </div>
-        </motion.div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Support Card */}
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-slate-900 rounded-3xl p-8 text-white shadow-xl shadow-slate-900/20 relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-            <div className="relative">
-              <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-6">
-                <HeadphonesIcon className="w-6 h-6 text-primary" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Precisa de ajuda?</h3>
-              <p className="text-slate-400 text-sm leading-relaxed mb-8">
-                A nossa equipa de suporte está disponível para o ajudar a tirar o máximo partido do TrataTudo.
-              </p>
-              <button
-                className="w-full bg-white text-slate-900 py-4 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group"
-                onClick={async () => {
-                  const description = window.prompt('Descreve o problema ou pedido de suporte:');
-                  if (!description || !description.trim()) return;
-
-                  try {
-                    const res = await fetch('https://api.tratatudo.pt/api/client/tickets', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
-                      body: JSON.stringify({
-                        type: 'suporte',
-                        subject: 'Pedido de suporte',
-                        description,
-                        priority: 'alta'
-                      })
-                    });
-
-                    if (!res.ok) {
-                      const errorData = await res.json().catch(() => ({}));
-                      throw new Error(errorData.error || 'Falha ao criar pedido de suporte');
-                    }
-
-                    alert('Pedido de suporte enviado com sucesso.');
-                  } catch (e) {
-                    alert('Erro ao enviar pedido de suporte.');
-                  }
-                }}
-              >
-                Contactar Suporte <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-          </motion.div>
-
-          {/* Billing History Link */}
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white rounded-3xl border border-slate-200 p-6 flex items-center justify-between group cursor-pointer hover:border-primary transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-primary/5 transition-colors">
-                <ClipboardList className="w-5 h-5 text-slate-400 group-hover:text-primary transition-colors" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-900">Histórico de Faturas</h4>
-                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Consultar pagamentos</p>
-              </div>
-            </div>
-            <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-primary group-hover:translate-x-1 transition-all" />
-          </motion.div>
-
-          {/* Security Badge */}
-          <div className="px-6 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pagamento Seguro</span>
-            </div>
-            <p className="text-[10px] text-slate-400 leading-relaxed">
-              As suas transações são protegidas por encriptação SSL de 256 bits e processadas pelo Stripe.
-            </p>
-          </div>
         </div>
       </div>
+
+      {/* Pricing Comparison (Optional/Hidden if already Pro) */}
+      {subscription?.plan === 'Trial' && (
+        <div className="pt-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-black text-slate-900 mb-4">Pronto para o próximo nível?</h2>
+            <p className="text-slate-500 max-w-2xl mx-auto">Escolha o plano que melhor se adapta ao volume da sua operação e comece a tratar de tudo hoje mesmo.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <div className="p-8 bg-white rounded-3xl border border-slate-200 hover:border-emerald-500 transition-all group relative">
+              <div className="mb-8">
+                <h3 className="text-2xl font-bold text-slate-900">Plano Pro</h3>
+                <p className="text-slate-500 text-sm">Para pequenas e médias empresas</p>
+                <div className="mt-4 flex items-baseline gap-1">
+                  <span className="text-4xl font-black text-slate-900">49€</span>
+                  <span className="text-slate-500 font-medium">/mês</span>
+                </div>
+              </div>
+
+              <ul className="space-y-4 mb-8">
+                {['Mensagens Ilimitadas', 'Instância Dedicada', 'Suporte Prioritário', 'Dashboard Avançado'].map((f, i) => (
+                  <li key={i} className="flex items-center gap-3 text-slate-600">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              <button 
+                onClick={() => handleUpgrade('Pro')}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10"
+              >
+                Ativar Plano Pro
+              </button>
+            </div>
+
+            <div className="p-8 bg-emerald-600 rounded-3xl text-white shadow-2xl shadow-emerald-600/20 relative overflow-hidden">
+              <div className="relative z-10">
+                <div className="mb-8">
+                  <h3 className="text-2xl font-bold">Enterprise</h3>
+                  <p className="text-emerald-100 text-sm">Para grandes operações</p>
+                  <div className="mt-4 flex items-baseline gap-1">
+                    <span className="text-4xl font-black">149€</span>
+                    <span className="text-emerald-100 font-medium">/mês</span>
+                  </div>
+                </div>
+
+                <ul className="space-y-4 mb-8">
+                  {['Tudo do Plano Pro', 'Múltiplas Instâncias', 'Gestor de Conta', 'SLA Garantido'].map((f, i) => (
+                    <li key={i} className="flex items-center gap-3 text-emerald-50">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-300" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                <button 
+                  onClick={() => handleUpgrade('Enterprise')}
+                  className="w-full py-4 bg-white text-emerald-600 rounded-2xl font-bold hover:bg-emerald-50 transition-all shadow-xl"
+                >
+                  Contactar Vendas
+                </button>
+              </div>
+              
+              <div className="absolute top-0 right-0 p-4">
+                <span className="px-3 py-1 bg-emerald-500 text-white text-xs font-bold rounded-full uppercase tracking-widest">Recomendado</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <SupportModal 
+        isOpen={isSupportOpen} 
+        onClose={() => setIsSupportOpen(false)}
+        onSubmit={handleSupportSubmit}
+      />
     </div>
   );
 }

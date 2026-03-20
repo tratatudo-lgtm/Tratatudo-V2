@@ -90,24 +90,16 @@ export function Dashboard() {
   const fetchAIInsights = async () => {
     try {
       setLoadingAI(true);
-      const baseUrl = 'https://api.tratatudo.pt';
-      const res = await fetch(`${baseUrl}/api/client/ai/insights`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/client/ai/insights`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ context: 'dashboard' }),
         credentials: 'include'
       });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Falha ao gerar insights');
+      if (res.ok) {
+        const data = await res.json();
+        setAiInsights(data);
       }
-
-      const data = await res.json();
-      setAiInsights({
-        insights: Array.isArray(data?.insights) ? data.insights : [],
-        summary: data?.summary || ''
-      });
     } catch (err) {
       console.error("[APP] AI Insights failed:", err);
     } finally {
@@ -331,15 +323,6 @@ export function Dashboard() {
                     <h4 className="font-bold text-sm">{insight.title}</h4>
                   </div>
                   <p className="text-xs text-slate-300 leading-relaxed">{insight.description}</p>
-
-                  {insight.action_href ? (
-                    <a
-                      href={insight.action_href}
-                      className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
-                    >
-                      {insight.action_label || 'Abrir'}
-                    </a>
-                  ) : null}
                 </motion.div>
               ))}
               <div className="md:col-span-3 mt-4 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
@@ -534,7 +517,7 @@ export function Dashboard() {
                 <Activity className="w-5 h-5 text-primary" />
                 <h3 className="font-bold text-slate-900">Atividade Recente</h3>
               </div>
-              <Link to="/app/pedidos" className="text-xs text-primary font-bold hover:underline">Ver histórico completo</Link>
+              <button className="text-xs text-primary font-bold hover:underline">Ver histórico completo</button>
             </div>
             <div className="divide-y divide-slate-50">
               {data?.activity?.map((item, i) => (
