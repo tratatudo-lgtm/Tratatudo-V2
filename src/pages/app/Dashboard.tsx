@@ -534,7 +534,7 @@ export function Dashboard() {
                 <Activity className="w-5 h-5 text-primary" />
                 <h3 className="font-bold text-slate-900">Atividade Recente</h3>
               </div>
-              <button className="text-xs text-primary font-bold hover:underline">Ver histórico completo</button>
+              <Link to="/app/pedidos" className="text-xs text-primary font-bold hover:underline">Ver histórico completo</Link>
             </div>
             <div className="divide-y divide-slate-50">
               {data?.activity?.map((item, i) => (
