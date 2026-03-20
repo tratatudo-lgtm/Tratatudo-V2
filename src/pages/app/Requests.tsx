@@ -182,11 +182,10 @@ export function Requests() {
       }
 
       const data = await res.json();
-      const updatedTicket = data?.ticket;
-
-      if (updatedTicket) {
-        setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: updatedTicket.status } : t));
-      }
+      console.log('API RESPONSE:', data);
+      setTickets(prev => prev.map(t =>
+        t.id === ticketId ? { ...t, status: newStatus } : t
+      ));
     } catch (err) {
       console.error('[APP] Update ticket status failed:', err);
     }
