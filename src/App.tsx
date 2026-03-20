@@ -1,8 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import { AuthProvider } from './lib/auth/AuthContext';
-import { AdminAuthProvider } from './lib/auth/AdminAuthContext';
 
 // Layouts
 import { AppLayout } from './components/app/AppLayout';
@@ -129,9 +127,7 @@ function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-          </BrowserRouter>
-        </AdminAuthProvider>
-      </AuthProvider>
+      </BrowserRouter>
     </ErrorBoundary>
   );
 }
