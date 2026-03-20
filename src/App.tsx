@@ -93,9 +93,7 @@ function App() {
           {/* App Routes (Client Hub) */}
           <Route 
             path="/app" 
-            element={
-              <AppLayout><Outlet /></AppLayout>
-            }
+            element={<Outlet />}
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
@@ -108,9 +106,7 @@ function App() {
           {/* Admin Routes */}
           <Route 
             path="/admin" 
-            element={
-              <AdminLayout><Outlet /></AdminLayout>
-            }
+            element={<Outlet />}
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
