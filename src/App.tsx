@@ -97,7 +97,7 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Navigate to="tickets" replace />} />
+            <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="messages" element={<Messages />} />
             <Route path="tickets" element={<Requests />} />
