@@ -63,7 +63,7 @@ export function AdminClients() {
   const { logout } = useAdminAuth();
 
   const fetchClients = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
+    const baseUrl = import.meta.env.VITE_API_URL || '';
     const endpoints = [
       `${baseUrl}/api/admin/clients`,
       `${baseUrl}/api/clients`

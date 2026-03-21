@@ -41,7 +41,7 @@ export function AdminSubscriptions() {
   const { logout } = useAdminAuth();
 
   const fetchSubscriptions = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
+    const baseUrl = import.meta.env.VITE_API_URL || '';
     const endpoints = [
       `${baseUrl}/api/admin/subscriptions`,
       `${baseUrl}/api/subscriptions`

@@ -39,7 +39,7 @@ interface Stats {
   complaints: number;
 }
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
+const BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export function Instance() {
   const { user } = useAuth();

@@ -58,7 +58,7 @@ export function AdminInstances() {
   const { logout } = useAdminAuth();
 
   const fetchInstances = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
+    const baseUrl = import.meta.env.VITE_API_URL || '';
     const endpoints = [
       `${baseUrl}/api/admin/instances`,
       `${baseUrl}/api/instances`

@@ -42,7 +42,7 @@ export function AdminLogs() {
 
   useEffect(() => {
     const fetchLogs = async () => {
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
+      const baseUrl = import.meta.env.VITE_API_URL || '';
       const endpoints = [
         `${baseUrl}/api/admin/logs`,
         `${baseUrl}/api/logs`

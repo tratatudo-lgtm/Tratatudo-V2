@@ -14,7 +14,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const handleLogout = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
+    const baseUrl = import.meta.env.VITE_API_URL || '';
     try {
       toast.loading('A terminar sessão...');
       const res = await fetch(`${baseUrl}/api/auth/logout`, {

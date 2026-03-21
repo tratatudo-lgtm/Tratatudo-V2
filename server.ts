@@ -386,11 +386,12 @@ async function startServer() {
   });
 
   app.post("/api/client/tickets", requireClientSession, async (req: any, res) => {
-    const { subject, description, category, priority, kind = "suporte" } = req.body;
+    const { subject, description, category, priority, kind, type } = req.body;
+    const ticketKind = kind || type || "pedido";
     if (!subject || !description) return res.status(400).json({ ok: false, error: "Assunto e descrição obrigatórios." });
     const trackingCode = `SUP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     const { data: ticket, error } = await supabase.from("tickets").insert({
-      client_id: req.clientId, subject, description, category, priority: priority || "média", kind, status: "aberto", tracking_code: trackingCode
+      client_id: req.clientId, subject, description, category, priority: priority || "média", kind: ticketKind, status: "aberto", tracking_code: trackingCode
     }).select().single();
     if (error) return res.status(500).json({ ok: false, error: error.message });
     await supabase.from("ticket_messages").insert({ ticket_id: ticket.id, sender_type: "user", text: description });
