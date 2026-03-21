@@ -8,7 +8,7 @@ import {
   Sparkles,
   Loader2,
   Lightbulb,
-  History,
+  History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
@@ -32,8 +32,8 @@ export function HubAI() {
       role: 'assistant',
       content:
         'Olá! Sou o assistente do TrataTudo Hub. Posso ajudar a resumir tickets, sugerir respostas, apoiar vendas e orientar tarefas no portal.',
-      timestamp: new Date(),
-    },
+      timestamp: new Date()
+    }
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -67,14 +67,14 @@ export function HubAI() {
 
     const historyForRequest = messages.map((m) => ({
       role: m.role,
-      content: m.content,
+      content: m.content
     }));
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: trimmed,
-      timestamp: new Date(),
+      timestamp: new Date()
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -88,8 +88,8 @@ export function HubAI() {
         credentials: 'include',
         body: JSON.stringify({
           message: trimmed,
-          history: historyForRequest,
-        }),
+          history: historyForRequest
+        })
       });
 
       let data: any = null;
@@ -108,10 +108,10 @@ export function HubAI() {
       }
 
       const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `${Date.now()}-assistant`,
         role: 'assistant',
         content: buildAssistantText(data),
-        timestamp: new Date(),
+        timestamp: new Date()
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -119,13 +119,13 @@ export function HubAI() {
       setMessages((prev) => [
         ...prev,
         {
-          id: (Date.now() + 1).toString(),
+          id: `${Date.now()}-error`,
           role: 'assistant',
           content:
             error?.message ||
             'IA temporariamente indisponível. Por favor, tente novamente.',
-          timestamp: new Date(),
-        },
+          timestamp: new Date()
+        }
       ]);
     } finally {
       setIsLoading(false);
@@ -135,7 +135,7 @@ export function HubAI() {
   const quickSuggestions = [
     { icon: History, text: 'Resume os tickets em aberto' },
     { icon: Sparkles, text: 'Sugere uma resposta profissional' },
-    { icon: Lightbulb, text: 'Dá-me dicas para fechar uma venda' },
+    { icon: Lightbulb, text: 'Dá-me dicas para fechar uma venda' }
   ];
 
   return (
@@ -163,7 +163,7 @@ export function HubAI() {
               y: 0,
               scale: 1,
               height: isMinimized ? '64px' : '600px',
-              width: '400px',
+              width: '400px'
             }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             className={cn(
@@ -215,9 +215,7 @@ export function HubAI() {
                       key={msg.id}
                       className={cn(
                         'flex flex-col max-w-[85%]',
-                        msg.role === 'user'
-                          ? 'ml-auto items-end'
-                          : 'items-start'
+                        msg.role === 'user' ? 'ml-auto items-end' : 'items-start'
                       )}
                     >
                       <div
@@ -233,7 +231,7 @@ export function HubAI() {
                       <span className="text-[10px] text-slate-400 mt-1 px-1">
                         {msg.timestamp.toLocaleTimeString([], {
                           hour: '2-digit',
-                          minute: '2-digit',
+                          minute: '2-digit'
                         })}
                       </span>
                     </div>
@@ -271,7 +269,10 @@ export function HubAI() {
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleSend();
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSend();
+                        }
                       }}
                       placeholder="Escreva a sua mensagem..."
                       className="w-full pl-4 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
