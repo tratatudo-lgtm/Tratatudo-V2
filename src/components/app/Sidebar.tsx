@@ -4,6 +4,8 @@ import {
   LayoutDashboard, 
   MessageSquare, 
   ClipboardList, 
+  AlertCircle,
+  TrendingUp,
   Smartphone, 
   CreditCard, 
   Settings, 
@@ -16,12 +18,14 @@ import { cn } from '../../lib/utils';
 import { useAuth } from '../../lib/auth/AuthContext';
 
 const menuItems = [
-  { name: 'Dashboard', href: '/app', icon: LayoutDashboard },
-  { name: 'Mensagens', href: '/app/mensagens', icon: MessageSquare },
-  { name: 'Pedidos', href: '/app/pedidos', icon: ClipboardList },
+  { name: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard },
+  { name: 'Mensagens', href: '/app/messages', icon: MessageSquare },
+  { name: 'Pedidos', href: '/app/tickets?area=pedidos', icon: ClipboardList },
+  { name: 'Reclamações', href: '/app/tickets?area=reclamacoes', icon: AlertCircle },
+  { name: 'Vendas', href: '/app/tickets?area=vendas', icon: TrendingUp },
   { name: 'Instância', href: '/app/instancia', icon: Smartphone },
-  { name: 'Subscrição', href: '/app/subscricao', icon: CreditCard },
-  { name: 'Definições', href: '/app/definicoes', icon: Settings },
+  { name: 'Subscrição', href: '/app/subscription', icon: CreditCard },
+  { name: 'Definições', href: '/app/settings', icon: Settings },
 ];
 
 interface SidebarProps {
@@ -85,7 +89,9 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
           {/* Navigation */}
           <nav className="flex-1 py-6 px-3 space-y-1">
             {menuItems.map((item) => {
-              const isActive = location.pathname === item.href;
+              const [itemPath, itemQuery] = item.href.split('?');
+              const isActive = location.pathname === itemPath && 
+                              (itemQuery ? location.search.includes(itemQuery) : location.search === '');
               return (
                 <Link
                   key={item.name}

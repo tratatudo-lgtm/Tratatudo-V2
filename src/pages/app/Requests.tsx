@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   ClipboardList, 
   Search, 
@@ -22,26 +23,19 @@ import {
   Tag,
   Sparkles,
   Send,
-  LifeBuoy
+  LifeBuoy,
+  TrendingUp,
+  Target,
+  Handshake,
+  UserPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, extractArrayResponse } from '../../lib/utils';
 import { LoadingState, ErrorState, EmptyState } from '../../components/States';
 import { toast } from 'sonner';
+import { HubArea, HubTicket, AREA_CONFIG } from '../../types/hub';
 
-interface Ticket {
-  id: string;
-  tracking_code: string;
-  type: string;
-  subject: string;
-  description: string;
-  status: string;
-  priority: string;
-  created_at: string;
-  updated_at?: string;
-  category?: string;
-  ai_analysis?: string;
-}
+interface Ticket extends HubTicket {}
 
 interface TicketMessage {
   id: string;
@@ -51,16 +45,22 @@ interface TicketMessage {
   created_at: string;
 }
 
-const SupportModal = ({ isOpen, onClose, onSubmit }: { 
+const SupportModal = ({ isOpen, onClose, onSubmit, initialType }: { 
   isOpen: boolean; 
   onClose: () => void;
   onSubmit: (data: any) => Promise<void>;
+  initialType?: HubArea;
 }) => {
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
+  const [type, setType] = useState<HubArea>(initialType || 'pedidos');
   const [category, setCategory] = useState('Geral');
-  const [priority, setPriority] = useState('média');
+  const [priority, setPriority] = useState<'baixa' | 'média' | 'alta' | 'urgente'>('média');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (initialType) setType(initialType);
+  }, [initialType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,12 +71,12 @@ const SupportModal = ({ isOpen, onClose, onSubmit }: {
 
     setIsSubmitting(true);
     try {
-      await onSubmit({ subject, message, category, priority });
+      await onSubmit({ subject, message, category, priority, type });
       setSubject('');
       setMessage('');
       onClose();
     } catch (error) {
-      console.error('Error submitting support ticket:', error);
+      console.error('Error submitting ticket:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -94,12 +94,19 @@ const SupportModal = ({ isOpen, onClose, onSubmit }: {
           >
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
-                  <LifeBuoy className="w-6 h-6" />
+                <div className={cn(
+                  "w-10 h-10 rounded-xl flex items-center justify-center",
+                  type === 'pedidos' ? "bg-blue-100 text-blue-600" :
+                  type === 'reclamacoes' ? "bg-red-100 text-red-600" :
+                  "bg-emerald-100 text-emerald-600"
+                )}>
+                  {type === 'pedidos' ? <ClipboardList className="w-6 h-6" /> :
+                   type === 'reclamacoes' ? <AlertCircle className="w-6 h-6" /> :
+                   <TrendingUp className="w-6 h-6" />}
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900">Novo Pedido de Suporte</h3>
-                  <p className="text-sm text-slate-500">Como podemos ajudar hoje?</p>
+                  <h3 className="text-xl font-bold text-slate-900">Novo {AREA_CONFIG[type].label}</h3>
+                  <p className="text-sm text-slate-500">Crie uma nova entrada no sistema.</p>
                 </div>
               </div>
               <button 
@@ -111,26 +118,52 @@ const SupportModal = ({ isOpen, onClose, onSubmit }: {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-slate-700">Tipo de Fluxo</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(Object.keys(AREA_CONFIG) as HubArea[]).map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setType(key)}
+                      className={cn(
+                        "py-2 px-3 rounded-xl text-xs font-bold border transition-all flex flex-col items-center gap-1",
+                        type === key 
+                          ? `${AREA_CONFIG[key].bgLight} ${AREA_CONFIG[key].borderLight} ${AREA_CONFIG[key].textMain}`
+                          : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                      )}
+                    >
+                      {key === 'pedidos' ? <ClipboardList className="w-4 h-4" /> :
+                       key === 'reclamacoes' ? <AlertCircle className="w-4 h-4" /> :
+                       <TrendingUp className="w-4 h-4" />}
+                      {AREA_CONFIG[key].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-slate-700">Categoria</label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
                   >
                     <option value="Geral">Geral</option>
                     <option value="Financeiro">Financeiro</option>
                     <option value="Técnico">Técnico</option>
                     <option value="Sugestão">Sugestão</option>
+                    {type === 'vendas' && <option value="Lead">Lead</option>}
+                    {type === 'reclamacoes' && <option value="Serviço">Serviço</option>}
                   </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-slate-700">Prioridade</label>
                   <select
                     value={priority}
-                    onChange={(e) => setPriority(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
+                    onChange={(e) => setPriority(e.target.value as any)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
                   >
                     <option value="baixa">Baixa</option>
                     <option value="média">Média</option>
@@ -146,8 +179,8 @@ const SupportModal = ({ isOpen, onClose, onSubmit }: {
                   type="text"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  placeholder="Ex: Dúvida sobre faturas"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
+                  placeholder={type === 'vendas' ? "Ex: Novo Lead - Empresa X" : "Ex: Dúvida sobre faturas"}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
                 />
               </div>
 
@@ -156,9 +189,9 @@ const SupportModal = ({ isOpen, onClose, onSubmit }: {
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Descreva o seu problema ou dúvida..."
+                  placeholder="Descreva os detalhes..."
                   rows={4}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none resize-none"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none resize-none"
                 />
               </div>
 
@@ -166,17 +199,22 @@ const SupportModal = ({ isOpen, onClose, onSubmit }: {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-3.5 px-6 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-600/20"
+                  className={cn(
+                    "w-full py-3.5 px-6 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg",
+                    AREA_CONFIG[type].bgMain,
+                    AREA_CONFIG[type].bgHover,
+                    AREA_CONFIG[type].shadowMain
+                  )}
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      A enviar...
+                      A criar...
                     </>
                   ) : (
                     <>
                       <Send className="w-5 h-5" />
-                      Enviar Mensagem
+                      Criar {AREA_CONFIG[type].label}
                     </>
                   )}
                 </button>
@@ -190,6 +228,7 @@ const SupportModal = ({ isOpen, onClose, onSubmit }: {
 };
 
 export function Requests() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<TicketMessage[]>([]);
@@ -198,10 +237,24 @@ export function Requests() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeArea, setActiveArea] = useState<HubArea>((searchParams.get('area') as HubArea) || 'pedidos');
   const [filter, setFilter] = useState('Todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [internalNotes, setInternalNotes] = useState('');
+
+  useEffect(() => {
+    const area = searchParams.get('area') as HubArea;
+    if (area && (area === 'pedidos' || area === 'reclamacoes' || area === 'vendas')) {
+      setActiveArea(area);
+    }
+  }, [searchParams]);
+
+  const handleAreaChange = (area: HubArea) => {
+    setSearchParams({ area });
+    setActiveArea(area);
+    setFilter('Todos');
+  };
 
   const fetchTickets = async () => {
     const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
@@ -218,7 +271,6 @@ export function Requests() {
       setError(null);
       
       for (const url of endpoints) {
-        console.log(`[APP] Fetching tickets: ${url}`);
         try {
           const res = await fetch(url, {
             credentials: 'include'
@@ -226,7 +278,27 @@ export function Requests() {
           
           if (res.ok) {
             const data = await res.json();
-            const ticketsData = extractArrayResponse<Ticket>(data, 'tickets');
+            const rawTickets = extractArrayResponse<any>(data, 'tickets');
+            
+            // Normalize types from backend
+            const ticketsData: Ticket[] = rawTickets.map(t => {
+              let normalizedType: HubArea = 'pedidos';
+              const rawType = (t.type || t.kind || 'pedidos').toLowerCase();
+              
+              if (rawType.includes('reclam') || rawType === 'complaint') {
+                normalizedType = 'reclamacoes';
+              } else if (rawType.includes('vend') || rawType === 'sale' || rawType === 'lead') {
+                normalizedType = 'vendas';
+              } else if (rawType.includes('pedid') || rawType === 'request' || rawType === 'suporte' || rawType === 'support') {
+                normalizedType = 'pedidos';
+              }
+
+              return {
+                ...t,
+                type: normalizedType
+              };
+            });
+
             setTickets(ticketsData);
             setLoading(false);
             return;
@@ -238,41 +310,50 @@ export function Requests() {
         }
       }
       
-      // If we reach here, all endpoints failed
-      throw lastError || new Error('Falha ao carregar tickets de suporte');
+      throw lastError || new Error('Falha ao carregar tickets');
       
     } catch (err: any) {
       console.error('[APP] Fetch tickets failed:', err);
-      setError(err.message || 'Não foi possível carregar os seus pedidos.');
+      setError(err.message || 'Não foi possível carregar os dados.');
       
-      // Professional fallback for demo/development
       if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
-        console.log('[APP] Using fallback tickets data');
         setTickets([
           {
             id: '1',
-            tracking_code: 'TRT-12345',
-            type: 'suporte',
-            subject: 'Dúvida sobre integração WhatsApp',
-            description: 'Como posso conectar a minha instância?',
-            status: 'open',
+            tracking_code: 'PED-1001',
+            type: 'pedidos',
+            subject: 'Instalação de Ar Condicionado',
+            description: 'Necessito de instalação em 2 quartos.',
+            status: 'em execução',
             priority: 'média',
             category: 'Técnico',
             created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
             updated_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-            ai_analysis: 'O cliente está com dificuldades na configuração inicial.'
+            ai_analysis: 'O cliente tem urgência para antes do verão.'
           },
           {
             id: '2',
-            tracking_code: 'TRT-67890',
-            type: 'suporte',
-            subject: 'Erro na faturação mensal',
-            description: 'O valor cobrado está incorreto.',
-            status: 'resolved',
+            tracking_code: 'REC-2001',
+            type: 'reclamacoes',
+            subject: 'Atraso na entrega',
+            description: 'O material não chegou no dia combinado.',
+            status: 'em investigação',
             priority: 'alta',
-            category: 'Financeiro',
+            category: 'Logística',
             created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
             updated_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            id: '3',
+            tracking_code: 'VEN-3001',
+            type: 'vendas',
+            subject: 'Interesse em Plano Enterprise',
+            description: 'Empresa com 50 funcionários quer proposta.',
+            status: 'novo lead',
+            priority: 'urgente',
+            category: 'Vendas',
+            created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
           }
         ]);
         setError(null);
@@ -316,7 +397,7 @@ export function Requests() {
       });
       if (!res.ok) throw new Error('Falha na análise de IA');
       const data = await res.json();
-      setAnalysis(data);
+      setAnalysis(data?.analysis || data);
     } catch (err: any) {
       console.error('[APP] AI Analysis failed:', err);
       toast.error('Falha na análise IA.');
@@ -358,7 +439,10 @@ export function Requests() {
           subject: supportData.subject,
           description: supportData.message,
           category: supportData.category,
-          priority: supportData.priority
+          priority: supportData.priority,
+          type: supportData.type === 'pedidos' ? 'pedido' : 
+                supportData.type === 'reclamacoes' ? 'reclamacao' : 
+                'venda'
         })
       });
       
@@ -404,15 +488,19 @@ export function Requests() {
     const matchesSearch = t.tracking_code.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          t.subject.toLowerCase().includes(searchQuery.toLowerCase());
     
-    if (filter === 'Todos') return matchesSearch;
-    if (filter === 'Em aberto') return matchesSearch && t.status.toLowerCase() === 'aberto';
-    if (filter === 'Em análise') return matchesSearch && t.status.toLowerCase() === 'em análise';
-    if (filter === 'Resolvidos') return matchesSearch && t.status.toLowerCase() === 'resolvido';
-    if (filter === 'Reclamações') return matchesSearch && t.type.toLowerCase() === 'reclamação';
-    if (filter === 'Pedidos') return matchesSearch && t.type.toLowerCase() === 'pedido';
+    const matchesArea = t.type === activeArea;
     
-    return matchesSearch;
+    if (!matchesArea) return false;
+
+    if (filter === 'Todos') return matchesSearch;
+    if (filter === 'Em aberto') return matchesSearch && ['novo', 'nova', 'novo lead'].includes(t.status.toLowerCase());
+    if (filter === 'Em análise') return matchesSearch && ['em análise', 'em investigação', 'contactado'].includes(t.status.toLowerCase());
+    if (filter === 'Resolvidos') return matchesSearch && ['concluído', 'resolvida', 'fechado ganho'].includes(t.status.toLowerCase());
+    
+    return matchesSearch && t.status === filter;
   });
+
+  const areaFilters = ['Todos', 'Em aberto', 'Em análise', 'Resolvidos', ...AREA_CONFIG[activeArea].statuses];
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -445,17 +533,60 @@ export function Requests() {
 
   return (
     <div className="space-y-6">
+      {/* Hub Area Selector */}
+      <div className="grid grid-cols-3 gap-3 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+        {(Object.keys(AREA_CONFIG) as HubArea[]).map((area) => {
+          const config = AREA_CONFIG[area as HubArea];
+          const Icon = area === 'pedidos' ? ClipboardList : area === 'reclamacoes' ? AlertCircle : TrendingUp;
+          const isActive = activeArea === area;
+          
+          return (
+            <button
+              key={area}
+              onClick={() => handleAreaChange(area as HubArea)}
+              className={cn(
+                "flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all",
+                isActive 
+                  ? `bg-white ${config.textMain} shadow-sm border border-slate-200` 
+                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+              )}
+            >
+              <Icon className="w-4 h-4" />
+              <span className="hidden sm:inline">{config.label}</span>
+              <span className="sm:hidden">{config.label.charAt(0)}</span>
+              <div className={cn(
+                "ml-1 px-1.5 py-0.5 rounded-md text-[10px] font-black",
+                isActive ? `${config.bgLight} ${config.textMain}` : "bg-slate-200 text-slate-500"
+              )}>
+                {tickets.filter(t => t.type === area).length}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-display font-bold text-slate-900">Pedidos e Solicitações</h1>
-          <p className="text-slate-500">Acompanhe todos os tickets gerados pelo bot WhatsApp.</p>
+          <h1 className="text-2xl font-display font-bold text-slate-900">
+            Hub de {AREA_CONFIG[activeArea].label}
+          </h1>
+          <p className="text-slate-500">
+            {activeArea === 'pedidos' && "Gestão de solicitações e ordens de serviço."}
+            {activeArea === 'reclamacoes' && "Tratamento de incidências e satisfação de cliente."}
+            {activeArea === 'vendas' && "Pipeline comercial e gestão de leads."}
+          </p>
         </div>
         <button 
           onClick={() => setIsSupportOpen(true)}
-          className="w-full sm:w-auto bg-primary text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 flex items-center justify-center gap-2 hover:bg-primary-dark transition-all"
+          className={cn(
+            "w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all text-white",
+            AREA_CONFIG[activeArea].bgMain,
+            AREA_CONFIG[activeArea].bgHover,
+            AREA_CONFIG[activeArea].shadowMain
+          )}
         >
-          <Plus className="w-4 h-4" /> Novo Ticket
+          <Plus className="w-4 h-4" /> Novo {AREA_CONFIG[activeArea].label.slice(0, -1)}
         </button>
       </div>
 
@@ -466,21 +597,21 @@ export function Requests() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
               type="text" 
-              placeholder="Pesquisar por código ou assunto..." 
+              placeholder={`Pesquisar em ${AREA_CONFIG[activeArea].label.toLowerCase()}...`} 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary transition-all"
             />
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-            {filters.map((f) => (
+          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+            {areaFilters.map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 className={cn(
                   "px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all",
                   filter === f 
-                    ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                    ? `${AREA_CONFIG[activeArea].bgMain} text-white shadow-lg ${AREA_CONFIG[activeArea].shadowMain}` 
                     : "bg-slate-50 text-slate-600 hover:bg-slate-100"
                 )}
               >
@@ -496,16 +627,23 @@ export function Requests() {
         <div className="overflow-x-auto">
           {filteredTickets.length === 0 ? (
             <div className="p-12 text-center">
-              <ClipboardList className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-              <p className="text-slate-500 font-medium">Nenhum pedido encontrado.</p>
-              <p className="text-slate-400 text-sm">Tente ajustar os filtros ou pesquisar por outro termo.</p>
+              <div className={cn(
+                "w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center",
+                AREA_CONFIG[activeArea].bgLight,
+                AREA_CONFIG[activeArea].textMain
+              )}>
+                {activeArea === 'pedidos' ? <ClipboardList className="w-8 h-8" /> :
+                 activeArea === 'reclamacoes' ? <AlertCircle className="w-8 h-8" /> :
+                 <TrendingUp className="w-8 h-8" />}
+              </div>
+              <p className="text-slate-500 font-medium">Nenhum registo encontrado em {AREA_CONFIG[activeArea].label}.</p>
+              <p className="text-slate-400 text-sm">Tente ajustar os filtros ou criar um novo registo.</p>
             </div>
           ) : (
             <table className="w-full text-left min-w-[1000px]">
               <thead>
                 <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-widest font-bold">
                   <th className="px-6 py-4">Código</th>
-                  <th className="px-6 py-4">Tipo</th>
                   <th className="px-6 py-4">Assunto</th>
                   <th className="px-6 py-4">Estado</th>
                   <th className="px-6 py-4">Prioridade</th>
@@ -519,38 +657,35 @@ export function Requests() {
                     key={req.id} 
                     className={cn(
                       "hover:bg-slate-50 transition-colors group cursor-pointer",
-                      req.priority?.toLowerCase() === 'alta' && req.status?.toLowerCase() !== 'resolvido' ? "bg-red-50/30" : ""
+                      req.priority?.toLowerCase() === 'urgente' ? "bg-red-50/30" : ""
                     )}
                     onClick={() => setSelectedId(req.id)}
                   >
-                    <td className="px-6 py-4 font-mono font-bold text-slate-900">{req.tracking_code}</td>
                     <td className="px-6 py-4">
-                      <span className={cn(
-                        "text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider",
-                        req.type?.toLowerCase() === 'pedido' ? "bg-blue-50 text-blue-600" :
-                        req.type?.toLowerCase() === 'reclamação' ? "bg-red-50 text-red-600" :
-                        "bg-slate-100 text-slate-600"
-                      )}>
-                        {req.type}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="font-mono font-bold text-slate-900">{req.tracking_code}</span>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold">{req.category}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 font-medium text-slate-700 max-w-xs truncate">{req.subject}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <div className={cn(
                           "w-2 h-2 rounded-full",
-                          req.status?.toLowerCase() === 'aberto' ? "bg-orange-500" :
-                          req.status?.toLowerCase() === 'em análise' ? "bg-blue-500" :
-                          "bg-green-500"
+                          ['novo', 'nova', 'novo lead'].includes(req.status.toLowerCase()) ? "bg-blue-500" :
+                          ['concluído', 'resolvida', 'fechado ganho'].includes(req.status.toLowerCase()) ? "bg-emerald-500" :
+                          ['cancelado', 'encerrada', 'fechado perdido'].includes(req.status.toLowerCase()) ? "bg-slate-400" :
+                          "bg-orange-500"
                         )}></div>
-                        <span className="font-medium text-slate-600">{req.status}</span>
+                        <span className="font-bold text-slate-700 capitalize">{req.status}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className={cn(
                         "text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider",
-                        req.priority?.toLowerCase() === 'alta' ? "bg-red-500 text-white" :
-                        req.priority?.toLowerCase() === 'média' ? "bg-orange-50 text-orange-600" :
+                        req.priority?.toLowerCase() === 'urgente' ? "bg-red-600 text-white" :
+                        req.priority?.toLowerCase() === 'alta' ? "bg-red-100 text-red-600" :
+                        req.priority?.toLowerCase() === 'média' ? "bg-orange-100 text-orange-600" :
                         "bg-slate-100 text-slate-600"
                       )}>
                         {req.priority}
@@ -611,21 +746,34 @@ export function Requests() {
               <div className="flex-1 overflow-y-auto p-6 space-y-8">
                 {/* Status & Priority Badges */}
                 <div className="flex flex-wrap gap-3">
-                  <div className="bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100 flex items-center gap-2">
-                    <div className={cn(
-                      "w-2 h-2 rounded-full",
-                      selectedRequest.status.toLowerCase() === 'aberto' ? "bg-orange-500" :
-                      selectedRequest.status.toLowerCase() === 'em análise' ? "bg-blue-500" :
-                      "bg-green-500"
-                    )}></div>
-                    <span className="text-xs font-bold text-slate-700">{selectedRequest.status}</span>
+                  <div className="flex-1 min-w-[200px] space-y-1.5">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estado Atual</p>
+                    <select
+                      value={selectedRequest.status}
+                      onChange={(e) => handleUpdateStatus(selectedRequest.id, e.target.value)}
+                      className={cn(
+                        "w-full px-4 py-2 rounded-xl border font-bold text-xs transition-all outline-none",
+                        ['novo', 'nova', 'novo lead'].includes(selectedRequest.status.toLowerCase()) ? "bg-blue-50 border-blue-200 text-blue-600" :
+                        ['concluído', 'resolvida', 'fechado ganho'].includes(selectedRequest.status.toLowerCase()) ? "bg-emerald-50 border-emerald-200 text-emerald-600" :
+                        "bg-orange-50 border-orange-200 text-orange-600"
+                      )}
+                    >
+                      {AREA_CONFIG[selectedRequest.type].statuses.map(s => (
+                        <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                      ))}
+                    </select>
                   </div>
-                  <div className={cn(
-                    "px-4 py-2 rounded-2xl border flex items-center gap-2",
-                    selectedRequest.priority?.toLowerCase() === 'alta' ? "bg-red-50 border-red-100 text-red-600" : "bg-slate-50 border-slate-100 text-slate-600"
-                  )}>
-                    <ShieldAlert className="w-3.5 h-3.5" />
-                    <span className="text-xs font-bold">Prioridade {selectedRequest.priority}</span>
+                  <div className="flex-1 min-w-[150px] space-y-1.5">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Prioridade</p>
+                    <div className={cn(
+                      "px-4 py-2 rounded-xl border flex items-center gap-2 h-[38px]",
+                      selectedRequest.priority?.toLowerCase() === 'urgente' ? "bg-red-50 border-red-200 text-red-600" : 
+                      selectedRequest.priority?.toLowerCase() === 'alta' ? "bg-red-50 border-red-100 text-red-500" : 
+                      "bg-slate-50 border-slate-100 text-slate-600"
+                    )}>
+                      <ShieldAlert className="w-3.5 h-3.5" />
+                      <span className="text-xs font-bold capitalize">{selectedRequest.priority}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -697,8 +845,8 @@ export function Requests() {
                 {/* Info Grid */}
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tipo</p>
-                    <p className="text-sm font-bold text-slate-900">{selectedRequest.type}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Área Operacional</p>
+                    <p className="text-sm font-bold text-slate-900 capitalize">{AREA_CONFIG[selectedRequest.type].label}</p>
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Criação</p>
@@ -756,7 +904,7 @@ export function Requests() {
                   <div className="mt-2 flex justify-end">
                     <button 
                       onClick={() => {
-                        toast.success('Observações guardadas com sucesso.');
+                        toast.info('Funcionalidade de notas internas em desenvolvimento.');
                       }}
                       className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition-all"
                     >
@@ -769,16 +917,33 @@ export function Requests() {
               {/* Detail Footer */}
               <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3">
                 <button 
-                  onClick={() => handleUpdateStatus(selectedRequest.id, 'resolvido')}
-                  className="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all"
+                  onClick={() => handleUpdateStatus(selectedRequest.id, 
+                    selectedRequest.type === 'pedidos' ? 'concluído' : 
+                    selectedRequest.type === 'reclamacoes' ? 'resolvida' : 
+                    'fechado ganho'
+                  )}
+                  className={cn(
+                    "flex-1 py-3 text-white rounded-xl font-bold text-sm shadow-lg transition-all",
+                    AREA_CONFIG[selectedRequest.type].bgMain,
+                    AREA_CONFIG[selectedRequest.type].bgHover,
+                    AREA_CONFIG[selectedRequest.type].shadowMain
+                  )}
                 >
-                  Resolver Pedido
+                  {selectedRequest.type === 'pedidos' ? 'Concluir Pedido' : 
+                   selectedRequest.type === 'reclamacoes' ? 'Resolver Reclamação' : 
+                   'Fechar Venda (Ganho)'}
                 </button>
                 <button 
-                  onClick={() => handleUpdateStatus(selectedRequest.id, 'em análise')}
+                  onClick={() => handleUpdateStatus(selectedRequest.id, 
+                    selectedRequest.type === 'pedidos' ? 'cancelado' : 
+                    selectedRequest.type === 'reclamacoes' ? 'encerrada' : 
+                    'fechado perdido'
+                  )}
                   className="px-4 py-3 border border-slate-200 rounded-xl font-bold text-sm text-slate-600 hover:bg-white transition-all"
                 >
-                  Alterar Estado
+                  {selectedRequest.type === 'pedidos' ? 'Cancelar' : 
+                   selectedRequest.type === 'reclamacoes' ? 'Encerrar' : 
+                   'Fechar (Perdido)'}
                 </button>
               </div>
             </motion.div>
@@ -790,6 +955,7 @@ export function Requests() {
         isOpen={isSupportOpen} 
         onClose={() => setIsSupportOpen(false)}
         onSubmit={handleSupportSubmit}
+        initialType={activeArea}
       />
     </div>
   );
