@@ -204,12 +204,25 @@ const PaymentMethodsModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
               </div>
               <div className="pt-2">
                 <button 
-                  onClick={() => {
-                    toast.info('A redirecionar para o Portal Stripe...');
-                    setTimeout(() => {
-                      toast.success('Portal Stripe aberto numa nova janela.');
-                      onClose();
-                    }, 1500);
+                  onClick={async () => {
+                    try {
+                      toast.loading('A redirecionar para o Portal Stripe...');
+                      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
+                      const res = await fetch(`${baseUrl}/api/client/stripe/portal`, {
+                        method: 'POST',
+                        credentials: 'include'
+                      });
+                      const json = await res.json();
+                      toast.dismiss();
+                      if (json.ok && json.url) {
+                        window.location.href = json.url;
+                      } else {
+                        toast.error(json.error || 'Não foi possível abrir o portal.');
+                      }
+                    } catch (err) {
+                      toast.dismiss();
+                      toast.error('Erro de conexão ao abrir o portal.');
+                    }
                   }}
                   className="w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 flex items-center justify-center gap-2"
                 >

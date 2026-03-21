@@ -68,7 +68,13 @@ export function Instance() {
             console.log(`[APP] Instance data received from ${url}:`, result);
             
             const instance = extractObjectResponse<InstanceData>(result, 'instance');
-            const stats = result.stats || {
+            const stats = result.stats ? {
+              totalMessages: result.stats.totalMessages || result.stats.messages || ((result.stats.sentMessages || result.stats.messages_sent || 0) + (result.stats.receivedMessages || result.stats.messages_received || 0)),
+              sentMessages: result.stats.sentMessages || result.stats.messages_sent || 0,
+              receivedMessages: result.stats.receivedMessages || result.stats.messages_received || 0,
+              totalTickets: result.stats.totalTickets || result.stats.total_tickets || 0,
+              complaints: result.stats.complaints || 0
+            } : {
               totalMessages: 0,
               sentMessages: 0,
               receivedMessages: 0,

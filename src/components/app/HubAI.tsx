@@ -16,7 +16,6 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../lib/auth/AuthContext';
-import { GoogleGenAI } from "@google/genai";
 
 interface Message {
   id: string;
@@ -64,33 +63,36 @@ export function HubAI() {
     setIsLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: input,
-        config: {
-          systemInstruction: `Você é o assistente inteligente do TrataTudo Hub. 
-          Seu papel é ajudar o utilizador (${user?.company_name || 'utilizador'}) a gerir o seu negócio.
-          Você tem acesso (via contexto que o utilizador fornece) a Pedidos, Reclamações e Vendas.
-          Seja profissional, prestativo e direto. Use português de Portugal.
-          Ajude a resumir tickets, sugerir próximas ações e orientar nas tarefas do Hub.`
-        }
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
+      const response = await fetch(`${baseUrl}/api/client/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          message: input,
+          history: messages.map(m => ({ role: m.role, content: m.content }))
+        })
       });
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.text || 'Desculpe, não consegui processar o seu pedido.',
-        timestamp: new Date()
-      };
+      const data = await response.json();
 
-      setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
+      if (data && data.ok) {
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: data.text,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      } else {
+        throw new Error(data?.error || 'Falha ao obter resposta da IA');
+      }
+    } catch (error: any) {
       console.error('AI Error:', error);
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Ocorreu um erro ao processar a sua mensagem. Por favor, tente novamente.',
+        content: error.message || 'IA temporariamente indisponível. Por favor, tente novamente.',
         timestamp: new Date()
       }]);
     } finally {

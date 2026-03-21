@@ -178,9 +178,202 @@ async function startServer() {
       const { count: tks } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", clientId);
       const { data: inst } = await supabase.from("client_instances").select("*").eq("client_id", clientId).single();
       const { data: sub } = await supabase.from("subscriptions").select("*").eq("client_id", clientId).single();
-      res.json({ ok: true, stats: { messages: msgs || 0, totalTickets: tks || 0 }, instance: inst, subscription: sub || { plan: 'Trial', status: 'active' } });
+      
+      const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("kind", "reclamacao");
+      const { count: sentMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("direction", "outbound");
+      const { count: receivedMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("direction", "inbound");
+
+      res.json({ 
+        ok: true, 
+        stats: { 
+          messages: msgs || 0, 
+          totalMessages: msgs || 0,
+          sentMessages: sentMsgs || 0,
+          receivedMessages: receivedMsgs || 0,
+          totalTickets: tks || 0,
+          complaints: complaints || 0
+        }, 
+        instance: inst, 
+        subscription: sub || { plan: 'Trial', status: 'active' } 
+      });
     } catch (err: any) {
       res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Client Instance
+  app.get("/api/client/instance", requireClientSession, async (req: any, res) => {
+    const { data: instance, error } = await supabase.from("client_instances").select("*").eq("client_id", req.clientId).single();
+    if (error && error.code !== 'PGRST116') return res.status(500).json({ ok: false, error: error.message });
+    
+    // Fetch stats for the instance page
+    const { count: msgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
+    const { count: tks } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
+    const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("kind", "reclamacao");
+    const { count: sentMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("direction", "outbound");
+    const { count: receivedMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("direction", "inbound");
+
+    res.json({ 
+      ok: true, 
+      instance,
+      stats: {
+        totalMessages: msgs || 0,
+        sentMessages: sentMsgs || 0,
+        receivedMessages: receivedMsgs || 0,
+        totalTickets: tks || 0,
+        complaints: complaints || 0
+      }
+    });
+  });
+
+  app.post("/api/client/instance/sync", requireClientSession, async (req: any, res) => {
+    // In a real app, this would trigger a sync with Evolution API
+    // For now, we'll just update the last_activity
+    const { data, error } = await supabase.from("client_instances")
+      .update({ last_activity: new Date().toISOString() })
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, instance: data });
+  });
+
+  // Client Subscription
+  app.get("/api/client/subscription", requireClientSession, async (req: any, res) => {
+    const { data: sub, error } = await supabase.from("subscriptions").select("*").eq("client_id", req.clientId).single();
+    if (error && error.code !== 'PGRST116') return res.status(500).json({ ok: false, error: error.message });
+    
+    const { count: msgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
+    const { count: tks } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
+    const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("kind", "reclamacao");
+
+    res.json({ 
+      ok: true, 
+      subscription: sub || { 
+        plan: 'Trial', 
+        status: 'Ativo', 
+        started_at: req.client.created_at,
+        ends_at: new Date(new Date(req.client.created_at).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      usage: {
+        messages: msgs || 0,
+        tickets: tks || 0,
+        complaints: complaints || 0
+      }
+    });
+  });
+
+  app.post("/api/client/stripe/checkout", requireClientSession, async (req: any, res) => {
+    const { priceId } = req.body;
+    if (!priceId) return res.status(400).json({ ok: false, error: "Price ID obrigatório." });
+
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: "subscription",
+        success_url: `${process.env.APP_URL || 'http://localhost:3000'}/app/subscription?success=true`,
+        cancel_url: `${process.env.APP_URL || 'http://localhost:3000'}/app/subscription?canceled=true`,
+        metadata: { clientId: req.clientId },
+        customer_email: req.client.email || undefined,
+      });
+
+      res.json({ ok: true, url: session.url });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/client/stripe/portal", requireClientSession, async (req: any, res) => {
+    try {
+      if (!req.client.stripe_customer_id) {
+        return res.status(400).json({ ok: false, error: "Cliente sem ID Stripe. Por favor, realize um pagamento primeiro." });
+      }
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: req.client.stripe_customer_id,
+        return_url: `${process.env.APP_URL || 'http://localhost:3000'}/app/subscription`,
+      });
+
+      res.json({ ok: true, url: session.url });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Client AI Chat
+  app.post("/api/client/ai/chat", requireClientSession, aiRateLimiter, async (req: any, res) => {
+    const { message, history = [] } = req.body;
+    if (!message) return res.status(400).json({ ok: false, error: "Mensagem obrigatória." });
+
+    try {
+      const systemPrompt = `Você é o assistente inteligente do TrataTudo Hub. 
+      Seu papel é ajudar o utilizador (${req.client.company_name}) a gerir o seu negócio.
+      Você tem acesso a Pedidos, Reclamações e Vendas.
+      Seja profissional, prestativo e direto. Use português de Portugal.
+      Ajude a resumir tickets, sugerir próximas ações e orientar nas tarefas do Hub.
+      Instruções específicas do bot: ${req.client.bot_instructions || 'Nenhuma instrução específica.'}`;
+
+      const messages = [
+        { role: "system", content: systemPrompt },
+        ...history.map((h: any) => ({ role: h.role, content: h.content })),
+        { role: "user", content: message }
+      ];
+
+      const completion = await groq.chat.completions.create({
+        messages: messages as any,
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.7,
+        max_tokens: 1024,
+      });
+
+      const responseText = completion.choices[0]?.message?.content || "Desculpe, não consegui processar o seu pedido.";
+      res.json({ ok: true, text: responseText });
+    } catch (err: any) {
+      console.error('AI Chat Error:', err);
+      res.status(500).json({ ok: false, error: "IA temporariamente indisponível. Tente novamente mais tarde." });
+    }
+  });
+
+  app.post("/api/client/tickets/:id/analyze", requireClientSession, aiRateLimiter, async (req: any, res) => {
+    const { id } = req.params;
+    try {
+      const { data: ticket } = await supabase.from("tickets").select("*").eq("id", id).eq("client_id", req.clientId).single();
+      if (!ticket) return res.status(404).json({ ok: false, error: "Ticket não encontrado." });
+
+      const { data: messages } = await supabase.from("ticket_messages").select("*").eq("ticket_id", id).order("created_at", { ascending: true });
+      const conversation = messages?.map(m => `${m.sender_type === 'user' ? 'Cliente' : 'Suporte'}: ${m.text}`).join("\n") || ticket.description;
+
+      const prompt = `Analise o seguinte ticket de suporte e forneça um resumo, causa provável, sentimento do cliente, solução sugerida e próximos passos.
+      Assunto: ${ticket.subject}
+      Descrição: ${ticket.description}
+      Conversa:
+      ${conversation}
+      
+      Responda APENAS em formato JSON válido com esta estrutura:
+      {
+        "summary": "...",
+        "probable_cause": "...",
+        "sentiment": "...",
+        "suggested_solution": "...",
+        "next_steps": ["...", "..."]
+      }`;
+
+      const completion = await groq.chat.completions.create({
+        messages: [
+          { role: "system", content: "És um assistente de suporte especializado em análise de tickets. Responde sempre em JSON." },
+          { role: "user", content: prompt }
+        ],
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" }
+      });
+
+      const analysis = JSON.parse(completion.choices[0]?.message?.content || "{}");
+      res.json({ ok: true, analysis });
+    } catch (err: any) {
+      console.error("[AI Analysis Error]:", err);
+      res.status(500).json({ ok: false, error: "IA temporariamente indisponível." });
     }
   });
 
