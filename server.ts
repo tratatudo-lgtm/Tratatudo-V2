@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config({ path: "/home/ubuntu/Tratatudo-V2/.env" });
 import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
@@ -127,7 +129,7 @@ async function startServer() {
     const codeHash = await bcrypt.hash(code, 10);
     await supabase.from("auth_otps").update({ used_at: new Date().toISOString() }).eq("phone_e164", phone_e164).is("used_at", null);
     const { error } = await supabase.from("auth_otps").insert({ phone_e164, code_hash: codeHash, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), purpose: 'hub_login' });
-    if (error) return res.status(500).json({ ok: false, error: "Erro ao gerar código." });
+    if (error) return res.status(500).json({ ok: false, error: error.message, details: error });
     try {
       const { data: client } = await supabase.from("clients").select("id").eq("phone_e164", phone_e164).single();
       await sendWhatsAppNotification(client?.id || "hub", phone_e164, `O seu código TrataTudo é: ${code}`);
