@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { HubAI } from './HubAI';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -20,6 +21,9 @@ export function AppLayout({ children }: AppLayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* AI Assistant */}
+      <HubAI />
     </div>
   );
 }

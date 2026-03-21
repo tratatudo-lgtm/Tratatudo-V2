@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -10,23 +10,12 @@ import {
   CreditCard, 
   Settings, 
   LogOut,
-  ChevronLeft,
-  ChevronRight,
+  Users,
   X
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../lib/auth/AuthContext';
-
-const menuItems = [
-  { name: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard },
-  { name: 'Mensagens', href: '/app/messages', icon: MessageSquare },
-  { name: 'Pedidos', href: '/app/tickets?area=pedidos', icon: ClipboardList },
-  { name: 'Reclamações', href: '/app/tickets?area=reclamacoes', icon: AlertCircle },
-  { name: 'Vendas', href: '/app/tickets?area=vendas', icon: TrendingUp },
-  { name: 'Instância', href: '/app/instancia', icon: Smartphone },
-  { name: 'Subscrição', href: '/app/subscription', icon: CreditCard },
-  { name: 'Definições', href: '/app/settings', icon: Settings },
-];
+import { usePermissions } from '../../lib/usePermissions';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -37,6 +26,7 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const { canSee } = usePermissions();
 
   const handleLogout = async () => {
     try {
@@ -47,6 +37,31 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       navigate('/login');
     }
   };
+
+  const menuItems = [
+    { name: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard, area: 'dashboard' },
+    { name: 'Mensagens', href: '/app/messages', icon: MessageSquare, area: 'mensagens' },
+    { name: 'Pedidos', href: '/app/tickets?area=pedidos', icon: ClipboardList, area: 'pedidos' },
+    { name: 'Reclamações', href: '/app/tickets?area=reclamacoes', icon: AlertCircle, area: 'reclamacoes' },
+    { name: 'Vendas', href: '/app/tickets?area=vendas', icon: TrendingUp, area: 'vendas' },
+    { name: 'Instância', href: '/app/instancia', icon: Smartphone, area: 'instancia' },
+    { name: 'Equipa', href: '/app/team', icon: Users, area: 'equipa' },
+    { name: 'Subscrição', href: '/app/subscription', icon: CreditCard, area: 'subscricao' },
+    { name: 'Definições', href: '/app/settings', icon: Settings, area: 'definicoes' },
+  ];
+
+  // Filter items based on permissions and route existence
+  const filteredItems = menuItems.filter(item => {
+    // Check permission
+    if (!canSee(item.area as any)) return false;
+    
+    // Special check for Equipa route existence (not yet in App.tsx)
+    // The user asked to only show if it exists in App.tsx. 
+    // Since we know it doesn't exist yet, we return false.
+    if (item.href === '/app/team') return false;
+    
+    return true;
+  });
 
   return (
     <>
@@ -66,7 +81,7 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="h-16 flex items-center px-6 border-bottom border-slate-100">
+          <div className="h-16 flex items-center px-6 border-b border-slate-100">
             <Link to="/" className="flex items-center gap-2 overflow-hidden whitespace-nowrap">
               <div className="bg-primary p-1.5 rounded-lg shrink-0">
                 <MessageSquare className="text-white w-5 h-5" />
@@ -88,7 +103,7 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
           {/* Navigation */}
           <nav className="flex-1 py-6 px-3 space-y-1">
-            {menuItems.map((item) => {
+            {filteredItems.map((item) => {
               const [itemPath, itemQuery] = item.href.split('?');
               const isActive = location.pathname === itemPath && 
                               (itemQuery ? location.search.includes(itemQuery) : location.search === '');
