@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  CreditCard, 
-  CheckCircle2, 
-  AlertCircle, 
-  Zap, 
-  Shield, 
-  Globe, 
-  MessageSquare, 
+import {
+  CreditCard,
+  CheckCircle2,
+  AlertCircle,
+  Zap,
+  Shield,
+  Globe,
+  MessageSquare,
   HelpCircle,
   Clock,
   ArrowRight,
@@ -15,9 +15,12 @@ import {
   X,
   Send,
   LifeBuoy,
-  ExternalLink
+  ExternalLink,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
 
 interface SubscriptionData {
   plan: string;
@@ -32,8 +35,48 @@ interface UsageData {
   complaints: number;
 }
 
-const SupportModal = ({ isOpen, onClose, onSubmit }: { 
-  isOpen: boolean; 
+interface SubscriptionResponse {
+  subscription: SubscriptionData;
+  usage: UsageData;
+}
+
+function toNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function normalizeSubscriptionResponse(json: any): SubscriptionResponse {
+  const rawSubscription = json?.subscription || json?.data?.subscription || {};
+  const rawUsage = json?.usage || json?.data?.usage || json?.stats || {};
+
+  return {
+    subscription: {
+      plan: rawSubscription.plan || rawSubscription.name || 'Trial',
+      status: rawSubscription.status || 'Ativo',
+      started_at:
+        rawSubscription.started_at ||
+        rawSubscription.created_at ||
+        new Date().toISOString(),
+      ends_at:
+        rawSubscription.ends_at ||
+        rawSubscription.renews_at ||
+        rawSubscription.current_period_end ||
+        null
+    },
+    usage: {
+      messages: toNumber(rawUsage.messages ?? rawUsage.totalMessages ?? rawUsage.total_messages),
+      tickets: toNumber(rawUsage.tickets ?? rawUsage.totalTickets ?? rawUsage.total_tickets),
+      complaints: toNumber(rawUsage.complaints ?? rawUsage.reclamacoes ?? rawUsage.totalComplaints)
+    }
+  };
+}
+
+const SupportModal = ({
+  isOpen,
+  onClose,
+  onSubmit
+}: {
+  isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: any) => Promise<void>;
 }) => {
@@ -45,6 +88,7 @@ const SupportModal = ({ isOpen, onClose, onSubmit }: {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!subject || !message) {
       toast.error('Por favor, preencha o assunto e a mensagem.');
       return;
@@ -83,7 +127,7 @@ const SupportModal = ({ isOpen, onClose, onSubmit }: {
                   <p className="text-sm text-slate-500">Como podemos ajudar hoje?</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={onClose}
                 className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
               >
@@ -106,6 +150,7 @@ const SupportModal = ({ isOpen, onClose, onSubmit }: {
                     <option value="Sugestão">Sugestão</option>
                   </select>
                 </div>
+
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-slate-700">Prioridade</label>
                   <select
@@ -170,7 +215,43 @@ const SupportModal = ({ isOpen, onClose, onSubmit }: {
   );
 };
 
-const PaymentMethodsModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+const PaymentMethodsModal = ({
+  isOpen,
+  onClose
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) => {
+  const [openingPortal, setOpeningPortal] = useState(false);
+
+  const openStripePortal = async () => {
+    try {
+      setOpeningPortal(true);
+      toast.loading('A redirecionar para o Portal Stripe...');
+
+      const res = await fetch(`${BASE_URL}/api/client/stripe/portal`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      toast.dismiss();
+
+      if (res.ok && json?.ok && json?.url) {
+        window.location.href = json.url;
+        return;
+      }
+
+      toast.error(json?.error || 'Não foi possível abrir o portal.');
+    } catch (err) {
+      toast.dismiss();
+      toast.error('Erro de conexão ao abrir o portal.');
+    } finally {
+      setOpeningPortal(false);
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -188,49 +269,47 @@ const PaymentMethodsModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
                 </div>
                 <h3 className="text-xl font-bold text-slate-900">Métodos de Pagamento</h3>
               </div>
-              <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
+
             <div className="p-8 text-center space-y-6">
               <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
                 <Shield className="w-8 h-8 text-slate-300" />
               </div>
+
               <div className="space-y-2">
                 <p className="text-slate-900 font-bold">Portal de Faturação Seguro</p>
                 <p className="text-slate-600 text-sm leading-relaxed">
                   Para sua segurança, a gestão de cartões e faturas é feita exclusivamente através do Portal Stripe.
                 </p>
               </div>
+
               <div className="pt-2">
-                <button 
-                  onClick={async () => {
-                    try {
-                      toast.loading('A redirecionar para o Portal Stripe...');
-                      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-                      const res = await fetch(`${baseUrl}/api/client/stripe/portal`, {
-                        method: 'POST',
-                        credentials: 'include'
-                      });
-                      const json = await res.json();
-                      toast.dismiss();
-                      if (json.ok && json.url) {
-                        window.location.href = json.url;
-                      } else {
-                        toast.error(json.error || 'Não foi possível abrir o portal.');
-                      }
-                    } catch (err) {
-                      toast.dismiss();
-                      toast.error('Erro de conexão ao abrir o portal.');
-                    }
-                  }}
-                  className="w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 flex items-center justify-center gap-2"
+                <button
+                  onClick={openStripePortal}
+                  disabled={openingPortal}
+                  className="w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 disabled:opacity-60 transition-all shadow-lg shadow-slate-900/20 flex items-center justify-center gap-2"
                 >
-                  Ir para Portal Stripe
-                  <ExternalLink className="w-4 h-4" />
+                  {openingPortal ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      A abrir portal...
+                    </>
+                  ) : (
+                    <>
+                      Ir para Portal Stripe
+                      <ExternalLink className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
+
                 <p className="mt-4 text-xs text-slate-400">
-                  Enviamos um link de acesso seguro para o seu email.
+                  O acesso é feito de forma segura através da Stripe.
                 </p>
               </div>
             </div>
@@ -244,7 +323,7 @@ const PaymentMethodsModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 export default function Subscription() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<{ subscription: SubscriptionData; usage: UsageData } | null>(null);
+  const [data, setData] = useState<SubscriptionResponse | null>(null);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
@@ -253,48 +332,43 @@ export default function Subscription() {
   }, []);
 
   const fetchSubscription = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
     const endpoints = [
-      `${baseUrl}/api/client/subscription`,
-      `${baseUrl}/api/subscription`
+      `${BASE_URL}/api/client/subscription`,
+      `${BASE_URL}/api/subscription`
     ];
-    
-    let lastError = null;
-    
+
+    let lastError: any = null;
+
     try {
       setLoading(true);
       setError(null);
-      
+
       for (const url of endpoints) {
-        console.log(`[SUBSCRIPTION] Fetching from: ${url}`);
         try {
           const res = await fetch(url, {
             credentials: 'include'
           });
-          
+
           if (res.ok) {
             const json = await res.json();
-            console.log('[SUBSCRIPTION] Data received:', json);
-            setData(json);
-            setLoading(false);
+            setData(normalizeSubscriptionResponse(json));
             return;
-          } else if (res.status === 401) {
+          }
+
+          if (res.status === 401) {
             throw new Error('Sessão expirada. Por favor, faça login novamente.');
           }
         } catch (e) {
           lastError = e;
         }
       }
-      
+
       throw lastError || new Error('Falha ao carregar dados de subscrição');
-      
     } catch (err: any) {
       console.error('[SUBSCRIPTION] Fetch failed:', err);
       setError(err.message || 'Não foi possível carregar os dados da sua subscrição.');
-      
-      // Professional fallback for demo/development
+
       if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
-        console.log('[SUBSCRIPTION] Using fallback data');
         setData({
           subscription: {
             plan: 'Trial',
@@ -317,8 +391,7 @@ export default function Subscription() {
 
   const handleSupportSubmit = async (supportData: any) => {
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-      const res = await fetch(`${baseUrl}/api/client/tickets`, {
+      const res = await fetch(`${BASE_URL}/api/client/tickets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -326,58 +399,58 @@ export default function Subscription() {
           subject: supportData.subject,
           description: supportData.message,
           category: supportData.category,
-          priority: supportData.priority
+          priority: supportData.priority,
+          kind: 'suporte'
         })
       });
-      
-      const json = await res.json();
-      if (json.ok) {
-        toast.success('Ticket de suporte criado com sucesso! O código é ' + json.ticket.tracking_code);
-      } else {
-        toast.error('Erro ao criar ticket: ' + json.error);
-        throw new Error(json.error);
+
+      const json = await res.json().catch(() => ({}));
+
+      if (res.ok && json?.ok) {
+        toast.success(`Ticket de suporte criado com sucesso! Código: ${json.ticket?.tracking_code || 'N/A'}`);
+        return;
       }
-    } catch (err) {
-      toast.error('Erro de conexão ao criar ticket.');
+
+      throw new Error(json?.error || 'Erro ao criar ticket.');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro de conexão ao criar ticket.');
       throw err;
     }
   };
 
   const handleUpgrade = async (plan: string) => {
     const priceId = plan === 'Pro' ? 'price_pro_id' : 'price_enterprise_id';
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-    
+
     try {
       toast.loading(`A preparar checkout para o plano ${plan}...`);
-      
-      const res = await fetch(`${baseUrl}/api/client/stripe/checkout`, {
+
+      const res = await fetch(`${BASE_URL}/api/client/stripe/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ priceId })
       });
-      
-      const json = await res.json();
+
+      const json = await res.json().catch(() => ({}));
       toast.dismiss();
-      
-      if (json.ok && json.url) {
+
+      if (res.ok && json?.ok && json?.url) {
         window.location.href = json.url;
-      } else {
-        console.warn('[SUBSCRIPTION] Checkout failed, using fallback modal', json);
-        setIsPaymentModalOpen(true);
-        toast.info('Redirecionamento automático indisponível. Por favor, use o formulário de pagamento.');
+        return;
       }
+
+      setIsPaymentModalOpen(true);
+      toast.info(json?.error || 'Redirecionamento automático indisponível. Abra o portal de pagamento.');
     } catch (err) {
       toast.dismiss();
-      console.error('[SUBSCRIPTION] Upgrade error:', err);
       setIsPaymentModalOpen(true);
-      toast.info('Erro de conexão. Por favor, use o formulário de pagamento.');
+      toast.info('Erro de conexão. Abra o portal de pagamento.');
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full min-h-[320px]">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
       </div>
     );
@@ -389,10 +462,11 @@ export default function Subscription() {
         <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
         <h3 className="text-xl font-bold text-slate-900 mb-2">Erro de Carregamento</h3>
         <p className="text-slate-600">{error}</p>
-        <button 
+        <button
           onClick={fetchSubscription}
-          className="mt-4 px-6 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all"
+          className="mt-4 inline-flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all"
         >
+          <RefreshCw className="w-4 h-4" />
           Tentar Novamente
         </button>
       </div>
@@ -404,22 +478,22 @@ export default function Subscription() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 p-4 md:p-8">
-      {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Subscrição & Faturação</h1>
           <p className="text-slate-500 mt-1">Gira o seu plano, veja o uso e aceda ao suporte.</p>
         </div>
-        
-        <div className="flex items-center gap-3">
-          <button 
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
             onClick={() => setIsSupportOpen(true)}
             className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-all shadow-sm"
           >
             <HelpCircle className="w-4 h-4" />
             Contactar Suporte
           </button>
-          <button 
+
+          <button
             onClick={() => setIsPaymentModalOpen(true)}
             className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20"
           >
@@ -430,32 +504,34 @@ export default function Subscription() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Current Plan Card */}
         <div className="lg:col-span-2 space-y-8">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm"
           >
-            <div className="p-8 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <div className="p-8 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-600/20">
                   <Zap className="w-6 h-6" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-bold text-slate-900">Plano {subscription?.plan}</h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-xl font-bold text-slate-900">Plano {subscription?.plan || 'Trial'}</h3>
                     <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full uppercase tracking-wider">
-                      {subscription?.status}
+                      {subscription?.status || 'Ativo'}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-500">Subscrição ativa desde {subscription?.started_at ? new Date(subscription.started_at).toLocaleDateString() : 'N/A'}</p>
+                  <p className="text-sm text-slate-500">
+                    Subscrição ativa desde {subscription?.started_at ? new Date(subscription.started_at).toLocaleDateString('pt-PT') : 'N/A'}
+                  </p>
                 </div>
               </div>
+
               <div className="text-right">
                 <p className="text-sm text-slate-500">Próxima fatura</p>
                 <p className="text-lg font-bold text-slate-900">
-                  {subscription?.ends_at ? new Date(subscription.ends_at).toLocaleDateString() : 'N/A'}
+                  {subscription?.ends_at ? new Date(subscription.ends_at).toLocaleDateString('pt-PT') : 'N/A'}
                 </p>
               </div>
             </div>
@@ -470,6 +546,7 @@ export default function Subscription() {
                   <div className="h-full bg-emerald-500 w-[15%]" />
                 </div>
               </div>
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-500 font-medium">Tickets</span>
@@ -479,6 +556,7 @@ export default function Subscription() {
                   <div className="h-full bg-blue-500 w-[45%]" />
                 </div>
               </div>
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-500 font-medium">Reclamações</span>
@@ -491,7 +569,6 @@ export default function Subscription() {
             </div>
           </motion.div>
 
-          {/* Features Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-6 bg-white rounded-2xl border border-slate-200 flex gap-4">
               <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
@@ -502,6 +579,7 @@ export default function Subscription() {
                 <p className="text-sm text-slate-500 mt-1">Proteção de dados e backups diários automáticos.</p>
               </div>
             </div>
+
             <div className="p-6 bg-white rounded-2xl border border-slate-200 flex gap-4">
               <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
                 <Globe className="w-5 h-5" />
@@ -514,23 +592,25 @@ export default function Subscription() {
           </div>
         </div>
 
-        {/* Support & Help Sidebar */}
         <div className="space-y-6">
           <div className="p-6 bg-slate-900 rounded-3xl text-white relative overflow-hidden">
             <div className="relative z-10">
               <h3 className="text-xl font-bold mb-2">Precisa de ajuda?</h3>
-              <p className="text-slate-400 text-sm mb-6">A nossa equipa de especialistas está pronta para ajudar a escalar o seu negócio.</p>
-              
+              <p className="text-slate-400 text-sm mb-6">
+                A nossa equipa de especialistas está pronta para ajudar a escalar o seu negócio.
+              </p>
+
               <div className="space-y-4">
-                <button 
+                <button
                   onClick={() => setIsSupportOpen(true)}
                   className="w-full py-3 bg-white text-slate-900 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-100 transition-all"
                 >
                   <MessageSquare className="w-4 h-4" />
                   Abrir Ticket
                 </button>
-                <button 
-                  onClick={() => toast.info('A carregar histórico de suporte...')}
+
+                <button
+                  onClick={() => toast.info('Histórico de suporte ficará disponível em breve.')}
                   className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 transition-all"
                 >
                   <Clock className="w-4 h-4" />
@@ -538,8 +618,7 @@ export default function Subscription() {
                 </button>
               </div>
             </div>
-            
-            {/* Decorative element */}
+
             <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-emerald-500/20 rounded-full blur-3xl" />
           </div>
 
@@ -552,8 +631,8 @@ export default function Subscription() {
                 'Como funciona o suporte 24/7?',
                 'Onde encontro as minhas faturas?'
               ].map((q, i) => (
-                <button 
-                  key={i} 
+                <button
+                  key={i}
                   onClick={() => toast.info(`Dica: ${q}`)}
                   className="w-full flex items-center justify-between text-left group"
                 >
@@ -566,12 +645,13 @@ export default function Subscription() {
         </div>
       </div>
 
-      {/* Pricing Comparison (Optional/Hidden if already Pro) */}
       {(subscription?.plan === 'Trial' || subscription?.plan === 'Grátis') && (
         <div className="pt-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-black text-slate-900 mb-4">Pronto para o próximo nível?</h2>
-            <p className="text-slate-500 max-w-2xl mx-auto">Escolha o plano que melhor se adapta ao volume da sua operação e comece a tratar de tudo hoje mesmo.</p>
+            <p className="text-slate-500 max-w-2xl mx-auto">
+              Escolha o plano que melhor se adapta ao volume da sua operação e comece a tratar de tudo hoje mesmo.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
@@ -594,7 +674,7 @@ export default function Subscription() {
                 ))}
               </ul>
 
-              <button 
+              <button
                 onClick={() => handleUpgrade('Pro')}
                 className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10"
               >
@@ -622,29 +702,31 @@ export default function Subscription() {
                   ))}
                 </ul>
 
-                <button 
+                <button
                   onClick={() => handleUpgrade('Enterprise')}
                   className="w-full py-4 bg-white text-emerald-600 rounded-2xl font-bold hover:bg-emerald-50 transition-all shadow-xl"
                 >
                   Contactar Vendas
                 </button>
               </div>
-              
+
               <div className="absolute top-0 right-0 p-4">
-                <span className="px-3 py-1 bg-emerald-500 text-white text-xs font-bold rounded-full uppercase tracking-widest">Recomendado</span>
+                <span className="px-3 py-1 bg-emerald-500 text-white text-xs font-bold rounded-full uppercase tracking-widest">
+                  Recomendado
+                </span>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      <SupportModal 
-        isOpen={isSupportOpen} 
+      <SupportModal
+        isOpen={isSupportOpen}
         onClose={() => setIsSupportOpen(false)}
         onSubmit={handleSupportSubmit}
       />
 
-      <PaymentMethodsModal 
+      <PaymentMethodsModal
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
       />
