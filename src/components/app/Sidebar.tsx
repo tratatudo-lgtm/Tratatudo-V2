@@ -49,7 +49,7 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
   const menuItems = [
     { name: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard, area: 'dashboard' },
-    { name: 'Mensagens', href: '/app/messages', icon: MessageSquare, area: 'whatsapp' },
+    { name: 'Conversas', href: '/app/whatsapp', icon: MessageSquare, area: 'whatsapp' },
     { name: 'Tickets', href: '/app/tickets', icon: Ticket, area: 'tickets' },
     { name: 'Pedidos', href: '/app/tickets?category=pedidos', icon: ClipboardList, area: 'tickets' },
     { name: 'Reclamações', href: '/app/tickets?category=reclamacoes', icon: AlertCircle, area: 'tickets' },

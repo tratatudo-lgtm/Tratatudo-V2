@@ -315,6 +315,49 @@ export interface FinancialDocument {
   updated_at?: string;
 }
 
+export interface WAMessage {
+  id: string;
+  client_id: string;
+  instance: string;
+  phone_e164: string;
+  direction: 'inbound' | 'outbound';
+  text: string;
+  raw?: any;
+  created_at: string;
+}
+
+export interface ClientInstance {
+  id: string;
+  client_id: string;
+  instance_name: string;
+  status: 'open' | 'connecting' | 'disconnected' | 'error';
+  phone_number?: string;
+  last_activity?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Conversation {
+  phone_e164: string;
+  display_name?: string;
+  last_message: string;
+  last_message_at: string;
+  unread_count: number;
+  instance: string;
+  direction: 'inbound' | 'outbound';
+  linked_client_id?: string;
+  linked_ticket_id?: string;
+  ticket_status?: string;
+  ticket_tracking_code?: string;
+}
+
+export interface WhatsAppStats {
+  totalConversations: number;
+  messagesToday: number;
+  activeInstances: number;
+  conversationsWithTickets: number;
+}
+
 export const AREA_CONFIG: Record<OperationalArea, {
   label: string;
   bgLight: string;

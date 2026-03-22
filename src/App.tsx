@@ -21,7 +21,7 @@ import { AdminLogin } from './pages/admin/Login';
 // App Pages
 import { Dashboard } from './pages/app/Dashboard';
 import OperationalDashboard from './pages/app/OperationalDashboard';
-import { Messages } from './pages/app/Messages';
+import WhatsApp from './pages/app/WhatsApp';
 import Tickets from './pages/app/Tickets';
 import TicketDetail from './pages/app/TicketDetail';
 import { Instance } from './pages/app/Instance';
@@ -124,7 +124,8 @@ function App() {
                 >
                   <Route index element={<Navigate to="dashboard" replace />} />
                   <Route path="dashboard" element={<ProtectedRoute module="dashboard"><OperationalDashboard /></ProtectedRoute>} />
-                  <Route path="messages" element={<ProtectedRoute module="whatsapp"><Messages /></ProtectedRoute>} />
+                  <Route path="whatsapp" element={<ProtectedRoute module="whatsapp"><WhatsApp /></ProtectedRoute>} />
+                  <Route path="messages" element={<Navigate to="/app/whatsapp" replace />} />
                   <Route path="tickets" element={<ProtectedRoute module="tickets"><Tickets /></ProtectedRoute>} />
                   <Route path="tickets/:id" element={<ProtectedRoute module="tickets"><TicketDetail /></ProtectedRoute>} />
                   <Route path="clients" element={<ProtectedRoute module="clients"><Clients /></ProtectedRoute>} />
