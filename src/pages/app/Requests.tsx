@@ -350,7 +350,7 @@ export function Requests() {
     
     try {
       toast.loading('A criar o seu pedido de suporte...');
-      const res = await fetch(`${baseUrl}/api/client/tickets`, {
+      const res = await fetch(`${baseUrl}/api/client/tickets?kind=${kindFilter}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
