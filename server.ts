@@ -312,12 +312,45 @@ const clientApi = express.Router();
     if (!message) return res.status(400).json({ ok: false, error: "Mensagem obrigatória." });
 
     try {
-      const systemPrompt = `Você é o assistente inteligente do TrataTudo Hub. 
-      Seu papel é ajudar o utilizador (${req.client.company_name}) a gerir o seu negócio.
-      Você tem acesso a Pedidos, Reclamações e Vendas.
-      Seja profissional, prestativo e direto. Use português de Portugal.
-      Ajude a resumir tickets, sugerir próximas ações e orientar nas tarefas do Hub.
-      Instruções específicas do bot: ${req.client.bot_instructions || 'Nenhuma instrução específica.'}`;
+      const systemPrompt = // Buscar últimos tickets
+const { data: recentTickets } = await supabase
+  .from("tickets")
+  .select("subject, description, status, kind")
+  .eq("client_id", req.clientId)
+  .order("created_at", { ascending: false })
+  .limit(10);
+
+// Criar contexto para IA
+const ticketsContext = (recentTickets || [])
+  .map(t => `- [${t.kind}] ${t.subject} (${t.status})`)
+  .join("
+");
+
+// Prompt melhorado
+const systemPrompt = \`
+És um assistente especializado no TrataTudo Hub.
+
+Empresa: ${req.client.company_name}
+
+TICKETS RECENTES:
+${ticketsContext || "Sem tickets recentes"}
+
+Funções:
+- Resumir tickets
+- Identificar problemas críticos
+- Sugerir ações
+- Ajudar a responder a clientes
+
+Regras:
+- Fala em português de Portugal
+- Sê direto e profissional
+- Não inventes dados
+
+Exemplos de pedidos:
+- "Resume os tickets em aberto"
+- "O que devo resolver primeiro?"
+- "Sugere resposta para este ticket"
+\`;
 
       const messages = [
         { role: "system", content: systemPrompt },
@@ -389,7 +422,9 @@ const clientApi = express.Router();
 
   app.post("/api/client/tickets", requireClientSession, async (req: any, res) => {
     const { subject, description, category, priority, kind, type } = req.body;
-    const ticketKind = kind || type || "pedido";
+    const validKinds = ["pedido", "reclamacao", "venda"];
+const ticketKind = validKinds.includes(kind) ? kind : "pedido";
+console.log("TICKET KIND:", ticketKind);
     if (!subject || !description) return res.status(400).json({ ok: false, error: "Assunto e descrição obrigatórios." });
     const trackingCode = `SUP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     const { data: ticket, error } = await supabase.from("tickets").insert({
