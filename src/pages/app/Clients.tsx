@@ -20,7 +20,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { AREA_CONFIG, ClientProfile } from '../../types/hub';
 import { toast } from 'sonner';
 
+import { useAuth } from '../../lib/auth/AuthContext';
+
 const Clients: React.FC = () => {
+  const { can } = useAuth();
   const [profiles, setProfiles] = useState<ClientProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,13 +89,15 @@ const Clients: React.FC = () => {
           </div>
         </div>
         
-        <button 
-          onClick={() => setIsAddingClient(true)}
-          className={`flex items-center gap-2 px-4 py-2.5 ${config.bgMain} text-white rounded-xl ${config.bgHover} transition-all shadow-lg ${config.shadowMain} font-medium`}
-        >
-          <Plus size={20} />
-          <span>Novo Cliente</span>
-        </button>
+        {can('clients', 'create') && (
+          <button 
+            onClick={() => setIsAddingClient(true)}
+            className={`flex items-center gap-2 px-4 py-2.5 ${config.bgMain} text-white rounded-xl ${config.bgHover} transition-all shadow-lg ${config.shadowMain} font-medium`}
+          >
+            <Plus size={20} />
+            <span>Novo Cliente</span>
+          </button>
+        )}
       </div>
 
       {/* Stats Grid */}
@@ -250,12 +255,14 @@ const Clients: React.FC = () => {
               <h3 className="text-lg font-semibold text-slate-900">Nenhum cliente encontrado</h3>
               <p className="text-slate-500 max-w-xs mx-auto">Tente ajustar a sua pesquisa ou adicione um novo cliente à sua base de dados.</p>
             </div>
-            <button 
-              onClick={() => setIsAddingClient(true)}
-              className="mt-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-sm font-medium"
-            >
-              Adicionar Primeiro Cliente
-            </button>
+            {can('clients', 'create') && (
+              <button 
+                onClick={() => setIsAddingClient(true)}
+                className="mt-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-sm font-medium"
+              >
+                Adicionar Primeiro Cliente
+              </button>
+            )}
           </div>
         )}
       </div>

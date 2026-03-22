@@ -313,7 +313,7 @@ export function Requests() {
   };
 
   const handleUpdateStatus = async (ticketId: string, status: string) => {
-    if (!can(activeArea, 'alterar_estado')) {
+    if (!can('tickets', 'edit')) {
       toast.error('Sem permissão para alterar estado.');
       return;
     }
@@ -337,7 +337,7 @@ export function Requests() {
   };
 
   const handleSupportSubmit = async (supportData: any) => {
-    if (!can(supportData.type, 'criar')) {
+    if (!can('tickets', 'create')) {
       toast.error('Sem permissão para criar.');
       return;
     }
@@ -405,7 +405,7 @@ export function Requests() {
     });
   };
 
-  if (!canSee(activeArea)) {
+  if (!canSee('tickets')) {
     return (
       <div className="h-[calc(100vh-10rem)] flex flex-col items-center justify-center text-center p-6">
         <ShieldAlert className="w-16 h-16 text-red-500 mb-4" />
@@ -446,7 +446,7 @@ export function Requests() {
             <p className="text-slate-500 font-medium">Gestão de {AREA_CONFIG[activeArea].label.toLowerCase()} em tempo real.</p>
           </div>
         </div>
-        {can(activeArea, 'criar') && (
+        {can('tickets', 'create') && (
           <button 
             onClick={() => setIsSupportOpen(true)}
             className={cn(
@@ -507,7 +507,7 @@ export function Requests() {
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
                 {filteredTickets.map((req) => (
-                  <tr key={req.id} onClick={() => can(activeArea, 'ver_detalhe') && setSelectedId(req.id)} className="hover:bg-slate-50 cursor-pointer transition-colors">
+                  <tr key={req.id} onClick={() => can('tickets', 'view') && setSelectedId(req.id)} className="hover:bg-slate-50 cursor-pointer transition-colors">
                     <td className="px-6 py-4 font-mono font-bold text-slate-900">{req.tracking_code}</td>
                     <td className="px-6 py-4 font-medium text-slate-700 truncate max-w-xs">{req.title}</td>
                     <td className="px-6 py-4">
@@ -550,7 +550,7 @@ export function Requests() {
                 <div className="flex gap-4">
                   <div className="flex-1 space-y-1">
                     <p className="text-[10px] font-bold text-slate-400 uppercase">Estado</p>
-                    {can(activeArea, 'alterar_estado') ? (
+                    {can('tickets', 'edit') ? (
                       <select value={selectedRequest.status} onChange={(e) => handleUpdateStatus(selectedRequest.id, e.target.value)} className="w-full p-2 rounded-xl border text-xs font-bold bg-slate-50">
                         {AREA_CONFIG[selectedRequest.type].statuses.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
@@ -596,7 +596,7 @@ export function Requests() {
               </div>
 
               <div className="p-6 border-t bg-slate-50/50 flex gap-3">
-                {can(activeArea, 'alterar_estado') && (
+                {can('tickets', 'edit') && (
                   <button 
                     onClick={() => handleUpdateStatus(selectedRequest.id, 
                       selectedRequest.type === 'pedidos' ? 'concluído' : 

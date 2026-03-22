@@ -70,19 +70,111 @@ export interface ClientProfile {
   updated_at: string;
 }
 
+export type UserRole = 'admin' | 'gestor' | 'operador' | 'comercial' | 'técnico' | 'financeiro' | 'visualizador';
+
+export type PermissionAction = 'view' | 'create' | 'edit' | 'delete' | 'assign' | 'export' | 'manage';
+
+export type PermissionModule = 
+  | 'dashboard' 
+  | 'clients' 
+  | 'team' 
+  | 'tasks' 
+  | 'calendar' 
+  | 'documents' 
+  | 'financial' 
+  | 'emails' 
+  | 'automations' 
+  | 'tickets' 
+  | 'whatsapp' 
+  | 'billing' 
+  | 'settings';
+
+export type PermissionMap = Partial<Record<PermissionModule, PermissionAction[]>>;
+
 export interface ClientUser {
   id: string;
   client_id: string;
   owner_id?: string;
   name: string;
   email: string;
-  role: 'admin' | 'gestor' | 'operador' | 'comercial' | 'técnico' | 'financeiro';
+  role: UserRole;
   status: 'active' | 'inactive' | 'invited';
   invited_by?: string;
   last_login_at?: string;
   created_at: string;
   updated_at: string;
 }
+
+export const ROLE_PERMISSIONS: Record<UserRole, PermissionMap> = {
+  admin: {
+    dashboard: ['view', 'manage'],
+    clients: ['view', 'create', 'edit', 'delete', 'export', 'manage'],
+    team: ['view', 'create', 'edit', 'delete', 'manage'],
+    tasks: ['view', 'create', 'edit', 'delete', 'assign', 'manage'],
+    calendar: ['view', 'create', 'edit', 'delete', 'manage'],
+    documents: ['view', 'create', 'edit', 'delete', 'manage'],
+    financial: ['view', 'create', 'edit', 'delete', 'export', 'manage'],
+    emails: ['view', 'create', 'manage'],
+    automations: ['view', 'create', 'edit', 'delete', 'manage'],
+    tickets: ['view', 'create', 'edit', 'delete', 'assign', 'manage'],
+    whatsapp: ['view', 'create', 'manage'],
+    billing: ['view', 'manage'],
+    settings: ['view', 'manage']
+  },
+  gestor: {
+    dashboard: ['view'],
+    clients: ['view', 'create', 'edit', 'export'],
+    team: ['view'],
+    tasks: ['view', 'create', 'edit', 'assign'],
+    calendar: ['view', 'create', 'edit'],
+    documents: ['view', 'create', 'edit'],
+    financial: ['view', 'create', 'edit'],
+    emails: ['view', 'create'],
+    automations: ['view'],
+    tickets: ['view', 'create', 'edit', 'assign'],
+    whatsapp: ['view', 'create'],
+    billing: ['view'],
+    settings: ['view']
+  },
+  operador: {
+    dashboard: ['view'],
+    clients: ['view', 'create', 'edit'],
+    tasks: ['view', 'create', 'edit'],
+    calendar: ['view', 'create', 'edit'],
+    documents: ['view', 'create'],
+    tickets: ['view', 'create', 'edit'],
+    whatsapp: ['view', 'create']
+  },
+  comercial: {
+    dashboard: ['view'],
+    clients: ['view', 'create', 'edit'],
+    tasks: ['view', 'create', 'edit'],
+    calendar: ['view', 'create', 'edit'],
+    tickets: ['view', 'create', 'edit'],
+    whatsapp: ['view', 'create']
+  },
+  técnico: {
+    dashboard: ['view'],
+    tasks: ['view', 'edit'],
+    calendar: ['view'],
+    documents: ['view', 'create'],
+    tickets: ['view', 'edit']
+  },
+  financeiro: {
+    dashboard: ['view'],
+    clients: ['view'],
+    financial: ['view', 'create', 'edit', 'export'],
+    billing: ['view']
+  },
+  visualizador: {
+    dashboard: ['view'],
+    clients: ['view'],
+    tasks: ['view'],
+    calendar: ['view'],
+    documents: ['view'],
+    tickets: ['view']
+  }
+};
 
 export interface CalendarEvent {
   id: string;

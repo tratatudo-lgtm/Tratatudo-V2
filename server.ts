@@ -8,6 +8,7 @@ import Groq from "groq-sdk";
 import Stripe from "stripe";
 import rateLimit from "express-rate-limit";
 import path from "path";
+import { UserRole, PermissionAction, PermissionModule, ROLE_PERMISSIONS } from "./src/types/hub";
 
 // Initialize Supabase
 const supabaseUrl = process.env.SUPABASE_URL || "";
@@ -89,13 +90,28 @@ async function startServer() {
       const decoded: any = jwt.verify(token, JWT_SECRET);
       const { data: client } = await supabase.from("clients").select("*").eq("id", decoded.clientId).single();
       if (!client) return res.status(404).json({ ok: false, error: "Cliente não encontrado." });
+      
       req.client = client;
       req.clientId = client.id;
+      req.userRole = decoded.role || 'visualizador';
+      req.userId = decoded.userId;
       next();
     } catch (err) {
       res.clearCookie("hub_session");
       return res.status(401).json({ ok: false, error: "Sessão expirada ou inválida." });
     }
+  };
+
+  const requirePermission = (module: string, action: string) => {
+    return (req: any, res: any, next: any) => {
+      const role = req.userRole;
+      const permissions = ROLE_PERMISSIONS[role as UserRole];
+      
+      if (!permissions || !permissions[module as PermissionModule]?.includes(action as PermissionAction)) {
+        return res.status(403).json({ ok: false, error: "Acesso negado. Permissões insuficientes." });
+      }
+      next();
+    };
   };
 
   const requireAdminSession = async (req: any, res: any, next: any) => {
@@ -143,12 +159,42 @@ async function startServer() {
     const { data: otp } = await supabase.from("auth_otps").select("*").eq("phone_e164", phone_e164).is("used_at", null).order("created_at", { ascending: false }).limit(1).single();
     if (!otp || new Date(otp.expires_at) < new Date()) return res.status(400).json({ ok: false, error: "Código inválido ou expirado." });
     if (!(await bcrypt.compare(code, otp.code_hash))) return res.status(400).json({ ok: false, error: "Código incorreto." });
+    
     await supabase.from("auth_otps").update({ used_at: new Date().toISOString() }).eq("id", otp.id);
-    const { data: client } = await supabase.from("clients").select("id, company_name, phone_e164").eq("phone_e164", phone_e164).single();
-    if (!client) return res.status(404).json({ ok: false, error: "Cliente não registado." });
-    const token = jwt.sign({ clientId: client.id, phone_e164: client.phone_e164 }, JWT_SECRET, { expiresIn: "24h" });
+    
+    // Check if user is a client user
+    const { data: clientUser } = await supabase.from("client_users").select("*").eq("email", phone_e164).single(); // Assuming login by phone/email
+    
+    let client;
+    let role: UserRole = 'visualizador';
+    let userId;
+
+    if (clientUser) {
+      const { data: c } = await supabase.from("clients").select("id, company_name, phone_e164").eq("id", clientUser.client_id).single();
+      client = c;
+      role = clientUser.role as UserRole;
+      userId = clientUser.id;
+    } else {
+      // Check if user is the main client owner
+      const { data: c } = await supabase.from("clients").select("id, company_name, phone_e164").eq("phone_e164", phone_e164).single();
+      if (c) {
+        client = c;
+        role = 'admin';
+        userId = c.id;
+      }
+    }
+
+    if (!client) return res.status(404).json({ ok: false, error: "Utilizador não registado." });
+    
+    const token = jwt.sign({ 
+      clientId: client.id, 
+      phone_e164: client.phone_e164,
+      role,
+      userId
+    }, JWT_SECRET, { expiresIn: "24h" });
+    
     res.cookie("hub_session", token, { httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 24 * 60 * 60 * 1000 });
-    res.json({ ok: true, client });
+    res.json({ ok: true, client: { ...client, role } });
   });
 
   app.get("/api/auth/session", async (req, res) => {
@@ -158,7 +204,7 @@ async function startServer() {
       const decoded: any = jwt.verify(token, JWT_SECRET);
       const { data: client } = await supabase.from("clients").select("id, company_name, phone_e164").eq("id", decoded.clientId).single();
       if (!client) throw new Error();
-      res.json({ ok: true, authenticated: true, ...client });
+      res.json({ ok: true, authenticated: true, ...client, role: decoded.role, userId: decoded.userId });
     } catch {
       res.clearCookie("hub_session");
       res.json({ ok: true, authenticated: false });
@@ -378,13 +424,13 @@ async function startServer() {
   });
 
   // Client Tickets
-  app.get("/api/client/tickets", requireClientSession, async (req: any, res) => {
+  app.get("/api/client/tickets", requireClientSession, requirePermission('tickets', 'view'), async (req: any, res) => {
     const { data: tickets } = await supabase.from("tickets").select("*, client_profiles(company_name)").eq("client_id", req.clientId).order("created_at", { ascending: false });
     res.json({ ok: true, tickets: tickets?.map(t => ({ ...t, client_name: (t.client_profiles as any)?.company_name })) });
   });
 
   // Client CRM (Profiles)
-  app.get("/api/client/profiles", requireClientSession, async (req: any, res) => {
+  app.get("/api/client/profiles", requireClientSession, requirePermission('clients', 'view'), async (req: any, res) => {
     const { data: profiles, error } = await supabase.from("client_profiles")
       .select("*")
       .eq("client_id", req.clientId)
@@ -406,7 +452,7 @@ async function startServer() {
     res.json({ ok: true, profile });
   });
 
-  app.post("/api/client/profiles", requireClientSession, async (req: any, res) => {
+  app.post("/api/client/profiles", requireClientSession, requirePermission('clients', 'create'), async (req: any, res) => {
     const profileData = { ...req.body, client_id: req.clientId };
     const { data, error } = await supabase.from("client_profiles").insert(profileData).select().single();
     if (error) return res.status(500).json({ ok: false, error: error.message });
@@ -414,7 +460,7 @@ async function startServer() {
   });
 
   // Client Team (Users)
-  app.get("/api/client/users", requireClientSession, async (req: any, res) => {
+  app.get("/api/client/users", requireClientSession, requirePermission('team', 'view'), async (req: any, res) => {
     const { data: users, error } = await supabase.from("client_users")
       .select("*")
       .eq("client_id", req.clientId)
@@ -424,7 +470,7 @@ async function startServer() {
     res.json({ ok: true, users });
   });
 
-  app.post("/api/client/users", requireClientSession, async (req: any, res) => {
+  app.post("/api/client/users", requireClientSession, requirePermission('team', 'create'), async (req: any, res) => {
     const userData = { ...req.body, client_id: req.clientId, status: 'invited' };
     const { data, error } = await supabase.from("client_users").insert(userData).select().single();
     if (error) return res.status(500).json({ ok: false, error: error.message });
@@ -525,7 +571,7 @@ async function startServer() {
   });
 
   // Client Financial Documents
-  app.get("/api/client/financial-documents", requireClientSession, async (req: any, res) => {
+  app.get("/api/client/financial-documents", requireClientSession, requirePermission('financial', 'view'), async (req: any, res) => {
     const { data: documents, error } = await supabase.from("financial_documents")
       .select("*")
       .eq("client_id", req.clientId)
@@ -554,7 +600,7 @@ async function startServer() {
   });
 
   // Client Automations
-  app.get("/api/client/automations", requireClientSession, async (req: any, res) => {
+  app.get("/api/client/automations", requireClientSession, requirePermission('automations', 'view'), async (req: any, res) => {
     const { data: automations, error } = await supabase.from("automations")
       .select("*")
       .eq("client_id", req.clientId)
