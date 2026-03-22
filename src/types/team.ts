@@ -4,10 +4,18 @@ export type HubArea =
   | 'pedidos' 
   | 'reclamacoes' 
   | 'vendas' 
+  | 'clientes'
+  | 'agenda'
+  | 'tarefas'
+  | 'documentos'
+  | 'email'
+  | 'faturas'
   | 'instancia' 
   | 'subscricao' 
   | 'definicoes'
-  | 'equipa';
+  | 'equipa'
+  | 'relatorios'
+  | 'ia';
 
 export type HubAction = 
   | 'ver' 
@@ -39,8 +47,16 @@ export const TEAM_AREAS: { id: HubArea; label: string; description: string }[] =
   { id: 'pedidos', label: 'Pedidos', description: 'Gestão de solicitações' },
   { id: 'reclamacoes', label: 'Reclamações', description: 'Gestão de incidências' },
   { id: 'vendas', label: 'Vendas', description: 'Pipeline e leads' },
+  { id: 'clientes', label: 'Clientes', description: 'Gestão de CRM' },
+  { id: 'agenda', label: 'Agenda', description: 'Calendário e eventos' },
+  { id: 'tarefas', label: 'Tarefas', description: 'Gestão de afazeres' },
+  { id: 'documentos', label: 'Documentos', description: 'Gestão de ficheiros' },
+  { id: 'email', label: 'Email', description: 'Comunicações por email' },
+  { id: 'faturas', label: 'Faturas', description: 'Faturação e pagamentos' },
   { id: 'instancia', label: 'Instância', description: 'Configuração do WhatsApp' },
   { id: 'equipa', label: 'Equipa', description: 'Gestão de utilizadores' },
+  { id: 'relatorios', label: 'Relatórios', description: 'Análise de dados' },
+  { id: 'ia', label: 'IA', description: 'Assistente inteligente' },
   { id: 'subscricao', label: 'Subscrição', description: 'Planos e faturação' },
   { id: 'definicoes', label: 'Definições', description: 'Configurações da conta' },
 ];

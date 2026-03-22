@@ -379,8 +379,69 @@ async function startServer() {
 
   // Client Tickets
   app.get("/api/client/tickets", requireClientSession, async (req: any, res) => {
-    const { data: tickets } = await supabase.from("tickets").select("*").eq("client_id", req.clientId).order("created_at", { ascending: false });
-    res.json({ ok: true, tickets });
+    const { data: tickets } = await supabase.from("tickets").select("*, client_profiles(company_name)").eq("client_id", req.clientId).order("created_at", { ascending: false });
+    res.json({ ok: true, tickets: tickets?.map(t => ({ ...t, client_name: (t.client_profiles as any)?.company_name })) });
+  });
+
+  // Client CRM (Profiles)
+  app.get("/api/client/profiles", requireClientSession, async (req: any, res) => {
+    const { data: profiles, error } = await supabase.from("client_profiles")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("company_name", { ascending: true });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, profiles });
+  });
+
+  app.get("/api/client/profiles/:id", requireClientSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { data: profile, error } = await supabase.from("client_profiles")
+      .select("*, tickets(*), documents(*), emails(*), calendar_events(*), financial_documents(*)")
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, profile });
+  });
+
+  app.post("/api/client/profiles", requireClientSession, async (req: any, res) => {
+    const profileData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("client_profiles").insert(profileData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, profile: data });
+  });
+
+  // Client Team (Users)
+  app.get("/api/client/users", requireClientSession, async (req: any, res) => {
+    const { data: users, error } = await supabase.from("client_users")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("name", { ascending: true });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, users });
+  });
+
+  app.post("/api/client/users", requireClientSession, async (req: any, res) => {
+    const userData = { ...req.body, client_id: req.clientId, status: 'invited' };
+    const { data, error } = await supabase.from("client_users").insert(userData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, user: data });
+  });
+
+  app.patch("/api/client/users/:id", requireClientSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { data, error } = await supabase.from("client_users")
+      .update(req.body)
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, user: data });
   });
 
   app.post("/api/client/tickets", requireClientSession, async (req: any, res) => {

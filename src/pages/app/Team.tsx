@@ -1,435 +1,302 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
-  UserPlus, 
+  Search, 
+  Plus, 
   Shield, 
   Mail, 
+  Phone, 
+  Clock, 
   MoreVertical, 
-  Check, 
-  X, 
-  Search,
+  UserPlus, 
+  UserCheck, 
+  UserX, 
+  Loader2, 
   ChevronRight,
-  ShieldCheck,
-  ShieldAlert,
-  Clock,
-  Trash2,
-  Edit2,
+  Briefcase,
+  Settings,
   Lock,
-  Loader2
+  CheckCircle2,
+  XCircle,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../../lib/utils';
+import { AREA_CONFIG, ClientUser } from '../../types/hub';
 import { toast } from 'sonner';
-import { 
-  TeamMember, 
-  HubArea, 
-  HubAction, 
-  TEAM_AREAS, 
-  TEAM_ACTIONS,
-  UserPermissions 
-} from '../../types/team';
 
-export function Team() {
-  const [members, setMembers] = useState<TeamMember[]>([]);
+const Team: React.FC = () => {
+  const [users, setUsers] = useState<ClientUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
+  const [filterRole, setFilterRole] = useState<string>('all');
+  const [isAddingMember, setIsAddingMember] = useState(false);
 
-  // Mock data for initial development
+  const config = AREA_CONFIG.equipa;
+
   useEffect(() => {
-    const fetchMembers = async () => {
-      setLoading(true);
-      try {
-        // In a real app, this would be a fetch call
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setMembers([
-          {
-            id: '1',
-            name: 'Admin Principal',
-            email: 'admin@tratatudo.pt',
-            role: 'admin',
-            permissions: {},
-            status: 'active',
-            created_at: new Date().toISOString(),
-            avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin'
-          },
-          {
-            id: '2',
-            name: 'João Silva',
-            email: 'joao@tratatudo.pt',
-            role: 'member',
-            permissions: {
-              dashboard: ['ver'],
-              pedidos: ['ver', 'criar', 'editar', 'alterar_estado'],
-              mensagens: ['ver', 'responder']
-            },
-            status: 'active',
-            created_at: new Date().toISOString(),
-            avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Joao'
-          },
-          {
-            id: '3',
-            name: 'Maria Santos',
-            email: 'maria@tratatudo.pt',
-            role: 'member',
-            permissions: {
-              vendas: ['ver', 'criar', 'editar', 'gerir'],
-              mensagens: ['ver', 'responder']
-            },
-            status: 'invited',
-            created_at: new Date().toISOString(),
-            avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Maria'
-          }
-        ]);
-      } catch (error) {
-        toast.error('Erro ao carregar equipa.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchMembers();
+    fetchUsers();
   }, []);
 
-  const filteredMembers = members.filter(m => 
-    m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    m.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleTogglePermission = (area: HubArea, action: HubAction) => {
-    if (!selectedMember) return;
-
-    const currentPermissions = { ...selectedMember.permissions };
-    const areaPerms = currentPermissions[area] || [];
-
-    if (areaPerms.includes(action)) {
-      currentPermissions[area] = areaPerms.filter(a => a !== action);
-    } else {
-      currentPermissions[area] = [...areaPerms, action];
-    }
-
-    setSelectedMember({ ...selectedMember, permissions: currentPermissions });
-  };
-
-  const handleSavePermissions = async () => {
-    if (!selectedMember) return;
-    
+  const fetchUsers = async () => {
     try {
-      // Real API call would go here
-      setMembers(members.map(m => m.id === selectedMember.id ? selectedMember : m));
-      toast.success(`Permissões de ${selectedMember.name} atualizadas.`);
-      setIsPermissionsModalOpen(false);
+      setLoading(true);
+      const res = await fetch('/api/client/users');
+      const data = await res.json();
+      if (data.ok) {
+        setUsers(data.users);
+      } else {
+        toast.error('Erro ao carregar equipa');
+      }
     } catch (error) {
-      toast.error('Erro ao guardar permissões.');
+      console.error('Fetch error:', error);
+      toast.error('Erro de ligação ao servidor');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleInviteMember = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const name = formData.get('name') as string;
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = 
+      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesFilter = filterRole === 'all' || u.role === filterRole;
+    
+    return matchesSearch && matchesFilter;
+  });
 
-    const newMember: TeamMember = {
-      id: Math.random().toString(36).substr(2, 9),
-      name,
-      email,
-      role: 'member',
-      permissions: { dashboard: ['ver'] },
-      status: 'invited',
-      created_at: new Date().toISOString(),
-      avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`
-    };
+  const stats = {
+    total: users.length,
+    active: users.filter(u => u.status === 'active').length,
+    invited: users.filter(u => u.status === 'invited').length,
+    admins: users.filter(u => u.role === 'admin').length
+  };
 
-    setMembers([...members, newMember]);
-    toast.success(`Convite enviado para ${email}`);
-    setIsInviteModalOpen(false);
+  const roleColors: Record<string, string> = {
+    admin: 'bg-rose-100 text-rose-700 border-rose-200',
+    gestor: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+    operador: 'bg-blue-100 text-blue-700 border-blue-200',
+    comercial: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    técnico: 'bg-amber-100 text-amber-700 border-amber-200',
+    financeiro: 'bg-purple-100 text-purple-700 border-purple-200'
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-slate-900 flex items-center gap-2">
-            <Users className="w-8 h-8 text-primary" />
-            Gestão de Equipa
-          </h1>
-          <p className="text-slate-500">Gerencie os acessos e permissões dos seus colaboradores.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 ${config.bgLight} rounded-xl ${config.textMain}`}>
+            <Users size={24} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Gestão de Equipa</h1>
+            <p className="text-slate-500 text-sm">Gira os seus colaboradores, funções e permissões de acesso.</p>
+          </div>
         </div>
+        
         <button 
-          onClick={() => setIsInviteModalOpen(true)}
-          className="w-full sm:w-auto px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all flex items-center justify-center gap-2"
+          onClick={() => setIsAddingMember(true)}
+          className={`flex items-center gap-2 px-4 py-2.5 ${config.bgMain} text-white rounded-xl ${config.bgHover} transition-all shadow-lg ${config.shadowMain} font-medium`}
         >
-          <UserPlus className="w-4 h-4" /> Convidar Membro
+          <Plus size={20} />
+          <span>Convidar Membro</span>
         </button>
       </div>
 
-      {/* Stats & Search */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-            <Users className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Membros</p>
-            <p className="text-xl font-bold text-slate-900">{members.length}</p>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Administradores</p>
-            <p className="text-xl font-bold text-slate-900">{members.filter(m => m.role === 'admin').length}</p>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center">
-            <Clock className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pendentes</p>
-            <p className="text-xl font-bold text-slate-900">{members.filter(m => m.status === 'invited').length}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-        <input 
-          type="text" 
-          placeholder="Pesquisar por nome ou email..." 
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard 
+          label="Total da Equipa" 
+          value={stats.total} 
+          icon={<Users size={20} />} 
+          color="slate" 
+        />
+        <StatCard 
+          label="Membros Ativos" 
+          value={stats.active} 
+          icon={<UserCheck size={20} />} 
+          color="emerald" 
+        />
+        <StatCard 
+          label="Convites Pendentes" 
+          value={stats.invited} 
+          icon={<UserPlus size={20} />} 
+          color="blue" 
+        />
+        <StatCard 
+          label="Administradores" 
+          value={stats.admins} 
+          icon={<Shield size={20} />} 
+          color="rose" 
         />
       </div>
 
-      {/* Members List */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      {/* Filters & Search */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <input 
+            type="text"
+            placeholder="Pesquisar por nome ou email..."
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        
+        <div className="flex gap-2">
+          <select 
+            className="px-4 py-2.5 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-slate-600"
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value)}
+          >
+            <option value="all">Todas as Funções</option>
+            <option value="admin">Administrador</option>
+            <option value="gestor">Gestor</option>
+            <option value="operador">Operador</option>
+            <option value="comercial">Comercial</option>
+            <option value="técnico">Técnico</option>
+            <option value="financeiro">Financeiro</option>
+          </select>
+          
+          <button className="p-2.5 bg-slate-50 text-slate-500 rounded-xl hover:bg-slate-100 transition-all">
+            <Settings size={20} />
+          </button>
+        </div>
+      </div>
+
+      {/* Team List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
-          <div className="p-12 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
-            <p className="text-slate-500 font-medium">A carregar equipa...</p>
+          <div className="col-span-full p-12 flex flex-col items-center justify-center gap-3">
+            <Loader2 size={32} className="text-indigo-600 animate-spin" />
+            <p className="text-slate-500 animate-pulse">A carregar equipa...</p>
           </div>
-        ) : filteredMembers.length === 0 ? (
-          <div className="p-12 text-center">
-            <Users className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-500 font-medium">Nenhum membro encontrado.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {filteredMembers.map((member) => (
-              <div 
-                key={member.id}
-                className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <img 
-                      src={member.avatar_url} 
-                      alt={member.name}
-                      className="w-12 h-12 rounded-full bg-slate-100 border-2 border-white shadow-sm"
-                    />
-                    <div className={cn(
-                      "absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm",
-                      member.status === 'active' ? "bg-emerald-500" : 
-                      member.status === 'invited' ? "bg-orange-500" : "bg-red-500"
-                    )} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-slate-900">{member.name}</h3>
-                      {member.role === 'admin' && (
-                        <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black uppercase rounded-md flex items-center gap-1">
-                          <Shield className="w-3 h-3" /> Admin
-                        </span>
-                      )}
+        ) : filteredUsers.length > 0 ? (
+          filteredUsers.map((user) => (
+            <motion.div 
+              key={user.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all overflow-hidden group"
+            >
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-lg">
+                      {user.name.substring(0, 2).toUpperCase()}
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-slate-500">
-                      <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" /> {member.email}</span>
+                    <div>
+                      <h3 className="font-bold text-slate-900">{user.name}</h3>
+                      <div className="flex items-center gap-1 text-xs text-slate-500">
+                        <Mail size={12} />
+                        <span>{user.email}</span>
+                      </div>
                     </div>
                   </div>
+                  <button className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg transition-all">
+                    <MoreVertical size={18} />
+                  </button>
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <button 
-                    onClick={() => {
-                      setSelectedMember(member);
-                      setIsPermissionsModalOpen(true);
-                    }}
-                    disabled={member.role === 'admin'}
-                    className={cn(
-                      "flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all border",
-                      member.role === 'admin' 
-                        ? "bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed"
-                        : "bg-white text-slate-700 border-slate-200 hover:border-primary hover:text-primary"
-                    )}
-                  >
-                    <Lock className="w-3.5 h-3.5" /> Permissões
-                  </button>
-                  <button className="p-2 text-slate-400 hover:bg-white hover:text-red-600 rounded-xl transition-all border border-transparent hover:border-red-100">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                <div className="flex flex-wrap gap-2 mb-6">
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${roleColors[user.role] || 'bg-slate-100 text-slate-700 border-slate-200'} uppercase tracking-wider flex items-center gap-1.5`}>
+                    <Briefcase size={12} />
+                    {user.role}
+                  </span>
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1.5 ${
+                    user.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                    user.status === 'invited' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                    'bg-slate-50 text-slate-700 border-slate-100'
+                  }`}>
+                    {user.status === 'active' ? <CheckCircle2 size={12} /> : 
+                     user.status === 'invited' ? <Clock size={12} /> : 
+                     <XCircle size={12} />}
+                    {user.status === 'active' ? 'Ativo' : 
+                     user.status === 'invited' ? 'Pendente' : 
+                     'Inativo'}
+                  </span>
+                </div>
+
+                <div className="space-y-3 pt-4 border-t border-slate-50">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <div className="flex items-center gap-1.5">
+                      <Clock size={14} />
+                      <span>Último Acesso</span>
+                    </div>
+                    <span className="font-medium text-slate-700">
+                      {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString('pt-PT') : 'Nunca'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <div className="flex items-center gap-1.5">
+                      <Lock size={14} />
+                      <span>Permissões</span>
+                    </div>
+                    <button className="text-indigo-600 font-bold hover:underline">Ver todas</button>
+                  </div>
                 </div>
               </div>
-            ))}
+              
+              <div className="px-6 py-3 bg-slate-50/50 border-t border-slate-50 flex items-center justify-between">
+                <button className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors uppercase tracking-wider">
+                  Editar Perfil
+                </button>
+                <button className="text-xs font-bold text-slate-500 hover:text-rose-600 transition-colors uppercase tracking-wider">
+                  Desativar
+                </button>
+              </div>
+            </motion.div>
+          ))
+        ) : (
+          <div className="col-span-full p-16 flex flex-col items-center justify-center text-center gap-4">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
+              <Users size={32} />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Nenhum membro encontrado</h3>
+              <p className="text-slate-500 max-w-xs mx-auto">Tente ajustar a sua pesquisa ou convide um novo colaborador para a sua equipa.</p>
+            </div>
+            <button 
+              onClick={() => setIsAddingMember(true)}
+              className="mt-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-sm font-medium"
+            >
+              Convidar Primeiro Membro
+            </button>
           </div>
         )}
       </div>
-
-      {/* Invite Modal */}
-      <AnimatePresence>
-        {isInviteModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200"
-            >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-                    <UserPlus className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">Convidar Colaborador</h3>
-                    <p className="text-xs text-slate-500">Envie um convite por email.</p>
-                  </div>
-                </div>
-                <button onClick={() => setIsInviteModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleInviteMember} className="p-6 space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-semibold text-slate-700">Nome Completo</label>
-                  <input 
-                    name="name"
-                    required
-                    type="text" 
-                    placeholder="Ex: João Silva"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-semibold text-slate-700">Email Profissional</label>
-                  <input 
-                    name="email"
-                    required
-                    type="email" 
-                    placeholder="email@empresa.pt"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                  />
-                </div>
-                <div className="pt-4">
-                  <button type="submit" className="w-full py-3.5 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all">
-                    Enviar Convite
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Permissions Modal */}
-      <AnimatePresence>
-        {isPermissionsModalOpen && selectedMember && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-200 flex flex-col"
-            >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-                    <Lock className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">Permissões: {selectedMember.name}</h3>
-                    <p className="text-xs text-slate-500">Defina o que este utilizador pode fazer em cada área.</p>
-                  </div>
-                </div>
-                <button onClick={() => setIsPermissionsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-100">
-                        <th className="py-4 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider min-w-[200px]">Área / Módulo</th>
-                        {TEAM_ACTIONS.map(action => (
-                          <th key={action.id} className="py-4 px-2 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">
-                            {action.label}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {TEAM_AREAS.map(area => (
-                        <tr key={area.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="py-4 px-4">
-                            <div className="flex flex-col">
-                              <span className="font-bold text-slate-900 text-sm">{area.label}</span>
-                              <span className="text-[10px] text-slate-500">{area.description}</span>
-                            </div>
-                          </td>
-                          {TEAM_ACTIONS.map(action => {
-                            const isChecked = selectedMember.permissions[area.id]?.includes(action.id);
-                            return (
-                              <td key={action.id} className="py-4 px-2 text-center">
-                                <button
-                                  onClick={() => handleTogglePermission(area.id, action.id)}
-                                  className={cn(
-                                    "w-6 h-6 rounded-md border-2 transition-all mx-auto flex items-center justify-center",
-                                    isChecked 
-                                      ? "bg-primary border-primary text-white shadow-sm" 
-                                      : "bg-white border-slate-200 text-transparent hover:border-primary/50"
-                                  )}
-                                >
-                                  <Check className="w-4 h-4 stroke-[3]" />
-                                </button>
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
-                <button 
-                  onClick={() => setIsPermissionsModalOpen(false)}
-                  className="px-6 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:bg-white border border-transparent hover:border-slate-200 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={handleSavePermissions}
-                  className="px-8 py-2.5 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all"
-                >
-                  Guardar Alterações
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
+};
+
+interface StatCardProps {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+  color: 'slate' | 'emerald' | 'blue' | 'rose';
 }
+
+const StatCard: React.FC<StatCardProps> = ({ label, value, icon, color }) => {
+  const colors = {
+    slate: 'bg-slate-50 text-slate-600',
+    emerald: 'bg-emerald-50 text-emerald-600',
+    blue: 'bg-blue-50 text-blue-600',
+    rose: 'bg-rose-50 text-rose-600',
+  };
+
+  return (
+    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+      <div className="flex items-center justify-between mb-3">
+        <div className={`p-2 rounded-lg ${colors[color]} group-hover:scale-110 transition-transform`}>
+          {icon}
+        </div>
+        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">{label}</div>
+      </div>
+      <div className="text-2xl font-bold text-slate-900">{value}</div>
+    </div>
+  );
+};
+
+export default Team;

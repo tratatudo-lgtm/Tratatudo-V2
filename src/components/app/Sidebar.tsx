@@ -6,11 +6,18 @@ import {
   ClipboardList, 
   AlertCircle,
   TrendingUp,
+  Users,
+  Calendar,
+  CheckSquare,
+  FileText,
+  Mail,
+  Receipt,
+  BarChart3,
+  Bot,
   Smartphone, 
   CreditCard, 
   Settings, 
   LogOut,
-  Users,
   X
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -44,24 +51,22 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { name: 'Pedidos', href: '/app/tickets?area=pedidos', icon: ClipboardList, area: 'pedidos' },
     { name: 'Reclamações', href: '/app/tickets?area=reclamacoes', icon: AlertCircle, area: 'reclamacoes' },
     { name: 'Vendas', href: '/app/tickets?area=vendas', icon: TrendingUp, area: 'vendas' },
-    { name: 'Instância', href: '/app/instancia', icon: Smartphone, area: 'instancia' },
+    { name: 'Clientes', href: '/app/clients', icon: Users, area: 'clientes' },
+    { name: 'Agenda', href: '/app/agenda', icon: Calendar, area: 'agenda' },
+    { name: 'Tarefas', href: '/app/tasks', icon: CheckSquare, area: 'tarefas' },
+    { name: 'Documentos', href: '/app/documents', icon: FileText, area: 'documentos' },
+    { name: 'Email', href: '/app/email', icon: Mail, area: 'email' },
+    { name: 'Faturas', href: '/app/billing', icon: Receipt, area: 'faturas' },
     { name: 'Equipa', href: '/app/team', icon: Users, area: 'equipa' },
+    { name: 'Relatórios', href: '/app/reports', icon: BarChart3, area: 'relatorios' },
+    { name: 'IA', href: '/app/ai', icon: Bot, area: 'ia' },
+    { name: 'Instância', href: '/app/instancia', icon: Smartphone, area: 'instancia' },
     { name: 'Subscrição', href: '/app/subscription', icon: CreditCard, area: 'subscricao' },
     { name: 'Definições', href: '/app/settings', icon: Settings, area: 'definicoes' },
   ];
 
-  // Filter items based on permissions and route existence
-  const filteredItems = menuItems.filter(item => {
-    // Check permission
-    if (!canSee(item.area as any)) return false;
-    
-    // Special check for Equipa route existence (not yet in App.tsx)
-    // The user asked to only show if it exists in App.tsx. 
-    // Since we know it doesn't exist yet, we return false.
-    if (item.href === '/app/team') return false;
-    
-    return true;
-  });
+  // Filter items based on permissions
+  const filteredItems = menuItems.filter(item => canSee(item.area as any));
 
   return (
     <>
