@@ -1,246 +1,246 @@
-import.meta.env.VITE_API_URL import React, { useState, useEffect } from 'react';
-import.meta.env.VITE_API_URL import { motion } from 'motion/react';
-import.meta.env.VITE_API_URL import { 
-import.meta.env.VITE_API_URL   CreditCard, 
-import.meta.env.VITE_API_URL   Search, 
-import.meta.env.VITE_API_URL   Filter, 
-import.meta.env.VITE_API_URL   Loader2, 
-import.meta.env.VITE_API_URL   AlertCircle, 
-import.meta.env.VITE_API_URL   CheckCircle2, 
-import.meta.env.VITE_API_URL   XCircle, 
-import.meta.env.VITE_API_URL   Calendar, 
-import.meta.env.VITE_API_URL   TrendingUp, 
-import.meta.env.VITE_API_URL   ArrowRight,
-import.meta.env.VITE_API_URL   ShieldCheck,
-import.meta.env.VITE_API_URL   Zap,
-import.meta.env.VITE_API_URL   MessageSquare,
-import.meta.env.VITE_API_URL   DollarSign,
-import.meta.env.VITE_API_URL   Clock
-import.meta.env.VITE_API_URL } from 'lucide-react';
-import.meta.env.VITE_API_URL import { cn, extractArrayResponse } from '../../lib/utils';
-import.meta.env.VITE_API_URL import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
-import.meta.env.VITE_API_URL import { LoadingState, ErrorState, EmptyState } from '../../components/States';
-import.meta.env.VITE_API_URL 
-import.meta.env.VITE_API_URL interface Subscription {
-import.meta.env.VITE_API_URL   id: string;
-import.meta.env.VITE_API_URL   client_id: string;
-import.meta.env.VITE_API_URL   company_name: string;
-import.meta.env.VITE_API_URL   plan: string;
-import.meta.env.VITE_API_URL   status: string;
-import.meta.env.VITE_API_URL   amount: number;
-import.meta.env.VITE_API_URL   next_billing: string;
-import.meta.env.VITE_API_URL   created_at: string;
-import.meta.env.VITE_API_URL }
-import.meta.env.VITE_API_URL 
-import.meta.env.VITE_API_URL export function AdminSubscriptions() {
-import.meta.env.VITE_API_URL   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-import.meta.env.VITE_API_URL   const [loading, setLoading] = useState(true);
-import.meta.env.VITE_API_URL   const [error, setError] = useState<string | null>(null);
-import.meta.env.VITE_API_URL   const [searchTerm, setSearchTerm] = useState('');
-import.meta.env.VITE_API_URL 
-import.meta.env.VITE_API_URL   const { logout } = useAdminAuth();
-import.meta.env.VITE_API_URL 
-import.meta.env.VITE_API_URL   const fetchSubscriptions = async () => {
-import.meta.env.VITE_API_URL     const baseUrl = import.meta.env.VITE_API_URL || '';
-import.meta.env.VITE_API_URL     const endpoints = [
-import.meta.env.VITE_API_URL       `${baseUrl}/api/admin/subscriptions`,
-import.meta.env.VITE_API_URL       `${baseUrl}/api/subscriptions`
-import.meta.env.VITE_API_URL     ];
-import.meta.env.VITE_API_URL     
-import.meta.env.VITE_API_URL     let lastError = null;
-import.meta.env.VITE_API_URL     
-import.meta.env.VITE_API_URL     try {
-import.meta.env.VITE_API_URL       setLoading(true);
-import.meta.env.VITE_API_URL       setError(null);
-import.meta.env.VITE_API_URL       
-import.meta.env.VITE_API_URL       for (const url of endpoints) {
-import.meta.env.VITE_API_URL         console.log(`[ADMIN] Fetching subscriptions: ${url}`);
-import.meta.env.VITE_API_URL         try {
-import.meta.env.VITE_API_URL           const res = await fetch(url, {
-import.meta.env.VITE_API_URL             credentials: 'include'
-import.meta.env.VITE_API_URL           });
-import.meta.env.VITE_API_URL           
-import.meta.env.VITE_API_URL           if (res.ok) {
-import.meta.env.VITE_API_URL             const data = await res.json();
-import.meta.env.VITE_API_URL             const subsData = extractArrayResponse<Subscription>(data, 'subscriptions');
-import.meta.env.VITE_API_URL             setSubscriptions(subsData);
-import.meta.env.VITE_API_URL             setLoading(false);
-import.meta.env.VITE_API_URL             return;
-import.meta.env.VITE_API_URL           } else if (res.status === 401) {
-import.meta.env.VITE_API_URL             console.warn('[ADMIN] Session expired, logging out...');
-import.meta.env.VITE_API_URL             await logout();
-import.meta.env.VITE_API_URL             return;
-import.meta.env.VITE_API_URL           }
-import.meta.env.VITE_API_URL         } catch (e) {
-import.meta.env.VITE_API_URL           lastError = e;
-import.meta.env.VITE_API_URL         }
-import.meta.env.VITE_API_URL       }
-import.meta.env.VITE_API_URL       
-import.meta.env.VITE_API_URL       throw lastError || new Error('Falha ao carregar subscrições');
-import.meta.env.VITE_API_URL       
-import.meta.env.VITE_API_URL     } catch (err: any) {
-import.meta.env.VITE_API_URL       console.error('[ADMIN] Fetch subscriptions failed:', err);
-import.meta.env.VITE_API_URL       setError(err.message || 'Não foi possível carregar as subscrições.');
-import.meta.env.VITE_API_URL       
-import.meta.env.VITE_API_URL       // Professional fallback for demo/development
-import.meta.env.VITE_API_URL       if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
-import.meta.env.VITE_API_URL         console.log('[ADMIN] Using fallback subscriptions data');
-import.meta.env.VITE_API_URL         setSubscriptions([
-import.meta.env.VITE_API_URL           {
-import.meta.env.VITE_API_URL             id: '1',
-import.meta.env.VITE_API_URL             client_id: 'C-1001',
-import.meta.env.VITE_API_URL             company_name: 'João Silva Lda',
-import.meta.env.VITE_API_URL             plan: 'Pro',
-import.meta.env.VITE_API_URL             status: 'active',
-import.meta.env.VITE_API_URL             amount: 49.90,
-import.meta.env.VITE_API_URL             next_billing: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString(),
-import.meta.env.VITE_API_URL             created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-import.meta.env.VITE_API_URL           },
-import.meta.env.VITE_API_URL           {
-import.meta.env.VITE_API_URL             id: '2',
-import.meta.env.VITE_API_URL             client_id: 'C-1002',
-import.meta.env.VITE_API_URL             company_name: 'Maria Santos Unipessoal',
-import.meta.env.VITE_API_URL             plan: 'Trial',
-import.meta.env.VITE_API_URL             status: 'active',
-import.meta.env.VITE_API_URL             amount: 0,
-import.meta.env.VITE_API_URL             next_billing: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-import.meta.env.VITE_API_URL             created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-import.meta.env.VITE_API_URL           }
-import.meta.env.VITE_API_URL         ]);
-import.meta.env.VITE_API_URL         setError(null);
-import.meta.env.VITE_API_URL       }
-import.meta.env.VITE_API_URL     } finally {
-import.meta.env.VITE_API_URL       setLoading(false);
-import.meta.env.VITE_API_URL     }
-import.meta.env.VITE_API_URL   };
-import.meta.env.VITE_API_URL 
-import.meta.env.VITE_API_URL   useEffect(() => {
-import.meta.env.VITE_API_URL     fetchSubscriptions();
-import.meta.env.VITE_API_URL   }, []);
-import.meta.env.VITE_API_URL 
-import.meta.env.VITE_API_URL   const filteredSubscriptions = subscriptions.filter(s => 
-import.meta.env.VITE_API_URL     s.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-import.meta.env.VITE_API_URL     s.client_id.toLowerCase().includes(searchTerm.toLowerCase())
-import.meta.env.VITE_API_URL   );
-import.meta.env.VITE_API_URL 
-import.meta.env.VITE_API_URL   if (loading) {
-import.meta.env.VITE_API_URL     return <LoadingState message="A carregar dados financeiros..." className="h-[60vh]" />;
-import.meta.env.VITE_API_URL   }
-import.meta.env.VITE_API_URL 
-import.meta.env.VITE_API_URL   if (error) {
-import.meta.env.VITE_API_URL     return (
-import.meta.env.VITE_API_URL       <div className="h-[60vh] flex flex-col items-center justify-center gap-4 text-center px-4">
-import.meta.env.VITE_API_URL         <ErrorState message={error} />
-import.meta.env.VITE_API_URL         <button 
-import.meta.env.VITE_API_URL           onClick={fetchSubscriptions}
-import.meta.env.VITE_API_URL           className="mt-4 px-6 py-2 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors"
-import.meta.env.VITE_API_URL         >
-import.meta.env.VITE_API_URL           Tentar novamente
-import.meta.env.VITE_API_URL         </button>
-import.meta.env.VITE_API_URL       </div>
-import.meta.env.VITE_API_URL     );
-import.meta.env.VITE_API_URL   }
-import.meta.env.VITE_API_URL 
-import.meta.env.VITE_API_URL   return (
-import.meta.env.VITE_API_URL     <div className="space-y-8 max-w-7xl mx-auto">
-import.meta.env.VITE_API_URL       {/* Header */}
-import.meta.env.VITE_API_URL       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-import.meta.env.VITE_API_URL         <div>
-import.meta.env.VITE_API_URL           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Gestão de Subscrições</h1>
-import.meta.env.VITE_API_URL           <p className="text-slate-500 font-medium">Controlo de faturação e planos dos clientes</p>
-import.meta.env.VITE_API_URL         </div>
-import.meta.env.VITE_API_URL         <div className="flex items-center gap-3">
-import.meta.env.VITE_API_URL           <div className="relative">
-import.meta.env.VITE_API_URL             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-import.meta.env.VITE_API_URL             <input 
-import.meta.env.VITE_API_URL               type="text" 
-import.meta.env.VITE_API_URL               placeholder="Pesquisar cliente..." 
-import.meta.env.VITE_API_URL               value={searchTerm}
-import.meta.env.VITE_API_URL               onChange={(e) => setSearchTerm(e.target.value)}
-import.meta.env.VITE_API_URL               className="bg-white border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all w-64 shadow-sm"
-import.meta.env.VITE_API_URL             />
-import.meta.env.VITE_API_URL           </div>
-import.meta.env.VITE_API_URL           <button className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
-import.meta.env.VITE_API_URL             <Filter className="w-5 h-5" />
-import.meta.env.VITE_API_URL           </button>
-import.meta.env.VITE_API_URL         </div>
-import.meta.env.VITE_API_URL       </div>
-import.meta.env.VITE_API_URL 
-import.meta.env.VITE_API_URL       {/* Subscriptions Grid */}
-import.meta.env.VITE_API_URL       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-import.meta.env.VITE_API_URL         {filteredSubscriptions.map((sub, index) => (
-import.meta.env.VITE_API_URL           <motion.div
-import.meta.env.VITE_API_URL             key={sub.id}
-import.meta.env.VITE_API_URL             initial={{ opacity: 0, y: 20 }}
-import.meta.env.VITE_API_URL             animate={{ opacity: 1, y: 0 }}
-import.meta.env.VITE_API_URL             transition={{ delay: index * 0.05 }}
-import.meta.env.VITE_API_URL             className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all p-8 group"
-import.meta.env.VITE_API_URL           >
-import.meta.env.VITE_API_URL             <div className="flex items-center justify-between mb-6">
-import.meta.env.VITE_API_URL               <div className={cn(
-import.meta.env.VITE_API_URL                 "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110",
-import.meta.env.VITE_API_URL                 sub.plan.toLowerCase() === 'enterprise' ? "bg-purple-500 shadow-purple-500/20" : 
-import.meta.env.VITE_API_URL                 sub.plan.toLowerCase() === 'pro' ? "bg-primary shadow-primary/20" : "bg-blue-500 shadow-blue-500/20"
-import.meta.env.VITE_API_URL               )}>
-import.meta.env.VITE_API_URL                 <CreditCard className="w-7 h-7 text-white" />
-import.meta.env.VITE_API_URL               </div>
-import.meta.env.VITE_API_URL               <div className={cn(
-import.meta.env.VITE_API_URL                 "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-import.meta.env.VITE_API_URL                 sub.status.toLowerCase() === 'active' ? "bg-emerald-50 text-emerald-600" : 
-import.meta.env.VITE_API_URL                 sub.status.toLowerCase() === 'trial' ? "bg-blue-50 text-blue-600" :
-import.meta.env.VITE_API_URL                 sub.status.toLowerCase() === 'past_due' ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"
-import.meta.env.VITE_API_URL               )}>
-import.meta.env.VITE_API_URL                 {sub.status === 'active' ? <CheckCircle2 className="w-3 h-3" /> : 
-import.meta.env.VITE_API_URL                  sub.status === 'past_due' ? <AlertCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-import.meta.env.VITE_API_URL                 {sub.status}
-import.meta.env.VITE_API_URL               </div>
-import.meta.env.VITE_API_URL             </div>
-import.meta.env.VITE_API_URL 
-import.meta.env.VITE_API_URL             <div className="space-y-4">
-import.meta.env.VITE_API_URL               <div>
-import.meta.env.VITE_API_URL                 <h3 className="text-lg font-black text-slate-900 tracking-tight">{sub.company_name}</h3>
-import.meta.env.VITE_API_URL                 <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">{sub.client_id}</p>
-import.meta.env.VITE_API_URL               </div>
-import.meta.env.VITE_API_URL 
-import.meta.env.VITE_API_URL               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-import.meta.env.VITE_API_URL                 <div className="flex items-center justify-between">
-import.meta.env.VITE_API_URL                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Plano</span>
-import.meta.env.VITE_API_URL                   <span className="text-xs font-black text-slate-900 tracking-tight uppercase">{sub.plan}</span>
-import.meta.env.VITE_API_URL                 </div>
-import.meta.env.VITE_API_URL                 <div className="flex items-center justify-between">
-import.meta.env.VITE_API_URL                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Valor Mensal</span>
-import.meta.env.VITE_API_URL                   <span className="text-xs font-black text-slate-900 tracking-tight">€{sub.amount.toFixed(2)}</span>
-import.meta.env.VITE_API_URL                 </div>
-import.meta.env.VITE_API_URL                 <div className="flex items-center justify-between">
-import.meta.env.VITE_API_URL                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Próxima Fatura</span>
-import.meta.env.VITE_API_URL                   <span className="text-xs font-black text-slate-900 tracking-tight">
-import.meta.env.VITE_API_URL                     {new Date(sub.next_billing).toLocaleDateString()}
-import.meta.env.VITE_API_URL                   </span>
-import.meta.env.VITE_API_URL                 </div>
-import.meta.env.VITE_API_URL               </div>
-import.meta.env.VITE_API_URL 
-import.meta.env.VITE_API_URL               <div className="flex items-center gap-2 pt-2">
-import.meta.env.VITE_API_URL                 <button className="flex-1 px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2">
-import.meta.env.VITE_API_URL                   <DollarSign className="w-4 h-4" />
-import.meta.env.VITE_API_URL                   Gerir Faturação
-import.meta.env.VITE_API_URL                 </button>
-import.meta.env.VITE_API_URL                 <button className="p-2.5 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm">
-import.meta.env.VITE_API_URL                   <ArrowRight className="w-4 h-4" />
-import.meta.env.VITE_API_URL                 </button>
-import.meta.env.VITE_API_URL               </div>
-import.meta.env.VITE_API_URL             </div>
-import.meta.env.VITE_API_URL           </motion.div>
-import.meta.env.VITE_API_URL         ))}
-import.meta.env.VITE_API_URL       </div>
-import.meta.env.VITE_API_URL 
-import.meta.env.VITE_API_URL       {filteredSubscriptions.length === 0 && (
-import.meta.env.VITE_API_URL         <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-20 text-center">
-import.meta.env.VITE_API_URL           <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
-import.meta.env.VITE_API_URL             <CreditCard className="w-8 h-8" />
-import.meta.env.VITE_API_URL           </div>
-import.meta.env.VITE_API_URL           <p className="text-slate-500 font-medium tracking-tight">Nenhuma subscrição encontrada.</p>
-import.meta.env.VITE_API_URL         </div>
-import.meta.env.VITE_API_URL       )}
-import.meta.env.VITE_API_URL     </div>
-import.meta.env.VITE_API_URL   );
-import.meta.env.VITE_API_URL }
+import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
+import { 
+  CreditCard, 
+  Search, 
+  Filter, 
+  Loader2, 
+  AlertCircle, 
+  CheckCircle2, 
+  XCircle, 
+  Calendar, 
+  TrendingUp, 
+  ArrowRight,
+  ShieldCheck,
+  Zap,
+  MessageSquare,
+  DollarSign,
+  Clock
+} from 'lucide-react';
+import { cn, extractArrayResponse } from '../../lib/utils';
+import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
+import { LoadingState, ErrorState, EmptyState } from '../../components/States';
+
+interface Subscription {
+  id: string;
+  client_id: string;
+  company_name: string;
+  plan: string;
+  status: string;
+  amount: number;
+  next_billing: string;
+  created_at: string;
+}
+
+export function AdminSubscriptions() {
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const { logout } = useAdminAuth();
+
+  const fetchSubscriptions = async () => {
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    const endpoints = [
+      `${baseUrl}/api/admin/subscriptions`,
+      `${baseUrl}/api/subscriptions`
+    ];
+    
+    let lastError = null;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      for (const url of endpoints) {
+        console.log(`[ADMIN] Fetching subscriptions: ${url}`);
+        try {
+          const res = await fetch(url, {
+            credentials: 'include'
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            const subsData = extractArrayResponse<Subscription>(data, 'subscriptions');
+            setSubscriptions(subsData);
+            setLoading(false);
+            return;
+          } else if (res.status === 401) {
+            console.warn('[ADMIN] Session expired, logging out...');
+            await logout();
+            return;
+          }
+        } catch (e) {
+          lastError = e;
+        }
+      }
+      
+      throw lastError || new Error('Falha ao carregar subscrições');
+      
+    } catch (err: any) {
+      console.error('[ADMIN] Fetch subscriptions failed:', err);
+      setError(err.message || 'Não foi possível carregar as subscrições.');
+      
+      // Professional fallback for demo/development
+      if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
+        console.log('[ADMIN] Using fallback subscriptions data');
+        setSubscriptions([
+          {
+            id: '1',
+            client_id: 'C-1001',
+            company_name: 'João Silva Lda',
+            plan: 'Pro',
+            status: 'active',
+            amount: 49.90,
+            next_billing: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString(),
+            created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            id: '2',
+            client_id: 'C-1002',
+            company_name: 'Maria Santos Unipessoal',
+            plan: 'Trial',
+            status: 'active',
+            amount: 0,
+            next_billing: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+            created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+          }
+        ]);
+        setError(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSubscriptions();
+  }, []);
+
+  const filteredSubscriptions = subscriptions.filter(s => 
+    s.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.client_id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) {
+    return <LoadingState message="A carregar dados financeiros..." className="h-[60vh]" />;
+  }
+
+  if (error) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center gap-4 text-center px-4">
+        <ErrorState message={error} />
+        <button 
+          onClick={fetchSubscriptions}
+          className="mt-4 px-6 py-2 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Gestão de Subscrições</h1>
+          <p className="text-slate-500 font-medium">Controlo de faturação e planos dos clientes</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Pesquisar cliente..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-white border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all w-64 shadow-sm"
+            />
+          </div>
+          <button className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
+            <Filter className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Subscriptions Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {filteredSubscriptions.map((sub, index) => (
+          <motion.div
+            key={sub.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05 }}
+            className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all p-8 group"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className={cn(
+                "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110",
+                sub.plan.toLowerCase() === 'enterprise' ? "bg-purple-500 shadow-purple-500/20" : 
+                sub.plan.toLowerCase() === 'pro' ? "bg-primary shadow-primary/20" : "bg-blue-500 shadow-blue-500/20"
+              )}>
+                <CreditCard className="w-7 h-7 text-white" />
+              </div>
+              <div className={cn(
+                "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+                sub.status.toLowerCase() === 'active' ? "bg-emerald-50 text-emerald-600" : 
+                sub.status.toLowerCase() === 'trial' ? "bg-blue-50 text-blue-600" :
+                sub.status.toLowerCase() === 'past_due' ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"
+              )}>
+                {sub.status === 'active' ? <CheckCircle2 className="w-3 h-3" /> : 
+                 sub.status === 'past_due' ? <AlertCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                {sub.status}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 tracking-tight">{sub.company_name}</h3>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">{sub.client_id}</p>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Plano</span>
+                  <span className="text-xs font-black text-slate-900 tracking-tight uppercase">{sub.plan}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Valor Mensal</span>
+                  <span className="text-xs font-black text-slate-900 tracking-tight">€{sub.amount.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Próxima Fatura</span>
+                  <span className="text-xs font-black text-slate-900 tracking-tight">
+                    {new Date(sub.next_billing).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button className="flex-1 px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  Gerir Faturação
+                </button>
+                <button className="p-2.5 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm">
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {filteredSubscriptions.length === 0 && (
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-20 text-center">
+          <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CreditCard className="w-8 h-8" />
+          </div>
+          <p className="text-slate-500 font-medium tracking-tight">Nenhuma subscrição encontrada.</p>
+        </div>
+      )}
+    </div>
+  );
+}
