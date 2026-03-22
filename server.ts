@@ -524,6 +524,57 @@ console.log("TICKET KIND:", ticketKind);
   if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), 'dist');
     app.use("/api/client", clientApi);
+
+// Clientes
+clientApi.get("/clients", requireClientSession, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const clients = await db.client_profiles.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+    });
+    res.json({ success: true, data: clients });
+  } catch (error) {
+    console.error("Error fetching clients:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch clients" });
+  }
+});
+
+clientApi.post("/clients", requireClientSession, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { name, email, phone, type } = req.body;
+    const client = await db.client_profiles.create({
+      data: {
+        user_id: userId,
+        name,
+        email,
+        phone,
+        type: type || 'lead',
+        status: 'active',
+      },
+    });
+    res.json({ success: true, data: client });
+  } catch (error) {
+    console.error("Error creating client:", error);
+    res.status(500).json({ success: false, error: "Failed to create client" });
+  }
+});
+
+// Equipa
+clientApi.get("/team", requireClientSession, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const team = await db.team_members.findMany({
+      where: { user_id: userId },
+      orderBy: { role: 'asc' },
+    });
+    res.json({ success: true, data: team });
+  } catch (error) {
+    console.error("Error fetching team:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch team" });
+  }
+});
 app.use(express.static(distPath));
     app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
