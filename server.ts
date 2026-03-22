@@ -444,6 +444,68 @@ async function startServer() {
     res.json({ ok: true, user: data });
   });
 
+  // Client Tasks
+  app.get("/api/client/tasks", requireClientSession, async (req: any, res) => {
+    const { data: tasks, error } = await supabase.from("tasks")
+      .select("*, client_profiles(company_name), client_users(name)")
+      .eq("client_id", req.clientId)
+      .order("created_at", { ascending: false });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, tasks });
+  });
+
+  app.post("/api/client/tasks", requireClientSession, async (req: any, res) => {
+    const taskData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("tasks").insert(taskData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, task: data });
+  });
+
+  app.patch("/api/client/tasks/:id", requireClientSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { data, error } = await supabase.from("tasks")
+      .update(req.body)
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, task: data });
+  });
+
+  // Client Calendar Events
+  app.get("/api/client/calendar-events", requireClientSession, async (req: any, res) => {
+    const { data: events, error } = await supabase.from("calendar_events")
+      .select("*, client_profiles(company_name), client_users(name)")
+      .eq("client_id", req.clientId)
+      .order("start_at", { ascending: true });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, events });
+  });
+
+  app.post("/api/client/calendar-events", requireClientSession, async (req: any, res) => {
+    const eventData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("calendar_events").insert(eventData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, event: data });
+  });
+
+  app.patch("/api/client/calendar-events/:id", requireClientSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { data, error } = await supabase.from("calendar_events")
+      .update(req.body)
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, event: data });
+  });
+
   app.post("/api/client/tickets", requireClientSession, async (req: any, res) => {
     const { subject, description, category, priority, kind = "suporte" } = req.body;
     if (!subject || !description) return res.status(400).json({ ok: false, error: "Assunto e descrição obrigatórios." });

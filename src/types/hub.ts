@@ -74,6 +74,10 @@ export interface CalendarEvent {
   ticket_id?: string;
   assigned_user_id?: string;
   created_at: string;
+  updated_at?: string;
+  // Joined fields
+  client_profiles?: { company_name: string };
+  client_users?: { name: string };
 }
 
 export interface Task {
@@ -88,6 +92,10 @@ export interface Task {
   client_profile_id?: number;
   ticket_id?: string;
   created_at: string;
+  updated_at?: string;
+  // Joined fields
+  client_profiles?: { company_name: string };
+  client_users?: { name: string };
 }
 
 export interface Document {

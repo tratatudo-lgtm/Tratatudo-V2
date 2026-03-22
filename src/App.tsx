@@ -27,6 +27,8 @@ import Subscription from './pages/app/Subscription';
 import { Settings } from './pages/app/Settings';
 import Clients from './pages/app/Clients';
 import Team from './pages/app/Team';
+import Tasks from './pages/app/Tasks';
+import Calendar from './pages/app/Calendar';
 
 // Placeholder components for new routes
 const Placeholder = ({ title }: { title: string }) => (
@@ -120,8 +122,8 @@ function App() {
                   <Route path="tickets" element={<Requests />} />
                   <Route path="clients" element={<Clients />} />
                   <Route path="team" element={<Team />} />
-                  <Route path="agenda" element={<Placeholder title="Agenda" />} />
-                  <Route path="tasks" element={<Placeholder title="Tarefas" />} />
+                  <Route path="agenda" element={<Calendar />} />
+                  <Route path="tasks" element={<Tasks />} />
                   <Route path="documents" element={<Placeholder title="Documentos" />} />
                   <Route path="email" element={<Placeholder title="Email" />} />
                   <Route path="billing" element={<Placeholder title="Faturação" />} />
