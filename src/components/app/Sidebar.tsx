@@ -56,7 +56,7 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { name: 'Tarefas', href: '/app/tasks', icon: CheckSquare, area: 'tarefas' },
     { name: 'Documentos', href: '/app/documents', icon: FileText, area: 'documentos' },
     { name: 'Email', href: '/app/email', icon: Mail, area: 'email' },
-    { name: 'Faturas', href: '/app/billing', icon: Receipt, area: 'faturas' },
+    { name: 'Financeiro', href: '/app/financial', icon: Receipt, area: 'faturas' },
     { name: 'Equipa', href: '/app/team', icon: Users, area: 'equipa' },
     { name: 'Relatórios', href: '/app/reports', icon: BarChart3, area: 'relatorios' },
     { name: 'IA', href: '/app/ai', icon: Bot, area: 'ia' },

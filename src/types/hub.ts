@@ -101,19 +101,20 @@ export interface Task {
 export interface Document {
   id: string;
   client_id: string;
-  document_type: string;
   title: string;
   description?: string;
+  category: string;
+  file_url: string;
   file_name: string;
-  file_path: string;
-  mime_type: string;
-  file_size: number;
-  tags?: string[];
+  file_type: string;
+  uploaded_by?: string;
   status: string;
-  extracted_text?: string;
   client_profile_id?: number;
   ticket_id?: string;
   created_at: string;
+  updated_at?: string;
+  // Joined fields
+  client_users?: { name: string };
 }
 
 export interface Email {
@@ -139,20 +140,18 @@ export interface Email {
 export interface FinancialDocument {
   id: string;
   client_id: string;
-  doc_type: 'fatura' | 'orçamento' | 'recibo';
-  doc_number: string;
-  status: string;
+  document_number: string;
+  entity_name: string;
+  document_type: 'fatura' | 'orçamento' | 'recibo' | 'nota_credito' | 'outro';
   issue_date: string;
   due_date?: string;
-  currency: string;
-  subtotal: number;
-  tax_total: number;
-  total: number;
-  notes?: string;
-  pdf_path?: string;
+  amount: number;
+  status: 'pago' | 'pendente' | 'atrasado' | 'cancelado';
+  file_url?: string;
   client_profile_id?: number;
   ticket_id?: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export const AREA_CONFIG: Record<OperationalArea, {

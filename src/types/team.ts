@@ -52,7 +52,7 @@ export const TEAM_AREAS: { id: HubArea; label: string; description: string }[] =
   { id: 'tarefas', label: 'Tarefas', description: 'Gestão de afazeres' },
   { id: 'documentos', label: 'Documentos', description: 'Gestão de ficheiros' },
   { id: 'email', label: 'Email', description: 'Comunicações por email' },
-  { id: 'faturas', label: 'Faturas', description: 'Faturação e pagamentos' },
+  { id: 'faturas', label: 'Financeiro', description: 'Documentos financeiros e pagamentos' },
   { id: 'instancia', label: 'Instância', description: 'Configuração do WhatsApp' },
   { id: 'equipa', label: 'Equipa', description: 'Gestão de utilizadores' },
   { id: 'relatorios', label: 'Relatórios', description: 'Análise de dados' },

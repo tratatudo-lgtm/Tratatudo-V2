@@ -506,6 +506,42 @@ async function startServer() {
     res.json({ ok: true, event: data });
   });
 
+  // Client Documents
+  app.get("/api/client/documents", requireClientSession, async (req: any, res) => {
+    const { data: documents, error } = await supabase.from("documents")
+      .select("*, client_users(name)")
+      .eq("client_id", req.clientId)
+      .order("created_at", { ascending: false });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, documents });
+  });
+
+  app.post("/api/client/documents", requireClientSession, async (req: any, res) => {
+    const docData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("documents").insert(docData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, document: data });
+  });
+
+  // Client Financial Documents
+  app.get("/api/client/financial-documents", requireClientSession, async (req: any, res) => {
+    const { data: documents, error } = await supabase.from("financial_documents")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("issue_date", { ascending: false });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, documents });
+  });
+
+  app.post("/api/client/financial-documents", requireClientSession, async (req: any, res) => {
+    const docData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("financial_documents").insert(docData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, document: data });
+  });
+
   app.post("/api/client/tickets", requireClientSession, async (req: any, res) => {
     const { subject, description, category, priority, kind = "suporte" } = req.body;
     if (!subject || !description) return res.status(400).json({ ok: false, error: "Assunto e descrição obrigatórios." });
