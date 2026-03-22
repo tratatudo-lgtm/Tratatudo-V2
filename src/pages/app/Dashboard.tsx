@@ -88,7 +88,7 @@ export function Dashboard() {
   const [loadingAI, setLoadingAI] = useState(false);
 
   const fetchAIInsights = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || '';
+    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
     try {
       setLoadingAI(true);
       const res = await fetch(`${baseUrl}/api/client/ai/insights`, {
@@ -123,7 +123,7 @@ export function Dashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
       const endpoints = [
         `${baseUrl}/api/client/dashboard/stats`,
         `${baseUrl}/api/dashboard/stats`

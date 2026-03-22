@@ -40,7 +40,7 @@ export function AdminMessages() {
   const { logout } = useAdminAuth();
 
   const fetchMessages = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || '';
+    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
     const endpoints = [
       `${baseUrl}/api/admin/messages`,
       `${baseUrl}/api/messages`

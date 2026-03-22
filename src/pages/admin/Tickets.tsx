@@ -72,7 +72,7 @@ export default function AdminTickets() {
   const [analysis, setAnalysis] = useState<any>(null);
   const [internalNotes, setInternalNotes] = useState('');
 
-  const baseUrl = import.meta.env.VITE_API_URL || '';
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
 
   useEffect(() => {
     fetchTickets();

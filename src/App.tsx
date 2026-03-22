@@ -25,6 +25,16 @@ import { Requests } from './pages/app/Requests';
 import { Instance } from './pages/app/Instance';
 import Subscription from './pages/app/Subscription';
 import { Settings } from './pages/app/Settings';
+import Clients from './pages/app/Clients';
+import Team from './pages/app/Team';
+
+// Placeholder components for new routes
+const Placeholder = ({ title }: { title: string }) => (
+  <div className="p-8 text-center bg-white rounded-3xl border border-slate-100 shadow-sm">
+    <h1 className="text-2xl font-bold text-slate-900 mb-4">{title}</h1>
+    <p className="text-slate-500 italic">Esta funcionalidade está em desenvolvimento.</p>
+  </div>
+);
 
 // Admin Pages
 import { AdminDashboard } from './pages/admin/Dashboard';
@@ -108,6 +118,15 @@ function App() {
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="messages" element={<Messages />} />
                   <Route path="tickets" element={<Requests />} />
+                  <Route path="clients" element={<Clients />} />
+                  <Route path="team" element={<Team />} />
+                  <Route path="agenda" element={<Placeholder title="Agenda" />} />
+                  <Route path="tasks" element={<Placeholder title="Tarefas" />} />
+                  <Route path="documents" element={<Placeholder title="Documentos" />} />
+                  <Route path="email" element={<Placeholder title="Email" />} />
+                  <Route path="billing" element={<Placeholder title="Faturação" />} />
+                  <Route path="reports" element={<Placeholder title="Relatórios" />} />
+                  <Route path="ai" element={<Placeholder title="IA Hub" />} />
                   <Route path="instancia" element={<Instance />} />
                   <Route path="subscription" element={<Subscription />} />
                   <Route path="settings" element={<Settings />} />

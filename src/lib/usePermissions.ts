@@ -3,35 +3,30 @@ import { HubArea, HubAction, UserPermissions } from '../types/team';
 
 export function usePermissions() {
   const { user } = useAuth();
-
+  
+  // Cast to any to access role and permissions without modifying AuthContext
   const teamUser = user as any;
-
-  const isAdmin = !teamUser?.role || teamUser?.role === 'admin';
 
   const can = (area: HubArea, action: HubAction): boolean => {
     if (!teamUser) return false;
+    
+    // Admins have full access to everything
+    // Default to admin if no role is present (compatibility with current system)
+    if (!teamUser.role || teamUser.role === 'admin') return true;
 
-    // ADMIN → acesso total
-    if (isAdmin) return true;
-
-    const permissions: UserPermissions = teamUser.permissions || {};
+    // Check specific permissions for members
+    const permissions = (teamUser.permissions as UserPermissions) || {};
     const areaPermissions = permissions[area] || [];
-
-    // 🔥 IMPORTANTE:
-    // "gerir" dá acesso total dentro da área
-    if (areaPermissions.includes('gerir')) return true;
-
+    
     return areaPermissions.includes(action);
   };
 
-  const canSee = (area: HubArea): boolean => {
-    return can(area, 'ver') || can(area, 'ver_detalhe');
-  };
+  const canSee = (area: HubArea): boolean => can(area, 'ver');
 
   return {
     can,
     canSee,
     role: teamUser?.role || 'admin',
-    isAdmin
+    isAdmin: !teamUser?.role || teamUser?.role === 'admin'
   };
 }

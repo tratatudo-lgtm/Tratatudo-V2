@@ -1,733 +1,302 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Users,
-  UserPlus,
-  Shield,
-  Mail,
-  Check,
-  X,
-  Search,
-  ShieldCheck,
-  Clock,
-  Trash2,
+import React, { useState, useEffect } from 'react';
+import { 
+  Users, 
+  Search, 
+  Plus, 
+  Shield, 
+  Mail, 
+  Phone, 
+  Clock, 
+  MoreVertical, 
+  UserPlus, 
+  UserCheck, 
+  UserX, 
+  Loader2, 
+  ChevronRight,
+  Briefcase,
+  Settings,
   Lock,
-  Loader2,
-  RefreshCw
+  CheckCircle2,
+  XCircle,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../../lib/utils';
+import { AREA_CONFIG, ClientUser } from '../../types/hub';
 import { toast } from 'sonner';
-import {
-  TeamMember,
-  HubArea,
-  HubAction,
-  TEAM_AREAS,
-  TEAM_ACTIONS,
-  UserPermissions
-} from '../../types/team';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-
-function buildAvatar(name: string) {
-  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name || 'User')}`;
-}
-
-function normalizeMember(raw: any): TeamMember {
-  return {
-    id: String(raw?.id ?? ''),
-    name: raw?.name || raw?.full_name || raw?.email || 'Utilizador',
-    email: raw?.email || '',
-    role: raw?.role === 'admin' ? 'admin' : 'member',
-    permissions: (raw?.permissions || {}) as UserPermissions,
-    status:
-      raw?.status === 'active' || raw?.status === 'invited' || raw?.status === 'suspended'
-        ? raw.status
-        : 'active',
-    created_at: raw?.created_at || new Date().toISOString(),
-    last_login: raw?.last_login || undefined,
-    avatar_url: raw?.avatar_url || buildAvatar(raw?.name || raw?.email || 'User')
-  };
-}
-
-export function Team() {
-  const [members, setMembers] = useState<TeamMember[]>([]);
+const Team: React.FC = () => {
+  const [users, setUsers] = useState<ClientUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [savingPermissions, setSavingPermissions] = useState(false);
-  const [inviting, setInviting] = useState(false);
-  const [removingId, setRemovingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
+  const [filterRole, setFilterRole] = useState<string>('all');
+  const [isAddingMember, setIsAddingMember] = useState(false);
 
-  const fetchMembers = async () => {
-    const endpoints = [
-      `${BASE_URL}/api/client/team`,
-      `${BASE_URL}/api/team`
-    ];
+  const config = AREA_CONFIG.equipa;
 
-    let lastError: any = null;
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
+  const fetchUsers = async () => {
     try {
       setLoading(true);
-
-      for (const url of endpoints) {
-        try {
-          const res = await fetch(url, {
-            credentials: 'include'
-          });
-
-          if (!res.ok) {
-            if (res.status === 401) {
-              throw new Error('Sessão expirada. Por favor, faça login novamente.');
-            }
-            throw new Error('Falha ao carregar equipa.');
-          }
-
-          const json = await res.json().catch(() => ({}));
-          const rawMembers = json?.members || json?.team || json?.data?.members || json?.data || [];
-
-          if (Array.isArray(rawMembers)) {
-            setMembers(rawMembers.map(normalizeMember));
-            return;
-          }
-
-          throw new Error('Resposta inválida da equipa.');
-        } catch (error) {
-          lastError = error;
-        }
+      const res = await fetch('/api/client/users');
+      const data = await res.json();
+      if (data.ok) {
+        setUsers(data.users);
+      } else {
+        toast.error('Erro ao carregar equipa');
       }
-
-      throw lastError || new Error('Falha ao carregar equipa.');
-    } catch (error: any) {
-      toast.error(error?.message || 'Erro ao carregar equipa.');
-
-      if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
-        setMembers([
-          {
-            id: '1',
-            name: 'Admin Principal',
-            email: 'admin@tratatudo.pt',
-            role: 'admin',
-            permissions: {},
-            status: 'active',
-            created_at: new Date().toISOString(),
-            avatar_url: buildAvatar('Admin Principal')
-          },
-          {
-            id: '2',
-            name: 'João Silva',
-            email: 'joao@tratatudo.pt',
-            role: 'member',
-            permissions: {
-              dashboard: ['ver'],
-              pedidos: ['ver', 'ver_detalhe', 'criar', 'editar', 'alterar_estado'],
-              mensagens: ['ver', 'responder']
-            },
-            status: 'active',
-            created_at: new Date().toISOString(),
-            avatar_url: buildAvatar('João Silva')
-          },
-          {
-            id: '3',
-            name: 'Maria Santos',
-            email: 'maria@tratatudo.pt',
-            role: 'member',
-            permissions: {
-              vendas: ['ver', 'ver_detalhe', 'criar', 'editar', 'gerir'],
-              mensagens: ['ver', 'responder']
-            },
-            status: 'invited',
-            created_at: new Date().toISOString(),
-            avatar_url: buildAvatar('Maria Santos')
-          }
-        ]);
-      }
+    } catch (error) {
+      console.error('Fetch error:', error);
+      toast.error('Erro de ligação ao servidor');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchMembers();
-  }, []);
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = 
+      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesFilter = filterRole === 'all' || u.role === filterRole;
+    
+    return matchesSearch && matchesFilter;
+  });
 
-  const filteredMembers = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return members;
-
-    return members.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.email.toLowerCase().includes(q)
-    );
-  }, [members, searchQuery]);
-
-  const handleTogglePermission = (area: HubArea, action: HubAction) => {
-    if (!selectedMember || selectedMember.role === 'admin') return;
-
-    const currentPermissions: UserPermissions = { ...(selectedMember.permissions || {}) };
-    const areaPerms = currentPermissions[area] || [];
-
-    if (areaPerms.includes(action)) {
-      const next = areaPerms.filter((a) => a !== action);
-      if (next.length > 0) currentPermissions[area] = next;
-      else delete currentPermissions[area];
-    } else {
-      currentPermissions[area] = [...areaPerms, action];
-    }
-
-    setSelectedMember({
-      ...selectedMember,
-      permissions: currentPermissions
-    });
+  const stats = {
+    total: users.length,
+    active: users.filter(u => u.status === 'active').length,
+    invited: users.filter(u => u.status === 'invited').length,
+    admins: users.filter(u => u.role === 'admin').length
   };
 
-  const handleSavePermissions = async () => {
-    if (!selectedMember) return;
-
-    try {
-      setSavingPermissions(true);
-
-      const endpoints = [
-        `${BASE_URL}/api/client/team/${selectedMember.id}/permissions`,
-        `${BASE_URL}/api/team/${selectedMember.id}/permissions`
-      ];
-
-      let saved = false;
-      let lastError: any = null;
-
-      for (const url of endpoints) {
-        try {
-          const res = await fetch(url, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              permissions: selectedMember.permissions
-            })
-          });
-
-          if (!res.ok) {
-            const json = await res.json().catch(() => ({}));
-            throw new Error(json?.error || 'Erro ao guardar permissões.');
-          }
-
-          saved = true;
-          break;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-
-      if (!saved) {
-        if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
-          setMembers((prev) => prev.map((m) => (m.id === selectedMember.id ? selectedMember : m)));
-          toast.success(`Permissões de ${selectedMember.name} atualizadas.`);
-          setIsPermissionsModalOpen(false);
-          return;
-        }
-        throw lastError || new Error('Erro ao guardar permissões.');
-      }
-
-      setMembers((prev) => prev.map((m) => (m.id === selectedMember.id ? selectedMember : m)));
-      toast.success(`Permissões de ${selectedMember.name} atualizadas.`);
-      setIsPermissionsModalOpen(false);
-    } catch (error: any) {
-      toast.error(error?.message || 'Erro ao guardar permissões.');
-    } finally {
-      setSavingPermissions(false);
-    }
-  };
-
-  const handleInviteMember = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const formData = new FormData(e.currentTarget);
-    const email = String(formData.get('email') || '').trim();
-    const name = String(formData.get('name') || '').trim();
-
-    if (!name || !email) {
-      toast.error('Preencha nome e email.');
-      return;
-    }
-
-    try {
-      setInviting(true);
-
-      const endpoints = [
-        `${BASE_URL}/api/client/team/invite`,
-        `${BASE_URL}/api/team/invite`
-      ];
-
-      let invited = false;
-      let responseMember: TeamMember | null = null;
-      let lastError: any = null;
-
-      for (const url of endpoints) {
-        try {
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              name,
-              email,
-              permissions: { dashboard: ['ver'] }
-            })
-          });
-
-          if (!res.ok) {
-            const json = await res.json().catch(() => ({}));
-            throw new Error(json?.error || 'Erro ao enviar convite.');
-          }
-
-          const json = await res.json().catch(() => ({}));
-          responseMember = normalizeMember(json?.member || json?.user || { name, email, role: 'member', status: 'invited' });
-          invited = true;
-          break;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-
-      if (!invited) {
-        if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
-          const newMember: TeamMember = {
-            id: Math.random().toString(36).slice(2, 11),
-            name,
-            email,
-            role: 'member',
-            permissions: { dashboard: ['ver'] },
-            status: 'invited',
-            created_at: new Date().toISOString(),
-            avatar_url: buildAvatar(name)
-          };
-          setMembers((prev) => [newMember, ...prev]);
-          toast.success(`Convite enviado para ${email}`);
-          setIsInviteModalOpen(false);
-          e.currentTarget.reset();
-          return;
-        }
-        throw lastError || new Error('Erro ao enviar convite.');
-      }
-
-      if (responseMember) {
-        setMembers((prev) => [responseMember!, ...prev.filter((m) => m.id !== responseMember!.id)]);
-      }
-
-      toast.success(`Convite enviado para ${email}`);
-      setIsInviteModalOpen(false);
-      e.currentTarget.reset();
-    } catch (error: any) {
-      toast.error(error?.message || 'Erro ao enviar convite.');
-    } finally {
-      setInviting(false);
-    }
-  };
-
-  const handleDeleteMember = async (member: TeamMember) => {
-    if (member.role === 'admin') {
-      toast.error('Não podes remover um administrador por aqui.');
-      return;
-    }
-
-    const confirmed = window.confirm(`Remover ${member.name}?`);
-    if (!confirmed) return;
-
-    try {
-      setRemovingId(member.id);
-
-      const endpoints = [
-        `${BASE_URL}/api/client/team/${member.id}`,
-        `${BASE_URL}/api/team/${member.id}`
-      ];
-
-      let deleted = false;
-      let lastError: any = null;
-
-      for (const url of endpoints) {
-        try {
-          const res = await fetch(url, {
-            method: 'DELETE',
-            credentials: 'include'
-          });
-
-          if (!res.ok) {
-            const json = await res.json().catch(() => ({}));
-            throw new Error(json?.error || 'Erro ao remover colaborador.');
-          }
-
-          deleted = true;
-          break;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-
-      if (!deleted) {
-        if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
-          setMembers((prev) => prev.filter((m) => m.id !== member.id));
-          toast.success('Colaborador removido.');
-          return;
-        }
-        throw lastError || new Error('Erro ao remover colaborador.');
-      }
-
-      setMembers((prev) => prev.filter((m) => m.id !== member.id));
-      toast.success('Colaborador removido.');
-    } catch (error: any) {
-      toast.error(error?.message || 'Erro ao remover colaborador.');
-    } finally {
-      setRemovingId(null);
-    }
+  const roleColors: Record<string, string> = {
+    admin: 'bg-rose-100 text-rose-700 border-rose-200',
+    gestor: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+    operador: 'bg-blue-100 text-blue-700 border-blue-200',
+    comercial: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    técnico: 'bg-amber-100 text-amber-700 border-amber-200',
+    financeiro: 'bg-purple-100 text-purple-700 border-purple-200'
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-slate-900 flex items-center gap-2">
-            <Users className="w-8 h-8 text-primary" />
-            Gestão de Equipa
-          </h1>
-          <p className="text-slate-500">Gerencie os acessos e permissões dos seus colaboradores.</p>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 ${config.bgLight} rounded-xl ${config.textMain}`}>
+            <Users size={24} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Gestão de Equipa</h1>
+            <p className="text-slate-500 text-sm">Gira os seus colaboradores, funções e permissões de acesso.</p>
+          </div>
         </div>
-
-        <div className="flex gap-2 w-full sm:w-auto">
-          <button
-            onClick={fetchMembers}
-            className="px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Atualizar
-          </button>
-
-          <button
-            onClick={() => setIsInviteModalOpen(true)}
-            className="w-full sm:w-auto px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all flex items-center justify-center gap-2"
-          >
-            <UserPlus className="w-4 h-4" /> Convidar Membro
-          </button>
-        </div>
+        
+        <button 
+          onClick={() => setIsAddingMember(true)}
+          className={`flex items-center gap-2 px-4 py-2.5 ${config.bgMain} text-white rounded-xl ${config.bgHover} transition-all shadow-lg ${config.shadowMain} font-medium`}
+        >
+          <Plus size={20} />
+          <span>Convidar Membro</span>
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-            <Users className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Membros</p>
-            <p className="text-xl font-bold text-slate-900">{members.length}</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Administradores</p>
-            <p className="text-xl font-bold text-slate-900">{members.filter((m) => m.role === 'admin').length}</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center">
-            <Clock className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pendentes</p>
-            <p className="text-xl font-bold text-slate-900">{members.filter((m) => m.status === 'invited').length}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Pesquisar por nome ou email..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard 
+          label="Total da Equipa" 
+          value={stats.total} 
+          icon={<Users size={20} />} 
+          color="slate" 
+        />
+        <StatCard 
+          label="Membros Ativos" 
+          value={stats.active} 
+          icon={<UserCheck size={20} />} 
+          color="emerald" 
+        />
+        <StatCard 
+          label="Convites Pendentes" 
+          value={stats.invited} 
+          icon={<UserPlus size={20} />} 
+          color="blue" 
+        />
+        <StatCard 
+          label="Administradores" 
+          value={stats.admins} 
+          icon={<Shield size={20} />} 
+          color="rose" 
         />
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="p-12 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
-            <p className="text-slate-500 font-medium">A carregar equipa...</p>
-          </div>
-        ) : filteredMembers.length === 0 ? (
-          <div className="p-12 text-center">
-            <Users className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-500 font-medium">Nenhum membro encontrado.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {filteredMembers.map((member) => (
-              <div
-                key={member.id}
-                className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <img
-                      src={member.avatar_url || buildAvatar(member.name)}
-                      alt={member.name}
-                      className="w-12 h-12 rounded-full bg-slate-100 border-2 border-white shadow-sm"
-                    />
-                    <div
-                      className={cn(
-                        'absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm',
-                        member.status === 'active'
-                          ? 'bg-emerald-500'
-                          : member.status === 'invited'
-                            ? 'bg-orange-500'
-                            : 'bg-red-500'
-                      )}
-                    />
-                  </div>
+      {/* Filters & Search */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <input 
+            type="text"
+            placeholder="Pesquisar por nome ou email..."
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        
+        <div className="flex gap-2">
+          <select 
+            className="px-4 py-2.5 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-slate-600"
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value)}
+          >
+            <option value="all">Todas as Funções</option>
+            <option value="admin">Administrador</option>
+            <option value="gestor">Gestor</option>
+            <option value="operador">Operador</option>
+            <option value="comercial">Comercial</option>
+            <option value="técnico">Técnico</option>
+            <option value="financeiro">Financeiro</option>
+          </select>
+          
+          <button className="p-2.5 bg-slate-50 text-slate-500 rounded-xl hover:bg-slate-100 transition-all">
+            <Settings size={20} />
+          </button>
+        </div>
+      </div>
 
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-bold text-slate-900">{member.name}</h3>
-                      {member.role === 'admin' && (
-                        <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black uppercase rounded-md flex items-center gap-1">
-                          <Shield className="w-3 h-3" /> Admin
-                        </span>
-                      )}
+      {/* Team List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {loading ? (
+          <div className="col-span-full p-12 flex flex-col items-center justify-center gap-3">
+            <Loader2 size={32} className="text-indigo-600 animate-spin" />
+            <p className="text-slate-500 animate-pulse">A carregar equipa...</p>
+          </div>
+        ) : filteredUsers.length > 0 ? (
+          filteredUsers.map((user) => (
+            <motion.div 
+              key={user.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all overflow-hidden group"
+            >
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-lg">
+                      {user.name.substring(0, 2).toUpperCase()}
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-slate-500">
-                      <span className="flex items-center gap-1">
-                        <Mail className="w-3.5 h-3.5" /> {member.email}
-                      </span>
+                    <div>
+                      <h3 className="font-bold text-slate-900">{user.name}</h3>
+                      <div className="flex items-center gap-1 text-xs text-slate-500">
+                        <Mail size={12} />
+                        <span>{user.email}</span>
+                      </div>
                     </div>
                   </div>
+                  <button className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg transition-all">
+                    <MoreVertical size={18} />
+                  </button>
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={() => {
-                      setSelectedMember(member);
-                      setIsPermissionsModalOpen(true);
-                    }}
-                    disabled={member.role === 'admin'}
-                    className={cn(
-                      'flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all border',
-                      member.role === 'admin'
-                        ? 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed'
-                        : 'bg-white text-slate-700 border-slate-200 hover:border-primary hover:text-primary'
-                    )}
-                  >
-                    <Lock className="w-3.5 h-3.5" /> Permissões
-                  </button>
+                <div className="flex flex-wrap gap-2 mb-6">
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${roleColors[user.role] || 'bg-slate-100 text-slate-700 border-slate-200'} uppercase tracking-wider flex items-center gap-1.5`}>
+                    <Briefcase size={12} />
+                    {user.role}
+                  </span>
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1.5 ${
+                    user.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                    user.status === 'invited' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                    'bg-slate-50 text-slate-700 border-slate-100'
+                  }`}>
+                    {user.status === 'active' ? <CheckCircle2 size={12} /> : 
+                     user.status === 'invited' ? <Clock size={12} /> : 
+                     <XCircle size={12} />}
+                    {user.status === 'active' ? 'Ativo' : 
+                     user.status === 'invited' ? 'Pendente' : 
+                     'Inativo'}
+                  </span>
+                </div>
 
-                  <button
-                    onClick={() => handleDeleteMember(member)}
-                    disabled={member.role === 'admin' || removingId === member.id}
-                    className={cn(
-                      'p-2 rounded-xl transition-all border',
-                      member.role === 'admin'
-                        ? 'text-slate-300 border-transparent cursor-not-allowed'
-                        : 'text-slate-400 hover:bg-white hover:text-red-600 border-transparent hover:border-red-100'
-                    )}
-                  >
-                    {removingId === member.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                  </button>
+                <div className="space-y-3 pt-4 border-t border-slate-50">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <div className="flex items-center gap-1.5">
+                      <Clock size={14} />
+                      <span>Último Acesso</span>
+                    </div>
+                    <span className="font-medium text-slate-700">
+                      {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString('pt-PT') : 'Nunca'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <div className="flex items-center gap-1.5">
+                      <Lock size={14} />
+                      <span>Permissões</span>
+                    </div>
+                    <button className="text-indigo-600 font-bold hover:underline">Ver todas</button>
+                  </div>
                 </div>
               </div>
-            ))}
+              
+              <div className="px-6 py-3 bg-slate-50/50 border-t border-slate-50 flex items-center justify-between">
+                <button className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors uppercase tracking-wider">
+                  Editar Perfil
+                </button>
+                <button className="text-xs font-bold text-slate-500 hover:text-rose-600 transition-colors uppercase tracking-wider">
+                  Desativar
+                </button>
+              </div>
+            </motion.div>
+          ))
+        ) : (
+          <div className="col-span-full p-16 flex flex-col items-center justify-center text-center gap-4">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
+              <Users size={32} />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Nenhum membro encontrado</h3>
+              <p className="text-slate-500 max-w-xs mx-auto">Tente ajustar a sua pesquisa ou convide um novo colaborador para a sua equipa.</p>
+            </div>
+            <button 
+              onClick={() => setIsAddingMember(true)}
+              className="mt-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all text-sm font-medium"
+            >
+              Convidar Primeiro Membro
+            </button>
           </div>
         )}
       </div>
-
-      <AnimatePresence>
-        {isInviteModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200"
-            >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-                    <UserPlus className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">Convidar Colaborador</h3>
-                    <p className="text-xs text-slate-500">Envie um convite por email.</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsInviteModalOpen(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleInviteMember} className="p-6 space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-semibold text-slate-700">Nome Completo</label>
-                  <input
-                    name="name"
-                    required
-                    type="text"
-                    placeholder="Ex: João Silva"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-sm font-semibold text-slate-700">Email Profissional</label>
-                  <input
-                    name="email"
-                    required
-                    type="email"
-                    placeholder="email@empresa.pt"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                  />
-                </div>
-
-                <div className="pt-4">
-                  <button
-                    type="submit"
-                    disabled={inviting}
-                    className="w-full py-3.5 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-                  >
-                    {inviting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        A enviar...
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="w-4 h-4" />
-                        Enviar Convite
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isPermissionsModalOpen && selectedMember && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-200 flex flex-col"
-            >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-                    <Lock className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">Permissões: {selectedMember.name}</h3>
-                    <p className="text-xs text-slate-500">Defina o que este utilizador pode fazer em cada área.</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsPermissionsModalOpen(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-100">
-                        <th className="py-4 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider min-w-[200px]">
-                          Área / Módulo
-                        </th>
-                        {TEAM_ACTIONS.map((action) => (
-                          <th
-                            key={action.id}
-                            className="py-4 px-2 text-center text-xs font-bold text-slate-400 uppercase tracking-wider"
-                          >
-                            {action.label}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-
-                    <tbody className="divide-y divide-slate-50">
-                      {TEAM_AREAS.map((area) => (
-                        <tr key={area.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="py-4 px-4">
-                            <div className="flex flex-col">
-                              <span className="font-bold text-slate-900 text-sm">{area.label}</span>
-                              <span className="text-[10px] text-slate-500">{area.description}</span>
-                            </div>
-                          </td>
-
-                          {TEAM_ACTIONS.map((action) => {
-                            const isChecked = selectedMember.permissions?.[area.id]?.includes(action.id);
-
-                            return (
-                              <td key={action.id} className="py-4 px-2 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleTogglePermission(area.id, action.id)}
-                                  disabled={selectedMember.role === 'admin'}
-                                  className={cn(
-                                    'w-6 h-6 rounded-md border-2 transition-all mx-auto flex items-center justify-center',
-                                    isChecked
-                                      ? 'bg-primary border-primary text-white shadow-sm'
-                                      : 'bg-white border-slate-200 text-transparent hover:border-primary/50'
-                                  )}
-                                >
-                                  <Check className="w-4 h-4 stroke-[3]" />
-                                </button>
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
-                <button
-                  onClick={() => setIsPermissionsModalOpen(false)}
-                  className="px-6 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:bg-white border border-transparent hover:border-slate-200 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSavePermissions}
-                  disabled={savingPermissions}
-                  className="px-8 py-2.5 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all disabled:opacity-60 flex items-center gap-2"
-                >
-                  {savingPermissions && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Guardar Alterações
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
+};
+
+interface StatCardProps {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+  color: 'slate' | 'emerald' | 'blue' | 'rose';
 }
+
+const StatCard: React.FC<StatCardProps> = ({ label, value, icon, color }) => {
+  const colors = {
+    slate: 'bg-slate-50 text-slate-600',
+    emerald: 'bg-emerald-50 text-emerald-600',
+    blue: 'bg-blue-50 text-blue-600',
+    rose: 'bg-rose-50 text-rose-600',
+  };
+
+  return (
+    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+      <div className="flex items-center justify-between mb-3">
+        <div className={`p-2 rounded-lg ${colors[color]} group-hover:scale-110 transition-transform`}>
+          {icon}
+        </div>
+        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">{label}</div>
+      </div>
+      <div className="text-2xl font-bold text-slate-900">{value}</div>
+    </div>
+  );
+};
+
+export default Team;
