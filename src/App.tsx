@@ -22,10 +22,10 @@ import { AdminLogin } from './pages/admin/Login';
 import { Dashboard } from './pages/app/Dashboard';
 import OperationalDashboard from './pages/app/OperationalDashboard';
 import WhatsApp from './pages/app/WhatsApp';
+import Billing from './pages/app/Billing';
 import Tickets from './pages/app/Tickets';
 import TicketDetail from './pages/app/TicketDetail';
 import { Instance } from './pages/app/Instance';
-import Subscription from './pages/app/Subscription';
 import { Settings } from './pages/app/Settings';
 import Clients from './pages/app/Clients';
 import Team from './pages/app/Team';
@@ -136,11 +136,11 @@ function App() {
                   <Route path="financial" element={<ProtectedRoute module="financial"><FinancialDocuments /></ProtectedRoute>} />
                   <Route path="email" element={<ProtectedRoute module="emails"><Emails /></ProtectedRoute>} />
                   <Route path="automations" element={<ProtectedRoute module="automations"><Automations /></ProtectedRoute>} />
-                  <Route path="billing" element={<ProtectedRoute module="billing"><Navigate to="/app/financial" replace /></ProtectedRoute>} />
+                  <Route path="billing" element={<ProtectedRoute module="billing"><Billing /></ProtectedRoute>} />
                   <Route path="reports" element={<ProtectedRoute module="dashboard"><Placeholder title="Relatórios" /></ProtectedRoute>} />
                   <Route path="ai" element={<ProtectedRoute module="dashboard"><Placeholder title="IA Hub" /></ProtectedRoute>} />
                   <Route path="instancia" element={<ProtectedRoute module="whatsapp"><Instance /></ProtectedRoute>} />
-                  <Route path="subscription" element={<ProtectedRoute module="billing"><Subscription /></ProtectedRoute>} />
+                  <Route path="subscription" element={<Navigate to="/app/billing" replace />} />
                   <Route path="settings" element={<ProtectedRoute module="settings"><Settings /></ProtectedRoute>} />
                 </Route>
 

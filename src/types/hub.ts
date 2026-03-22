@@ -358,6 +358,48 @@ export interface WhatsAppStats {
   conversationsWithTickets: number;
 }
 
+export interface Subscription {
+  id: string;
+  client_id: string;
+  plan_name: string;
+  status: 'active' | 'trial' | 'past_due' | 'canceled' | 'suspended';
+  price_monthly: number;
+  billing_cycle: 'monthly' | 'yearly';
+  start_date: string;
+  end_date?: string;
+  renewal_date?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UsageMetrics {
+  client_id: string;
+  total_users: number;
+  total_instances: number;
+  total_messages: number;
+  total_tickets: number;
+  total_documents: number;
+  last_updated: string;
+}
+
+export interface ClientBillingSummary {
+  client_id: string;
+  company_name: string;
+  subscription_status: Subscription['status'];
+  current_plan: string;
+  monthly_value: number;
+  renewal_date?: string;
+  usage: UsageMetrics;
+}
+
+export interface BillingStats {
+  totalClients: number;
+  activeSubscriptions: number;
+  trialSubscriptions: number;
+  suspendedSubscriptions: number;
+  estimatedMonthlyRevenue: number;
+}
+
 export const AREA_CONFIG: Record<OperationalArea, {
   label: string;
   bgLight: string;

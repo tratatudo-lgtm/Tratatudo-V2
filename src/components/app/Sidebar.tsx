@@ -65,7 +65,7 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { name: 'Relatórios', href: '/app/reports', icon: BarChart3, area: 'dashboard' },
     { name: 'IA', href: '/app/ai', icon: Bot, area: 'dashboard' },
     { name: 'Instância', href: '/app/instancia', icon: Smartphone, area: 'whatsapp' },
-    { name: 'Subscrição', href: '/app/subscription', icon: CreditCard, area: 'billing' },
+    { name: 'Faturação', href: '/app/billing', icon: CreditCard, area: 'billing' },
     { name: 'Definições', href: '/app/settings', icon: Settings, area: 'settings' },
   ];
 

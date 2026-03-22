@@ -1006,6 +1006,99 @@ async function startServer() {
     res.json({ ok: true, messages: Array.from(convs.values()) });
   });
 
+  // Billing & Subscriptions
+  app.get("/api/client/billing/subscription", requireClientSession, requirePermission('billing', 'view'), async (req: any, res) => {
+    try {
+      const { data: subscription, error } = await supabase.from("subscriptions")
+        .select("*")
+        .eq("client_id", req.clientId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      res.json({ ok: true, subscription: subscription || null });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/billing/usage", requireClientSession, requirePermission('billing', 'view'), async (req: any, res) => {
+    try {
+      const [ { count: users }, { count: instances }, { count: messages }, { count: tickets }, { count: documents } ] = await Promise.all([
+        supabase.from("client_users").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId),
+        supabase.from("client_instances").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId),
+        supabase.from("wa_messages").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId),
+        supabase.from("tickets").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId),
+        supabase.from("documents").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId)
+      ]);
+
+      res.json({ 
+        ok: true, 
+        usage: {
+          client_id: req.clientId,
+          total_users: users || 0,
+          total_instances: instances || 0,
+          total_messages: messages || 0,
+          total_tickets: tickets || 0,
+          total_documents: documents || 0,
+          last_updated: new Date().toISOString()
+        } 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Admin Billing (SaaS Operation)
+  app.get("/api/admin/billing/stats", requireAdminSession, async (req: any, res) => {
+    try {
+      const [ { count: totalClients }, { data: subs } ] = await Promise.all([
+        supabase.from("clients").select("id", { count: 'exact', head: true }),
+        supabase.from("subscriptions").select("status, price_monthly")
+      ]);
+
+      const stats = {
+        totalClients: totalClients || 0,
+        activeSubscriptions: subs?.filter(s => s.status === 'active').length || 0,
+        trialSubscriptions: subs?.filter(s => s.status === 'trial').length || 0,
+        suspendedSubscriptions: subs?.filter(s => s.status === 'suspended' || s.status === 'past_due').length || 0,
+        estimatedMonthlyRevenue: subs?.filter(s => s.status === 'active').reduce((acc, s) => acc + (s.price_monthly || 0), 0) || 0
+      };
+
+      res.json({ ok: true, stats });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/billing/subscriptions", requireAdminSession, async (req: any, res) => {
+    try {
+      const { status, plan } = req.query;
+      
+      let query = supabase.from("subscriptions")
+        .select(`
+          *,
+          client:clients(company_name)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (status) query = query.eq("status", status);
+      if (plan) query = query.eq("plan_name", plan);
+
+      const { data: subscriptions, error } = await query;
+      if (error) throw error;
+
+      res.json({ 
+        ok: true, 
+        subscriptions: subscriptions?.map(s => ({
+          ...s,
+          company_name: (s.client as any)?.company_name
+        })) 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   // Admin Routes
   app.post("/api/admin/auth/login", async (req, res) => {
     const { email, password } = req.body;
