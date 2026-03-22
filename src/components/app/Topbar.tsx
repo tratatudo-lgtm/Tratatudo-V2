@@ -14,7 +14,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const handleLogout = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || '';
+    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
     try {
       toast.loading('A terminar sessão...');
       const res = await fetch(`${baseUrl}/api/auth/logout`, {
@@ -61,6 +61,18 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         </div>
 
         <div className="flex items-center gap-2 lg:gap-4">
+          {/* Language Switcher */}
+          <div className="hidden sm:flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl p-1 mr-2">
+            {(['PT', 'EN', 'ES'] as const).map((lang) => (
+              <button
+                key={lang}
+                className="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-500 hover:text-primary hover:bg-white transition-all"
+              >
+                {lang}
+              </button>
+            ))}
+          </div>
+
           <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg relative">
             <Bell className="w-5 h-5" />
             <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>

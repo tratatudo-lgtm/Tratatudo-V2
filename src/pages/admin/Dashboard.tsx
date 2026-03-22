@@ -65,7 +65,7 @@ export function AdminDashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
       const statsUrl = `${baseUrl}/api/admin/dashboard/stats`;
       const alertsUrl = `${baseUrl}/api/admin/alerts`;
       console.log(`[ADMIN] Fetching dashboard data: ${statsUrl}, ${alertsUrl}`);

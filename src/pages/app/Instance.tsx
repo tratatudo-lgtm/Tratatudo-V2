@@ -39,8 +39,6 @@ interface Stats {
   complaints: number;
 }
 
-const BASE_URL = import.meta.env.VITE_API_URL || '';
-
 export function Instance() {
   const { user } = useAuth();
   const [data, setData] = useState<{ instance: InstanceData | null; stats: Stats } | null>(null);
@@ -50,8 +48,8 @@ export function Instance() {
 
   const fetchInstanceData = async () => {
     const endpoints = [
-      `${BASE_URL}/api/client/instance`,
-      `${BASE_URL}/api/instance`
+      `${import.meta.env.VITE_API_URL}/api/client/instance`,
+      `${import.meta.env.VITE_API_URL}/api/instance`
     ];
     
     let lastError = null;
@@ -70,7 +68,13 @@ export function Instance() {
             console.log(`[APP] Instance data received from ${url}:`, result);
             
             const instance = extractObjectResponse<InstanceData>(result, 'instance');
-            const stats = result.stats || {
+            const stats = result.stats ? {
+              totalMessages: result.stats.totalMessages || result.stats.messages || ((result.stats.sentMessages || result.stats.messages_sent || 0) + (result.stats.receivedMessages || result.stats.messages_received || 0)),
+              sentMessages: result.stats.sentMessages || result.stats.messages_sent || 0,
+              receivedMessages: result.stats.receivedMessages || result.stats.messages_received || 0,
+              totalTickets: result.stats.totalTickets || result.stats.total_tickets || 0,
+              complaints: result.stats.complaints || 0
+            } : {
               totalMessages: 0,
               sentMessages: 0,
               receivedMessages: 0,
@@ -98,7 +102,7 @@ export function Instance() {
   const syncInstance = async () => {
     try {
       setSyncing(true);
-      const res = await fetch(`${BASE_URL}/api/client/instance/sync`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/client/instance/sync`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -146,7 +150,7 @@ export function Instance() {
 
   if (error) {
     return (
-      <div className="h-[calc(100vh-10rem)] flex flex-col items-center justify-center gap-4">
+      <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
         <ErrorState message={error} />
         <button 
           onClick={fetchInstanceData}
@@ -160,7 +164,7 @@ export function Instance() {
 
   if (!data?.instance) {
     return (
-      <div className="h-[calc(100vh-10rem)] flex flex-col items-center justify-center gap-4">
+      <div className="h-[calc(100vh-10rem)] flex items-center justify-center">
         <div className="bg-white p-12 rounded-3xl border border-slate-200 shadow-xl text-center max-w-md">
           <Smartphone className="w-16 h-16 text-slate-200 mx-auto mb-6" />
           <h3 className="text-xl font-bold text-slate-900 mb-2">Sem instância configurada</h3>
@@ -176,7 +180,6 @@ export function Instance() {
   }
 
   const { instance, stats } = data;
-  const instanceStatus = (instance.status || '').toLowerCase();
 
   const quickStats = [
     { label: 'Mensagens Recebidas', value: stats.receivedMessages.toLocaleString(), icon: MessageSquare, color: 'text-blue-500', bg: 'bg-blue-50' },
@@ -214,14 +217,14 @@ export function Instance() {
               <div className="flex flex-col items-end gap-2">
                 <div className={cn(
                   "px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2",
-                  instanceStatus === 'conectado' ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
-                  instanceStatus === 'reconectando' ? "bg-orange-50 text-orange-600 border border-orange-100" :
+                  instance.status.toLowerCase() === 'conectado' ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                  instance.status.toLowerCase() === 'reconectando' ? "bg-orange-50 text-orange-600 border border-orange-100" :
                   "bg-red-50 text-red-600 border border-red-100"
                 )}>
                   <div className={cn(
                     "w-2 h-2 rounded-full",
-                    instanceStatus === 'conectado' ? "bg-emerald-500 animate-pulse" :
-                    instanceStatus === 'reconectando' ? "bg-orange-500 animate-spin" :
+                    instance.status.toLowerCase() === 'conectado' ? "bg-emerald-500 animate-pulse" :
+                    instance.status.toLowerCase() === 'reconectando' ? "bg-orange-500 animate-spin" :
                     "bg-red-500"
                   )}></div>
                   {instance.status}
@@ -324,7 +327,7 @@ export function Instance() {
                 <span className="text-xs font-medium">Ver Mensagens</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
-              <Link to="/app/tickets?area=pedidos" className="w-full flex items-center justify-between p-3 rounded-xl bg-white/10 hover:bg-white/20 transition-all group">
+              <Link to="/app/requests" className="w-full flex items-center justify-between p-3 rounded-xl bg-white/10 hover:bg-white/20 transition-all group">
                 <span className="text-xs font-medium">Ver Pedidos</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>

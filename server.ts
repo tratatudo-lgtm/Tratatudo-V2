@@ -1,5 +1,3 @@
-import dotenv from "dotenv";
-dotenv.config({ path: "/home/ubuntu/Tratatudo-V2/.env" });
 import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
@@ -83,8 +81,6 @@ async function startServer() {
   app.use(express.json());
   app.use(cookieParser());
 
-const clientApi = express.Router();
-
   // --- Middlewares ---
   const requireClientSession = async (req: any, res: any, next: any) => {
     const token = req.cookies.hub_session;
@@ -131,7 +127,7 @@ const clientApi = express.Router();
     const codeHash = await bcrypt.hash(code, 10);
     await supabase.from("auth_otps").update({ used_at: new Date().toISOString() }).eq("phone_e164", phone_e164).is("used_at", null);
     const { error } = await supabase.from("auth_otps").insert({ phone_e164, code_hash: codeHash, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), purpose: 'hub_login' });
-    if (error) return res.status(500).json({ ok: false, error: error.message, details: error });
+    if (error) return res.status(500).json({ ok: false, error: "Erro ao gerar código." });
     try {
       const { data: client } = await supabase.from("clients").select("id").eq("phone_e164", phone_e164).single();
       await sendWhatsAppNotification(client?.id || "hub", phone_e164, `O seu código TrataTudo é: ${code}`);
@@ -312,45 +308,12 @@ const clientApi = express.Router();
     if (!message) return res.status(400).json({ ok: false, error: "Mensagem obrigatória." });
 
     try {
-      const systemPrompt = // Buscar últimos tickets
-const { data: recentTickets } = await supabase
-  .from("tickets")
-  .select("subject, description, status, kind")
-  .eq("client_id", req.clientId)
-  .order("created_at", { ascending: false })
-  .limit(10);
-
-// Criar contexto para IA
-const ticketsContext = (recentTickets || [])
-  .map(t => `- [${t.kind}] ${t.subject} (${t.status})`)
-  .join("
-");
-
-// Prompt melhorado
-const systemPrompt = \`
-És um assistente especializado no TrataTudo Hub.
-
-Empresa: ${req.client.company_name}
-
-TICKETS RECENTES:
-${ticketsContext || "Sem tickets recentes"}
-
-Funções:
-- Resumir tickets
-- Identificar problemas críticos
-- Sugerir ações
-- Ajudar a responder a clientes
-
-Regras:
-- Fala em português de Portugal
-- Sê direto e profissional
-- Não inventes dados
-
-Exemplos de pedidos:
-- "Resume os tickets em aberto"
-- "O que devo resolver primeiro?"
-- "Sugere resposta para este ticket"
-\`;
+      const systemPrompt = `Você é o assistente inteligente do TrataTudo Hub. 
+      Seu papel é ajudar o utilizador (${req.client.company_name}) a gerir o seu negócio.
+      Você tem acesso a Pedidos, Reclamações e Vendas.
+      Seja profissional, prestativo e direto. Use português de Portugal.
+      Ajude a resumir tickets, sugerir próximas ações e orientar nas tarefas do Hub.
+      Instruções específicas do bot: ${req.client.bot_instructions || 'Nenhuma instrução específica.'}`;
 
       const messages = [
         { role: "system", content: systemPrompt },
@@ -421,14 +384,11 @@ Exemplos de pedidos:
   });
 
   app.post("/api/client/tickets", requireClientSession, async (req: any, res) => {
-    const { subject, description, category, priority, kind, type } = req.body;
-    const validKinds = ["pedido", "reclamacao", "venda"];
-const ticketKind = validKinds.includes(kind) ? kind : "pedido";
-console.log("TICKET KIND:", ticketKind);
+    const { subject, description, category, priority, kind = "suporte" } = req.body;
     if (!subject || !description) return res.status(400).json({ ok: false, error: "Assunto e descrição obrigatórios." });
     const trackingCode = `SUP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     const { data: ticket, error } = await supabase.from("tickets").insert({
-      client_id: req.clientId, subject, description, category, priority: priority || "média", kind: ticketKind, status: "aberto", tracking_code: trackingCode
+      client_id: req.clientId, subject, description, category, priority: priority || "média", kind, status: "aberto", tracking_code: trackingCode
     }).select().single();
     if (error) return res.status(500).json({ ok: false, error: error.message });
     await supabase.from("ticket_messages").insert({ ticket_id: ticket.id, sender_type: "user", text: description });
@@ -523,8 +483,7 @@ console.log("TICKET KIND:", ticketKind);
   // Static files for production
   if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use("/api/client", clientApi);
-app.use(express.static(distPath));
+    app.use(express.static(distPath));
     app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
 
