@@ -1,5 +1,3 @@
-import dotenv from "dotenv";
-dotenv.config({ path: "/home/ubuntu/Tratatudo-V2/.env" });
 import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
@@ -83,8 +81,6 @@ async function startServer() {
   app.use(express.json());
   app.use(cookieParser());
 
-const clientApi = express.Router();
-
   // --- Middlewares ---
   const requireClientSession = async (req: any, res: any, next: any) => {
     const token = req.cookies.hub_session;
@@ -131,7 +127,7 @@ const clientApi = express.Router();
     const codeHash = await bcrypt.hash(code, 10);
     await supabase.from("auth_otps").update({ used_at: new Date().toISOString() }).eq("phone_e164", phone_e164).is("used_at", null);
     const { error } = await supabase.from("auth_otps").insert({ phone_e164, code_hash: codeHash, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), purpose: 'hub_login' });
-    if (error) return res.status(500).json({ ok: false, error: error.message, details: error });
+    if (error) return res.status(500).json({ ok: false, error: "Erro ao gerar código." });
     try {
       const { data: client } = await supabase.from("clients").select("id").eq("phone_e164", phone_e164).single();
       await sendWhatsAppNotification(client?.id || "hub", phone_e164, `O seu código TrataTudo é: ${code}`);
@@ -312,45 +308,12 @@ const clientApi = express.Router();
     if (!message) return res.status(400).json({ ok: false, error: "Mensagem obrigatória." });
 
     try {
-      const systemPrompt = // Buscar últimos tickets
-const { data: recentTickets } = await supabase
-  .from("tickets")
-  .select("subject, description, status, kind")
-  .eq("client_id", req.clientId)
-  .order("created_at", { ascending: false })
-  .limit(10);
-
-// Criar contexto para IA
-const ticketsContext = (recentTickets || [])
-  .map(t => `- [${t.kind}] ${t.subject} (${t.status})`)
-  .join("
-");
-
-// Prompt melhorado
-const systemPrompt = \`
-És um assistente especializado no TrataTudo Hub.
-
-Empresa: ${req.client.company_name}
-
-TICKETS RECENTES:
-${ticketsContext || "Sem tickets recentes"}
-
-Funções:
-- Resumir tickets
-- Identificar problemas críticos
-- Sugerir ações
-- Ajudar a responder a clientes
-
-Regras:
-- Fala em português de Portugal
-- Sê direto e profissional
-- Não inventes dados
-
-Exemplos de pedidos:
-- "Resume os tickets em aberto"
-- "O que devo resolver primeiro?"
-- "Sugere resposta para este ticket"
-\`;
+      const systemPrompt = `Você é o assistente inteligente do TrataTudo Hub. 
+      Seu papel é ajudar o utilizador (${req.client.company_name}) a gerir o seu negócio.
+      Você tem acesso a Pedidos, Reclamações e Vendas.
+      Seja profissional, prestativo e direto. Use português de Portugal.
+      Ajude a resumir tickets, sugerir próximas ações e orientar nas tarefas do Hub.
+      Instruções específicas do bot: ${req.client.bot_instructions || 'Nenhuma instrução específica.'}`;
 
       const messages = [
         { role: "system", content: systemPrompt },
@@ -416,19 +379,77 @@ Exemplos de pedidos:
 
   // Client Tickets
   app.get("/api/client/tickets", requireClientSession, async (req: any, res) => {
-    const { data: tickets } = await supabase.from("tickets").select("*").eq("client_id", req.clientId).order("created_at", { ascending: false });
-    res.json({ ok: true, tickets });
+    const { data: tickets } = await supabase.from("tickets").select("*, client_profiles(company_name)").eq("client_id", req.clientId).order("created_at", { ascending: false });
+    res.json({ ok: true, tickets: tickets?.map(t => ({ ...t, client_name: (t.client_profiles as any)?.company_name })) });
+  });
+
+  // Client CRM (Profiles)
+  app.get("/api/client/profiles", requireClientSession, async (req: any, res) => {
+    const { data: profiles, error } = await supabase.from("client_profiles")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("company_name", { ascending: true });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, profiles });
+  });
+
+  app.get("/api/client/profiles/:id", requireClientSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { data: profile, error } = await supabase.from("client_profiles")
+      .select("*, tickets(*), documents(*), emails(*), calendar_events(*), financial_documents(*)")
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, profile });
+  });
+
+  app.post("/api/client/profiles", requireClientSession, async (req: any, res) => {
+    const profileData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("client_profiles").insert(profileData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, profile: data });
+  });
+
+  // Client Team (Users)
+  app.get("/api/client/users", requireClientSession, async (req: any, res) => {
+    const { data: users, error } = await supabase.from("client_users")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("name", { ascending: true });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, users });
+  });
+
+  app.post("/api/client/users", requireClientSession, async (req: any, res) => {
+    const userData = { ...req.body, client_id: req.clientId, status: 'invited' };
+    const { data, error } = await supabase.from("client_users").insert(userData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, user: data });
+  });
+
+  app.patch("/api/client/users/:id", requireClientSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { data, error } = await supabase.from("client_users")
+      .update(req.body)
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, user: data });
   });
 
   app.post("/api/client/tickets", requireClientSession, async (req: any, res) => {
-    const { subject, description, category, priority, kind, type } = req.body;
-    const validKinds = ["pedido", "reclamacao", "venda"];
-const ticketKind = validKinds.includes(kind) ? kind : "pedido";
-console.log("TICKET KIND:", ticketKind);
+    const { subject, description, category, priority, kind = "suporte" } = req.body;
     if (!subject || !description) return res.status(400).json({ ok: false, error: "Assunto e descrição obrigatórios." });
     const trackingCode = `SUP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     const { data: ticket, error } = await supabase.from("tickets").insert({
-      client_id: req.clientId, subject, description, category, priority: priority || "média", kind: ticketKind, status: "aberto", tracking_code: trackingCode
+      client_id: req.clientId, subject, description, category, priority: priority || "média", kind, status: "aberto", tracking_code: trackingCode
     }).select().single();
     if (error) return res.status(500).json({ ok: false, error: error.message });
     await supabase.from("ticket_messages").insert({ ticket_id: ticket.id, sender_type: "user", text: description });
@@ -523,59 +544,7 @@ console.log("TICKET KIND:", ticketKind);
   // Static files for production
   if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use("/api/client", clientApi);
-
-// Clientes
-clientApi.get("/clients", requireClientSession, async (req: any, res) => {
-  try {
-    const userId = req.user.id;
-    const clients = await db.client_profiles.findMany({
-      where: { user_id: userId },
-      orderBy: { created_at: 'desc' },
-    });
-    res.json({ success: true, data: clients });
-  } catch (error) {
-    console.error("Error fetching clients:", error);
-    res.status(500).json({ success: false, error: "Failed to fetch clients" });
-  }
-});
-
-clientApi.post("/clients", requireClientSession, async (req: any, res) => {
-  try {
-    const userId = req.user.id;
-    const { name, email, phone, type } = req.body;
-    const client = await db.client_profiles.create({
-      data: {
-        user_id: userId,
-        name,
-        email,
-        phone,
-        type: type || 'lead',
-        status: 'active',
-      },
-    });
-    res.json({ success: true, data: client });
-  } catch (error) {
-    console.error("Error creating client:", error);
-    res.status(500).json({ success: false, error: "Failed to create client" });
-  }
-});
-
-// Equipa
-clientApi.get("/team", requireClientSession, async (req: any, res) => {
-  try {
-    const userId = req.user.id;
-    const team = await db.team_members.findMany({
-      where: { user_id: userId },
-      orderBy: { role: 'asc' },
-    });
-    res.json({ success: true, data: team });
-  } catch (error) {
-    console.error("Error fetching team:", error);
-    res.status(500).json({ success: false, error: "Failed to fetch team" });
-  }
-});
-app.use(express.static(distPath));
+    app.use(express.static(distPath));
     app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
 
