@@ -349,7 +349,7 @@ export function Requests() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          subject: supportData.subject,
+          title: supportData.subject,
           description: supportData.message,
           category: supportData.category,
           priority: supportData.priority,
@@ -384,7 +384,7 @@ export function Requests() {
 
   const filteredTickets = tickets.filter(t => {
     const matchesSearch = (t.tracking_code || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         (t.subject || '').toLowerCase().includes(searchQuery.toLowerCase());
+                         (t.title || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesArea = t.type === activeArea;
     if (!matchesArea) return false;
 
@@ -509,7 +509,7 @@ export function Requests() {
                 {filteredTickets.map((req) => (
                   <tr key={req.id} onClick={() => can(activeArea, 'ver_detalhe') && setSelectedId(req.id)} className="hover:bg-slate-50 cursor-pointer transition-colors">
                     <td className="px-6 py-4 font-mono font-bold text-slate-900">{req.tracking_code}</td>
-                    <td className="px-6 py-4 font-medium text-slate-700 truncate max-w-xs">{req.subject}</td>
+                    <td className="px-6 py-4 font-medium text-slate-700 truncate max-w-xs">{req.title}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <div className={cn("w-2 h-2 rounded-full", ['novo', 'nova', 'novo lead'].includes((req.status || '').toLowerCase()) ? "bg-blue-500" : "bg-orange-500")}></div>

@@ -20,8 +20,10 @@ import { AdminLogin } from './pages/admin/Login';
 
 // App Pages
 import { Dashboard } from './pages/app/Dashboard';
+import OperationalDashboard from './pages/app/OperationalDashboard';
 import { Messages } from './pages/app/Messages';
-import { Requests } from './pages/app/Requests';
+import Tickets from './pages/app/Tickets';
+import TicketDetail from './pages/app/TicketDetail';
 import { Instance } from './pages/app/Instance';
 import Subscription from './pages/app/Subscription';
 import { Settings } from './pages/app/Settings';
@@ -31,6 +33,8 @@ import Tasks from './pages/app/Tasks';
 import Calendar from './pages/app/Calendar';
 import Documents from './pages/app/Documents';
 import FinancialDocuments from './pages/app/FinancialDocuments';
+import Emails from './pages/app/Emails';
+import Automations from './pages/app/Automations';
 
 // Placeholder components for new routes
 const Placeholder = ({ title }: { title: string }) => (
@@ -119,17 +123,19 @@ function App() {
                   }
                 >
                   <Route index element={<Navigate to="dashboard" replace />} />
-                  <Route path="dashboard" element={<Dashboard />} />
+                  <Route path="dashboard" element={<OperationalDashboard />} />
                   <Route path="messages" element={<Messages />} />
-                  <Route path="tickets" element={<Requests />} />
+                  <Route path="tickets" element={<Tickets />} />
+                  <Route path="tickets/:id" element={<TicketDetail />} />
                   <Route path="clients" element={<Clients />} />
                   <Route path="team" element={<Team />} />
                   <Route path="agenda" element={<Calendar />} />
                   <Route path="tasks" element={<Tasks />} />
                   <Route path="documents" element={<Documents />} />
                   <Route path="financial" element={<FinancialDocuments />} />
-                  <Route path="email" element={<Placeholder title="Email" />} />
-                  <Route path="billing" element={<Placeholder title="Faturação" />} />
+                  <Route path="email" element={<Emails />} />
+                  <Route path="automations" element={<Automations />} />
+                  <Route path="billing" element={<Navigate to="/app/financial" replace />} />
                   <Route path="reports" element={<Placeholder title="Relatórios" />} />
                   <Route path="ai" element={<Placeholder title="IA Hub" />} />
                   <Route path="instancia" element={<Instance />} />

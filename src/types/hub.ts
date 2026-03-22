@@ -7,22 +7,47 @@ export interface HubTicket {
   assigned_user_id?: string;
   tracking_code: string;
   type: OperationalArea;
-  subject: string;
+  title: string;
   description: string;
   status: string;
   priority: 'baixa' | 'média' | 'alta' | 'urgente';
+  category: string;
+  assigned_to?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at?: string;
+  // AI and metadata
   source?: string;
   sla_status?: string;
   due_at?: string;
   ai_priority?: string;
   ai_summary?: string;
   ai_suggested_reply?: string;
-  created_at: string;
-  updated_at?: string;
-  category?: string;
   ai_analysis?: string;
+  // Joined fields
   client_name?: string;
   client_phone?: string;
+  assigned_user_name?: string;
+}
+
+export interface TicketMessage {
+  id: string;
+  ticket_id: string;
+  sender_type: 'user' | 'client' | 'system' | 'ai';
+  sender_name: string;
+  message: string;
+  created_at: string;
+}
+
+export interface TicketActivity {
+  id: string;
+  ticket_id: string;
+  event_type: string;
+  event_label: string;
+  created_by: string;
+  created_at: string;
+  // Joined fields
+  user_name?: string;
 }
 
 export interface ClientProfile {
@@ -120,21 +145,65 @@ export interface Document {
 export interface Email {
   id: string;
   client_id: string;
-  from_name?: string;
-  from_email: string;
-  to_emails: string[];
-  cc_emails?: string[];
-  bcc_emails?: string[];
   subject: string;
-  body_text?: string;
-  body_html?: string;
-  status: string;
-  category?: string;
-  ai_summary?: string;
-  ai_suggested_reply?: string;
-  client_profile_id?: number;
-  ticket_id?: string;
+  from_email: string;
+  to_email: string;
+  cc?: string;
+  bcc?: string;
+  body_preview?: string;
+  direction: 'entrada' | 'saída';
+  status: 'enviado' | 'recebido' | 'pendente' | 'falhado';
+  related_entity_type?: string;
+  related_entity_id?: string;
+  sent_at?: string;
   created_at: string;
+  updated_at?: string;
+}
+
+export interface Automation {
+  id: string;
+  client_id: string;
+  name: string;
+  description?: string;
+  trigger_type: string;
+  action_type: string;
+  status: 'ativa' | 'pausada' | 'falha';
+  last_run_at?: string;
+  next_run_at?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface RecentActivity {
+  id: string;
+  type: 'cliente' | 'tarefa' | 'evento' | 'documento' | 'email' | 'financeiro' | 'automacao';
+  title: string;
+  description: string;
+  created_at: string;
+  status?: string;
+}
+
+export interface DashboardMetrics {
+  total_clients: number;
+  active_clients: number;
+  new_clients_this_week?: number;
+  total_tasks: number;
+  pending_tasks: number;
+  completed_tasks_today?: number;
+  total_events: number;
+  upcoming_events: number;
+  events_today?: number;
+  total_documents: number;
+  recent_documents?: number;
+  total_financial_documents: number;
+  overdue_financial_documents: number;
+  total_emails: number;
+  failed_emails?: number;
+  total_automations?: number;
+  active_automations?: number;
+  failed_automations: number;
+  recent_activity: RecentActivity[];
 }
 
 export interface FinancialDocument {

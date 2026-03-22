@@ -542,16 +542,279 @@ async function startServer() {
     res.json({ ok: true, document: data });
   });
 
-  app.post("/api/client/tickets", requireClientSession, async (req: any, res) => {
-    const { subject, description, category, priority, kind = "suporte" } = req.body;
-    if (!subject || !description) return res.status(400).json({ ok: false, error: "Assunto e descrição obrigatórios." });
-    const trackingCode = `SUP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    const { data: ticket, error } = await supabase.from("tickets").insert({
-      client_id: req.clientId, subject, description, category, priority: priority || "média", kind, status: "aberto", tracking_code: trackingCode
-    }).select().single();
+  // Client Emails
+  app.get("/api/client/emails", requireClientSession, async (req: any, res) => {
+    const { data: emails, error } = await supabase.from("emails")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("created_at", { ascending: false });
+    
     if (error) return res.status(500).json({ ok: false, error: error.message });
-    await supabase.from("ticket_messages").insert({ ticket_id: ticket.id, sender_type: "user", text: description });
-    res.json({ ok: true, ticket });
+    res.json({ ok: true, emails });
+  });
+
+  // Client Automations
+  app.get("/api/client/automations", requireClientSession, async (req: any, res) => {
+    const { data: automations, error } = await supabase.from("automations")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("created_at", { ascending: false });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, automations });
+  });
+
+  // Client Dashboard Operational Metrics
+  app.get("/api/client/dashboard/operational-metrics", requireClientSession, async (req: any, res) => {
+    const clientId = req.clientId;
+    try {
+      const [
+        { count: totalClients },
+        { count: activeClients },
+        { count: totalTasks },
+        { count: pendingTasks },
+        { count: totalEvents },
+        { count: upcomingEvents },
+        { count: totalDocs },
+        { count: totalFinDocs },
+        { count: overdueFinDocs },
+        { count: totalEmails },
+        { count: totalAutos },
+        { count: activeAutos },
+        { count: failedAutos }
+      ] = await Promise.all([
+        supabase.from("client_profiles").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("client_profiles").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("customer_type", "Ativo"),
+        supabase.from("tasks").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("tasks").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("status", "pendente"),
+        supabase.from("calendar_events").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("calendar_events").select("*", { count: 'exact', head: true }).eq("client_id", clientId).gte("start_at", new Date().toISOString()),
+        supabase.from("documents").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("financial_documents").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("financial_documents").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("status", "atrasado"),
+        supabase.from("emails").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("automations").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("automations").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("status", "ativa"),
+        supabase.from("automations").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("status", "falha")
+      ]);
+
+      const [
+        { data: recentClients },
+        { data: recentTasks },
+        { data: recentEvents },
+        { data: recentDocs },
+        { data: recentEmails },
+        { data: recentFinDocs }
+      ] = await Promise.all([
+        supabase.from("client_profiles").select("id, company_name, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("tasks").select("id, title, status, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("calendar_events").select("id, title, start_at, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("documents").select("id, title, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("emails").select("id, subject, status, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("financial_documents").select("id, document_number, status, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3)
+      ]);
+
+      const activities: any[] = [
+        ...(recentClients || []).map(c => ({ id: c.id, type: 'cliente', title: 'Novo Cliente', description: c.company_name, created_at: c.created_at })),
+        ...(recentTasks || []).map(t => ({ id: t.id, type: 'tarefa', title: 'Tarefa Atualizada', description: t.title, created_at: t.created_at, status: t.status })),
+        ...(recentEvents || []).map(e => ({ id: e.id, type: 'evento', title: 'Próximo Evento', description: e.title, created_at: e.created_at })),
+        ...(recentDocs || []).map(d => ({ id: d.id, type: 'documento', title: 'Novo Documento', description: d.title, created_at: d.created_at })),
+        ...(recentEmails || []).map(em => ({ id: em.id, type: 'email', title: 'Email', description: em.subject, created_at: em.created_at, status: em.status })),
+        ...(recentFinDocs || []).map(f => ({ id: f.id, type: 'financeiro', title: 'Documento Financeiro', description: f.document_number, created_at: f.created_at, status: f.status }))
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 10);
+
+      res.json({
+        ok: true,
+        metrics: {
+          total_clients: totalClients || 0,
+          active_clients: activeClients || 0,
+          new_clients_this_week: recentClients?.length || 0,
+          total_tasks: totalTasks || 0,
+          pending_tasks: pendingTasks || 0,
+          completed_tasks_today: recentTasks?.filter(t => t.status === 'concluída').length || 0,
+          total_events: totalEvents || 0,
+          upcoming_events: upcomingEvents || 0,
+          events_today: recentEvents?.length || 0,
+          total_documents: totalDocs || 0,
+          recent_documents: recentDocs?.length || 0,
+          total_financial_documents: totalFinDocs || 0,
+          overdue_financial_documents: overdueFinDocs || 0,
+          total_emails: totalEmails || 0,
+          failed_emails: recentEmails?.filter(e => e.status === 'falha').length || 0,
+          total_automations: totalAutos || 0,
+          active_automations: activeAutos || 0,
+          failed_automations: failedAutos || 0,
+          recent_activity: activities
+        }
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Tickets Routes
+  app.get("/api/client/tickets/stats", requireClientSession, async (req: any, res) => {
+    try {
+      const { data: tickets, error } = await supabase.from("tickets")
+        .select("status, priority")
+        .eq("client_id", req.clientId);
+
+      if (error) throw error;
+
+      const stats = {
+        total: tickets?.length || 0,
+        open: tickets?.filter(t => t.status === 'aberto' || t.status === 'novo' || t.status === 'nova').length || 0,
+        in_progress: tickets?.filter(t => ['em análise', 'em investigação', 'em execução', 'a aguardar cliente', 'a aguardar resposta'].includes(t.status)).length || 0,
+        completed: tickets?.filter(t => ['concluído', 'resolvida', 'encerrada', 'resolvido'].includes(t.status)).length || 0,
+        urgent: tickets?.filter(t => t.priority === 'urgente').length || 0
+      };
+
+      res.json({ ok: true, stats });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/tickets", requireClientSession, async (req: any, res) => {
+    try {
+      const { status, priority, category, assigned_to, search } = req.query;
+      let query = supabase.from("tickets").select(`
+        *,
+        assigned_user:client_users!assigned_user_id(name),
+        client:client_profiles!client_profile_id(company_name)
+      `).eq("client_id", req.clientId);
+
+      if (status) query = query.eq("status", status);
+      if (priority) query = query.eq("priority", priority);
+      if (category) query = query.eq("category", category);
+      if (assigned_to) query = query.eq("assigned_user_id", assigned_to);
+      
+      if (search) {
+        query = query.or(`title.ilike.%${search}%,tracking_code.ilike.%${search}%`);
+      }
+
+      const { data: tickets, error } = await query.order("created_at", { ascending: false });
+      if (error) throw error;
+
+      res.json({ 
+        ok: true, 
+        tickets: tickets?.map(t => ({
+          ...t,
+          assigned_user_name: (t.assigned_user as any)?.name,
+          client_name: (t.client as any)?.company_name
+        })) 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/tickets/:id", requireClientSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { data: ticket, error } = await supabase.from("tickets").select(`
+        *,
+        assigned_user:client_users!assigned_user_id(name),
+        client:client_profiles!client_profile_id(company_name, phone_e164)
+      `).eq("id", id).eq("client_id", req.clientId).single();
+
+      if (error) throw error;
+      if (!ticket) return res.status(404).json({ ok: false, error: "Ticket não encontrado." });
+
+      res.json({ 
+        ok: true, 
+        ticket: {
+          ...ticket,
+          assigned_user_name: (ticket.assigned_user as any)?.name,
+          client_name: (ticket.client as any)?.company_name,
+          client_phone: (ticket.client as any)?.phone_e164
+        } 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/tickets/:id/messages", requireClientSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { data: messages, error } = await supabase.from("ticket_messages")
+        .select("*")
+        .eq("ticket_id", id)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      res.json({ ok: true, messages });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/tickets/:id/history", requireClientSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { data: history, error } = await supabase.from("ticket_history")
+        .select(`
+          *,
+          user:client_users!created_by(name)
+        `)
+        .eq("ticket_id", id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      res.json({ 
+        ok: true, 
+        history: history?.map(h => ({
+          ...h,
+          user_name: (h.user as any)?.name
+        })) 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/client/tickets", requireClientSession, async (req: any, res) => {
+    try {
+      const { title, description, category, priority, client_profile_id } = req.body;
+      if (!title || !description) return res.status(400).json({ ok: false, error: "Título e descrição obrigatórios." });
+      
+      const trackingCode = `TT-${Math.floor(100000 + Math.random() * 900000)}`;
+      
+      const { data: ticket, error } = await supabase.from("tickets").insert({
+        client_id: req.clientId, 
+        title, 
+        description, 
+        category: category || "suporte", 
+        priority: priority || "média", 
+        status: "aberto", 
+        tracking_code: trackingCode,
+        client_profile_id,
+        created_by: req.userId
+      }).select().single();
+
+      if (error) throw error;
+
+      // Initial message
+      await supabase.from("ticket_messages").insert({ 
+        ticket_id: ticket.id, 
+        sender_type: "user", 
+        sender_name: "Sistema",
+        message: description 
+      });
+
+      // Initial history
+      await supabase.from("ticket_history").insert({
+        ticket_id: ticket.id,
+        event_type: "create",
+        event_label: "Ticket criado",
+        created_by: req.userId
+      });
+
+      res.json({ ok: true, ticket });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
   });
 
   // Client Messages
