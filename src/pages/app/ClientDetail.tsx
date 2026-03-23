@@ -263,7 +263,18 @@ const ClientDetail: React.FC = () => {
 const TabTickets: React.FC<{ tickets: any[]; kind: string }> = ({ tickets, kind }) => {
   const navigate = useNavigate();
   const label = kind === 'pedido' ? 'Pedidos' : kind === 'reclamação' ? 'Reclamações' : 'Vendas';
-  
+  const priorityOrder: Record<string, number> = { urgente: 0, alta: 1, média: 2, baixa: 3 };
+  const typeOrder: Record<string, number> = { reclamação: 0, pedido: 1, venda: 2, suporte: 3 };
+  const sortedTickets = [...tickets].sort((a, b) => {
+    const pA = priorityOrder[String(a.priority || "").toLowerCase()] ?? 99;
+    const pB = priorityOrder[String(b.priority || "").toLowerCase()] ?? 99;
+    if (pA !== pB) return pA - pB;
+    const tA = typeOrder[String(a.kind || kind || "").toLowerCase()] ?? 99;
+    const tB = typeOrder[String(b.kind || kind || "").toLowerCase()] ?? 99;
+    if (tA !== tB) return tA - tB;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
   if (tickets.length === 0) {
     return <EmptyState icon={<MessageSquare size={40} />} title={`Sem ${label.toLowerCase()}`} description={`Este cliente ainda não tem ${label.toLowerCase()} registados.`} />;
   }
@@ -283,10 +294,16 @@ const TabTickets: React.FC<{ tickets: any[]; kind: string }> = ({ tickets, kind 
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {tickets.map((ticket) => (
+            {sortedTickets.map((ticket) => (
               <tr key={ticket.id} className="hover:bg-slate-50/50 transition-colors group">
                 <td className="px-6 py-4">
-                  <span className="font-mono text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
+                  <span className={cn(
+                    "font-mono text-xs font-bold px-2 py-1 rounded",
+                    kind === 'pedido' ? 'text-blue-700 bg-blue-50' :
+                    kind === 'reclamação' ? 'text-red-700 bg-red-50' :
+                    kind === 'venda' ? 'text-purple-700 bg-purple-50' :
+                    'text-emerald-700 bg-emerald-50'
+                  )}>
                     {ticket.tracking_code}
                   </span>
                 </td>
@@ -314,9 +331,15 @@ const TabTickets: React.FC<{ tickets: any[]; kind: string }> = ({ tickets, kind 
                   {new Date(ticket.created_at).toLocaleDateString('pt-PT')}
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button 
+                  <button
                     onClick={() => navigate(`/app/tickets/${ticket.id}`)}
-                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                    className={cn(
+                      "p-2 rounded-lg transition-all text-slate-400",
+                      kind === 'pedido' ? 'hover:text-blue-600 hover:bg-blue-50' :
+                      kind === 'reclamação' ? 'hover:text-red-600 hover:bg-red-50' :
+                      kind === 'venda' ? 'hover:text-purple-600 hover:bg-purple-50' :
+                      'hover:text-emerald-600 hover:bg-emerald-50'
+                    )}
                   >
                     <ExternalLink size={18} />
                   </button>
@@ -329,7 +352,6 @@ const TabTickets: React.FC<{ tickets: any[]; kind: string }> = ({ tickets, kind 
     </div>
   );
 };
-
 const TabDocumentos: React.FC<{ documents: any[] }> = ({ documents }) => {
   if (documents.length === 0) {
     return <EmptyState icon={<Files size={40} />} title="Sem documentos" description="Não existem documentos associados a este cliente." />;
@@ -502,21 +524,45 @@ const TabFaturas: React.FC<{ documents: any[]; stats: any }> = ({ documents, sta
     return <EmptyState icon={<Receipt size={40} />} title="Sem faturas" description="Não existem documentos financeiros registados." />;
   }
 
+  const money = (value: any) =>
+    Number(value || 0).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+
+  const statusOrder: Record<string, number> = {
+    atrasado: 0,
+    vencido: 0,
+    pendente: 1,
+    emitido: 1,
+    aberto: 1,
+    pago: 2,
+    liquidado: 2,
+  };
+
+  const sortedDocuments = [...documents].sort((a, b) => {
+    const sA = statusOrder[String(a.status || '').toLowerCase()] ?? 99;
+    const sB = statusOrder[String(b.status || '').toLowerCase()] ?? 99;
+    if (sA !== sB) return sA - sB;
+
+    const dA = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+    const dB = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+    if (dA !== dB) return dA - dB;
+
+    return new Date(b.issue_date || b.created_at).getTime() - new Date(a.issue_date || a.created_at).getTime();
+  });
+
   return (
     <div className="space-y-6">
-      {/* Financial Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</div>
-          <div className="text-xl font-black text-slate-900">{stats?.total?.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</div>
+          <div className="text-xl font-black text-slate-900">{money(stats?.total)}</div>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <div className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Pago</div>
-          <div className="text-xl font-black text-emerald-600">{stats?.paid?.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</div>
+          <div className="text-xl font-black text-emerald-600">{money(stats?.paid)}</div>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <div className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1">Pendente</div>
-          <div className="text-xl font-black text-rose-600">{stats?.pending?.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</div>
+          <div className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">Pendente</div>
+          <div className="text-xl font-black text-amber-600">{money(stats?.pending)}</div>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Documentos</div>
@@ -531,30 +577,34 @@ const TabFaturas: React.FC<{ documents: any[]; stats: any }> = ({ documents, sta
               <tr className="bg-slate-50/50 border-b border-slate-100">
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Número</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Tipo</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Data</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Emissão</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Vencimento</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Valor</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Status</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {documents.map((doc) => (
+              {sortedDocuments.map((doc) => (
                 <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-6 py-4 font-bold text-slate-900">{doc.document_number}</td>
                   <td className="px-6 py-4">
                     <span className="text-xs font-bold text-slate-500 uppercase">{doc.document_type}</span>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-500">
-                    {new Date(doc.issue_date).toLocaleDateString('pt-PT')}
+                    {doc.issue_date ? new Date(doc.issue_date).toLocaleDateString('pt-PT') : '—'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-500">
+                    {doc.due_date ? new Date(doc.due_date).toLocaleDateString('pt-PT') : '—'}
                   </td>
                   <td className="px-6 py-4 text-right font-black text-slate-900">
-                    {doc.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                    {money(doc.amount ?? doc.total)}
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span className={cn(
                       "px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider",
-                      doc.status === 'pago' ? 'bg-emerald-100 text-emerald-700' :
-                      doc.status === 'atrasado' ? 'bg-rose-100 text-rose-700' :
+                      ['pago', 'liquidado'].includes(String(doc.status || '').toLowerCase()) ? 'bg-emerald-100 text-emerald-700' :
+                      ['atrasado', 'vencido'].includes(String(doc.status || '').toLowerCase()) ? 'bg-rose-100 text-rose-700' :
                       'bg-amber-100 text-amber-700'
                     )}>
                       {doc.status}
@@ -562,9 +612,9 @@ const TabFaturas: React.FC<{ documents: any[]; stats: any }> = ({ documents, sta
                   </td>
                   <td className="px-6 py-4 text-right">
                     {doc.file_url && (
-                      <a 
-                        href={doc.file_url} 
-                        target="_blank" 
+                      <a
+                        href={doc.file_url}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg inline-flex transition-all"
                       >

@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
@@ -1132,7 +1133,9 @@ async function startServer() {
       const { title, description, category, kind, priority, client_profile_id } = req.body;
       if (!title || !description) return res.status(400).json({ ok: false, error: "Título e descrição obrigatórios." });
       
-      const trackingCode = `TT-${Math.floor(100000 + Math.random() * 900000)}`;
+        const prefixMap: Record<string, string> = { pedido: "PED", reclamação: "REC", venda: "VD", suporte: "SUP" };
+        const ticketPrefix = prefixMap[String(kind || "suporte")] || "SUP";
+        const trackingCode = `${ticketPrefix}-${Math.floor(100000 + Math.random() * 900000)}`;
       
       const { data: ticket, error } = await supabase.from("tickets").insert({
         client_id: req.clientId, 
