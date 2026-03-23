@@ -69,6 +69,13 @@ export interface ClientProfile {
   last_interaction_at?: string;
   created_at: string;
   updated_at: string;
+  // Related entities (included in detailed view)
+  tickets?: HubTicket[];
+  documents?: Document[];
+  emails?: Email[];
+  calendar_events?: CalendarEvent[];
+  tasks?: Task[];
+  financial_documents?: FinancialDocument[];
 }
 
 export type UserRole = 'admin' | 'gestor' | 'operador' | 'comercial' | 'técnico' | 'financeiro' | 'visualizador';

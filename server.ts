@@ -548,44 +548,33 @@ async function startServer() {
   app.get("/api/client/profiles/:id", requireClientSession, async (req: any, res) => {
     const { id } = req.params;
     
-    // Fetch profile
-    const { data: profile, error: profileError } = await supabase.from("client_profiles")
-      .select("*")
-      .eq("id", id)
-      .eq("client_id", req.clientId)
-      .single();
-    
-    if (profileError) return res.status(500).json({ ok: false, error: profileError.message });
-
-    // Fetch stats
+    // Fetch profile and related data
     const [
-      { count: ticketsCount },
-      { count: complaintsCount },
-      { count: salesCount },
-      { count: docsCount },
-      { count: emailsCount },
-      { count: eventsCount },
-      { count: tasksCount },
+      { data: profile, error: profileError },
+      { data: tickets },
+      { data: documents },
+      { data: emails },
+      { data: events },
+      { data: tasks },
       { data: financialDocs }
     ] = await Promise.all([
-      supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("profile_id", id).eq("kind", "pedido"),
-      supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("profile_id", id).eq("kind", "reclamação"),
-      supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("profile_id", id).eq("kind", "venda"),
-      supabase.from("documents").select("*", { count: 'exact', head: true }).eq("profile_id", id),
-      supabase.from("emails").select("*", { count: 'exact', head: true }).eq("profile_id", id),
-      supabase.from("calendar_events").select("*", { count: 'exact', head: true }).eq("profile_id", id),
-      supabase.from("tasks").select("*", { count: 'exact', head: true }).eq("profile_id", id),
-      supabase.from("financial_documents").select("amount, status").eq("profile_id", id)
+      supabase.from("client_profiles").select("*").eq("id", id).eq("client_id", req.clientId).single(),
+      supabase.from("tickets").select("*").eq("profile_id", id).order("created_at", { ascending: false }),
+      supabase.from("documents").select("*").eq("profile_id", id).order("created_at", { ascending: false }),
+      supabase.from("emails").select("*").eq("client_id", req.clientId).eq("related_entity_id", id).order("created_at", { ascending: false }),
+      supabase.from("calendar_events").select("*").eq("profile_id", id).order("start_at", { ascending: true }),
+      supabase.from("tasks").select("*").eq("profile_id", id).order("created_at", { ascending: false }),
+      supabase.from("financial_documents").select("*").eq("profile_id", id).order("issue_date", { ascending: false })
     ]);
 
     const stats = {
-      tickets: ticketsCount || 0,
-      complaints: complaintsCount || 0,
-      sales: salesCount || 0,
-      documents: docsCount || 0,
-      emails: emailsCount || 0,
-      events: eventsCount || 0,
-      tasks: tasksCount || 0,
+      tickets: tickets?.filter(t => t.kind === 'pedido').length || 0,
+      complaints: tickets?.filter(t => t.kind === 'reclamação').length || 0,
+      sales: tickets?.filter(t => t.kind === 'venda').length || 0,
+      documents: documents?.length || 0,
+      emails: emails?.length || 0,
+      events: events?.length || 0,
+      tasks: tasks?.length || 0,
       financial: {
         count: financialDocs?.length || 0,
         total: financialDocs?.reduce((acc, d) => acc + (d.amount || 0), 0) || 0,
@@ -594,7 +583,17 @@ async function startServer() {
       }
     };
 
-    res.json({ ok: true, profile, stats });
+    const fullProfile = {
+      ...profile,
+      tickets,
+      documents,
+      emails,
+      calendar_events: events,
+      tasks,
+      financial_documents: financialDocs
+    };
+
+    res.json({ ok: true, profile: fullProfile, stats });
   });
 
   app.patch("/api/client/profiles/:id", requireClientSession, requirePermission('clients', 'edit'), async (req: any, res) => {
