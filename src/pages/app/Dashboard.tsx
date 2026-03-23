@@ -49,6 +49,19 @@ interface DashboardData {
     complaints?: number;
     inProgressTickets?: number;
     resolvedTickets?: number;
+    metrics?: {
+      total_clients?: number;
+      active_clients?: number;
+      pending_tasks?: number;
+      upcoming_events?: number;
+      overdue_financial_documents?: number;
+      total_documents?: number;
+      total_emails?: number;
+      total_automations?: number;
+      active_automations?: number;
+      failed_automations?: number;
+      recent_activity?: any[];
+    };
   };
   instance: {
     instance_name: string;
@@ -132,6 +145,19 @@ export function Dashboard() {
             activity: extractArrayResponse(result, 'activity')
           };
           
+            try {
+              const metricsRes = await apiFetch("/api/client/dashboard/operational-metrics");
+              if (metricsRes.ok) {
+                const metricsJson = await metricsRes.json();
+                mappedData.metrics = metricsJson.metrics || {};
+                if (Array.isArray(metricsJson?.metrics?.recent_activity)) {
+                  mappedData.activity = metricsJson.metrics.recent_activity;
+                }
+              }
+            } catch (e) {
+              console.error("[APP] Failed to fetch operational metrics:", e);
+            }
+
           // Fetch chart data
           try {
             const chartRes = await apiFetch('/api/client/dashboard/charts');
@@ -217,48 +243,40 @@ export function Dashboard() {
   }
 
   const stats = [
-    { 
-      name: 'Total de Mensagens', 
-      value: (data?.stats?.totalMessages ?? data?.stats?.messages ?? 0).toLocaleString() || '0', 
-      change: '+0%', 
-      trend: 'neutral', 
+    {
+      name: 'Total de Clientes',
+      value: (data?.metrics?.total_clients ?? 0).toString(),
       icon: MessageSquare,
       color: 'text-blue-600',
       bg: 'bg-blue-50'
     },
-    { 
-      name: 'Pedidos em Aberto', 
-      value: (data?.stats?.openTickets ?? 0).toString() || '0', 
-      change: '0%', 
-      trend: 'neutral', 
+    {
+      name: 'Clientes Ativos',
+      value: (data?.metrics?.active_clients ?? 0).toString(),
+      icon: CheckCircle2,
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50'
+    },
+    {
+      name: 'Tarefas Pendentes',
+      value: (data?.metrics?.pending_tasks ?? 0).toString(),
       icon: ClipboardList,
-      color: 'text-orange-600',
-      bg: 'bg-orange-50'
+      color: 'text-amber-600',
+      bg: 'bg-amber-50'
     },
-    { 
-      name: 'Reclamações', 
-      value: (data?.stats?.complaints ?? 0).toString() || '0', 
-      change: '0%', 
-      trend: 'neutral', 
+    {
+      name: 'Eventos Próximos',
+      value: (data?.metrics?.upcoming_events ?? 0).toString(),
+      icon: Clock,
+      color: 'text-indigo-600',
+      bg: 'bg-indigo-50'
+    },
+    {
+      name: 'Faturas em Atraso',
+      value: (data?.metrics?.overdue_financial_documents ?? 0).toString(),
       icon: AlertCircle,
-      color: 'text-red-600',
-      bg: 'bg-red-50'
-    },
-    { 
-      name: 'Estado da Instância', 
-      value: data?.instance?.status === 'online' ? 'Online' : 'Offline', 
-      status: data?.instance?.status === 'online' ? 'success' : 'error',
-      icon: Smartphone,
-      color: data?.instance?.status === 'online' ? 'text-green-600' : 'text-slate-600',
-      bg: data?.instance?.status === 'online' ? 'bg-green-50' : 'bg-slate-50'
-    },
-    { 
-      name: 'Subscrição', 
-      value: data?.subscription?.status === 'active' ? 'Ativa' : 'Inativa', 
-      status: data?.subscription?.status === 'active' ? 'info' : 'warning',
-      icon: CreditCard,
-      color: 'text-purple-600',
-      bg: 'bg-purple-50'
+      color: 'text-rose-600',
+      bg: 'bg-rose-50'
     },
   ];
 
@@ -551,25 +569,40 @@ export function Dashboard() {
               <button className="text-xs text-primary font-bold hover:underline">Ver histórico completo</button>
             </div>
             <div className="divide-y divide-slate-50">
-              {data?.activity?.map((item, i) => (
-                <div key={i} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
-                  <div className={cn(
-                    "p-2 rounded-lg bg-slate-50",
-                    item.type === 'ticket' ? "text-orange-500" : "text-blue-500"
-                  )}>
-                    {item.type === 'ticket' ? <ClipboardList className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-900 truncate">
-                      {item.type === 'ticket' ? 'Pedido: ' : 'Mensagem: '}
-                      {item.title}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">Estado: {item.status}</p>
-                  </div>
-                  <div className="text-[10px] font-medium text-slate-400 whitespace-nowrap">
-                    {formatTime(item.created_at)}
-                  </div>
-                </div>
+                {data?.activity?.map((item, i) => {
+                  const iconClass =
+                    item.type === "cliente" ? "text-blue-500" :
+                    item.type === "tarefa" ? "text-amber-500" :
+                    item.type === "evento" ? "text-indigo-500" :
+                    item.type === "documento" ? "text-slate-500" :
+                    item.type === "email" ? "text-cyan-500" :
+                    item.type === "financeiro" ? "text-emerald-500" :
+                    "text-primary";
+
+                  const Icon =
+                    item.type === "cliente" ? MessageSquare :
+                    item.type === "tarefa" ? ClipboardList :
+                    item.type === "evento" ? Clock :
+                    item.type === "documento" ? BarChart3 :
+                    item.type === "email" ? MessageSquare :
+                    item.type === "financeiro" ? CreditCard :
+                    Activity;
+
+                  return (
+                    <div key={i} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
+                      <div className={cn("p-2 rounded-lg bg-slate-50", iconClass)}>
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-900 truncate">{item.title}</p>
+                        <p className="text-xs text-slate-500 truncate">{item.description || (item.status ? `Estado: ${item.status}` : "Sem descrição")}</p>
+                      </div>
+                      <div className="text-[10px] font-medium text-slate-400 whitespace-nowrap">
+                        {formatTime(item.created_at)}
+                      </div>
+                    </div>
+                  );
+                })}
               ))}
               {data?.activity.length === 0 && (
                 <div className="p-8 text-center text-slate-500 text-sm">
