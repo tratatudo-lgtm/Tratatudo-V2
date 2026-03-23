@@ -680,7 +680,47 @@ const TabResumo: React.FC<{ profile: ClientProfile; stats: any }> = ({ profile, 
       desc: `Evento agendado: ${new Date(e.start_at).toLocaleDateString('pt-PT')}`
     }))
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+  const overdueInvoices = (profile.financial_documents || []).filter((f: any) => ["atrasado", "vencido"].includes(String(f.status || "").toLowerCase()));
+  const urgentTickets = (profile.tickets || []).filter((t: any) => String(t.priority || "").toLowerCase() === "urgente");
+  const isHealthy = overdueInvoices.length === 0 && urgentTickets.length === 0;
 
+        {(overdueInvoices.length > 0 || urgentTickets.length > 0 || isHealthy) && (
+          <div className="space-y-3">
+            {overdueInvoices.length > 0 && (
+              <div className="bg-rose-50 border border-rose-100 text-rose-700 rounded-2xl p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <AlertCircle size={18} />
+                  <div>
+                    <div className="font-black text-sm">Faturas em atraso</div>
+                    <div className="text-xs font-medium">{overdueInvoices.length} documento(s) financeiro(s) vencido(s).</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {urgentTickets.length > 0 && (
+              <div className="bg-amber-50 border border-amber-100 text-amber-700 rounded-2xl p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Clock size={18} />
+                  <div>
+                    <div className="font-black text-sm">Tickets urgentes</div>
+                    <div className="text-xs font-medium">{urgentTickets.length} ticket(s) com prioridade urgente.</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {isHealthy && (
+              <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-2xl p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <TrendingUp size={18} />
+                  <div>
+                    <div className="font-black text-sm">Cliente saudável</div>
+                    <div className="text-xs font-medium">Sem faturas em atraso e sem tickets urgentes.</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Left Column: Main Info */}
