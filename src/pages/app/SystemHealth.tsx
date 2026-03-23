@@ -18,6 +18,7 @@ import {
 import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { SystemHealth, SystemInfo } from '../../types/hub';
+import { apiFetch } from '../../lib/api';
 
 const SystemHealthPage: React.FC = () => {
   const [health, setHealth] = useState<SystemHealth | null>(null);
@@ -33,8 +34,8 @@ const SystemHealthPage: React.FC = () => {
     try {
       setLoading(true);
       const [healthRes, infoRes] = await Promise.all([
-        fetch('/api/client/system/health'),
-        fetch('/api/client/system/info')
+        apiFetch('/api/client/system/health'),
+        apiFetch('/api/client/system/info')
       ]);
 
       const [healthData, infoData] = await Promise.all([
@@ -88,6 +89,24 @@ const SystemHealthPage: React.FC = () => {
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
         <p className="text-slate-500 font-medium">A diagnosticar sistema...</p>
+      </div>
+    );
+  }
+
+  if (error && !health) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] space-y-4 text-center">
+        <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900">Erro de Diagnóstico</h2>
+        <p className="text-slate-500 max-w-md">{error}</p>
+        <button 
+          onClick={fetchData}
+          className="px-6 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+        >
+          Tentar Novamente
+        </button>
       </div>
     );
   }

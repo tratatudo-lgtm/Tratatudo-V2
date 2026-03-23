@@ -214,10 +214,18 @@ export function TicketBase({ area }: { area: OperationalArea }) {
       };
       
       const kind = kindMap[area];
-      const url = kind ? `/api/client/tickets?kind=${kind}` : '/api/client/tickets';
-      const data = await apiFetch(url);
-      const rawTickets = extractArrayResponse<any>(data, 'tickets');
+      const params = new URLSearchParams();
+      if (kind) params.append('kind', kind);
       
+      const url = `/api/client/tickets${params.toString() ? `?${params.toString()}` : ''}`;
+      const response = await apiFetch(url);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || `Erro ${response.status}`);
+      }
+
+      const rawTickets = extractArrayResponse<any>(data, 'tickets');
       setTickets(rawTickets.map(t => ({ ...t, type: area })));
     } catch (err: any) {
       console.error('[HUB] Fetch failed:', err);
@@ -231,7 +239,8 @@ export function TicketBase({ area }: { area: OperationalArea }) {
     try {
       setLoadingMessages(true);
       setAnalysis(null);
-      const data = await apiFetch(`/api/client/tickets/${ticketId}/messages`);
+      const response = await apiFetch(`/api/client/tickets/${ticketId}/messages`);
+      const data = await response.json();
       setMessages(extractArrayResponse<TicketMessage>(data, 'messages'));
     } catch (err: any) {
       console.error(`[HUB] Messages failed:`, err);

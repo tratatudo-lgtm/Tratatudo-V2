@@ -1,5 +1,3 @@
-import dotenv from "dotenv";
-dotenv.config({ path: "/home/ubuntu/Tratatudo-V2/.env" });
 import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
