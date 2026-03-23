@@ -33,6 +33,7 @@ import Sales from './pages/app/Sales';
 import { Instance } from './pages/app/Instance';
 import { Settings } from './pages/app/Settings';
 import Clients from './pages/app/Clients';
+import ClientDetail from './pages/app/ClientDetail';
 import Team from './pages/app/Team';
 import Tasks from './pages/app/Tasks';
 import Calendar from './pages/app/Calendar';
@@ -137,6 +138,7 @@ function App() {
                   <Route path="complaints" element={<ProtectedRoute module="tickets"><Complaints /></ProtectedRoute>} />
                   <Route path="sales" element={<ProtectedRoute module="tickets"><Sales /></ProtectedRoute>} />
                   <Route path="clients" element={<ProtectedRoute module="clients"><Clients /></ProtectedRoute>} />
+                  <Route path="clients/:id" element={<ProtectedRoute module="clients"><ClientDetail /></ProtectedRoute>} />
                   <Route path="team" element={<ProtectedRoute module="team"><Team /></ProtectedRoute>} />
                   <Route path="calendar" element={<ProtectedRoute module="calendar"><Calendar /></ProtectedRoute>} />
                   <Route path="agenda" element={<Navigate to="/app/calendar" replace />} />

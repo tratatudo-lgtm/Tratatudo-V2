@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
   Search, 
@@ -20,7 +21,9 @@ import {
   User,
   Tag,
   FileText,
-  Save
+  Save,
+  CreditCard,
+  Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AREA_CONFIG, ClientProfile } from '../../types/hub';
@@ -32,6 +35,7 @@ import { useAuth } from '../../lib/auth/AuthContext';
 
 const Clients: React.FC = () => {
   const { can } = useAuth();
+  const navigate = useNavigate();
   const [profiles, setProfiles] = useState<ClientProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,6 +47,11 @@ const Clients: React.FC = () => {
     contact_name: '',
     email: '',
     phone_e164: '',
+    nif: '',
+    address: '',
+    city: '',
+    postal_code: '',
+    country: 'Portugal',
     customer_type: 'Lead',
     notes: ''
   });
@@ -89,6 +98,11 @@ const Clients: React.FC = () => {
           contact_name: '',
           email: '',
           phone_e164: '',
+          nif: '',
+          address: '',
+          city: '',
+          postal_code: '',
+          country: 'Portugal',
           customer_type: 'Lead',
           notes: ''
         });
@@ -104,11 +118,13 @@ const Clients: React.FC = () => {
   };
 
   const filteredProfiles = profiles.filter(p => {
+    const query = searchQuery.toLowerCase();
     const matchesSearch = 
-      p.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.contact_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.phone_e164.includes(searchQuery);
+      p.company_name.toLowerCase().includes(query) ||
+      p.contact_name.toLowerCase().includes(query) ||
+      p.email.toLowerCase().includes(query) ||
+      p.phone_e164.includes(searchQuery) ||
+      (p.nif && p.nif.includes(searchQuery));
     
     const matchesFilter = filterType === 'all' || p.customer_type === filterType;
     
@@ -183,7 +199,7 @@ const Clients: React.FC = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
             type="text"
-            placeholder="Pesquisar por nome, email, telefone..."
+            placeholder="Pesquisar por nome, email, telefone ou NIF..."
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -229,7 +245,11 @@ const Clients: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {filteredProfiles.map((profile) => (
-                  <tr key={profile.id} className="hover:bg-slate-50/50 transition-colors group cursor-pointer">
+                  <tr 
+                    key={profile.id} 
+                    className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
+                    onClick={() => navigate(`/app/clients/${profile.id}`)}
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">
@@ -282,7 +302,13 @@ const Clients: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/app/clients/${profile.id}`);
+                          }}
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                        >
                           <ChevronRight size={20} />
                         </button>
                         <button className="p-2 text-slate-400 hover:text-slate-600 rounded-lg transition-all">
@@ -409,6 +435,21 @@ const Clients: React.FC = () => {
                     />
                   </div>
 
+                  {/* NIF */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      <CreditCard size={14} className="text-slate-400" />
+                      NIF / Contribuinte
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.nif}
+                      onChange={(e) => setFormData({ ...formData, nif: e.target.value })}
+                      placeholder="123456789"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                    />
+                  </div>
+
                   {/* Customer Type */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -424,6 +465,62 @@ const Clients: React.FC = () => {
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
+                  </div>
+                </div>
+
+                {/* Address Section */}
+                <div className="space-y-4 pt-2">
+                  <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <MapPin size={14} />
+                    Morada e Localização
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-3 space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">Morada Completa</label>
+                      <input
+                        type="text"
+                        value={formData.address}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                        placeholder="Rua, número, andar..."
+                        className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 transition-all outline-none text-sm"
+                      />
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">Cidade</label>
+                      <input
+                        type="text"
+                        value={formData.city}
+                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                        placeholder="Ex: Lisboa"
+                        className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 transition-all outline-none text-sm"
+                      />
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">Código Postal</label>
+                      <input
+                        type="text"
+                        value={formData.postal_code}
+                        onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
+                        placeholder="0000-000"
+                        className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 transition-all outline-none text-sm"
+                      />
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">País</label>
+                      <div className="relative">
+                        <Globe size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={formData.country}
+                          onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                          className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 transition-all outline-none text-sm"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 

@@ -547,14 +547,73 @@ async function startServer() {
 
   app.get("/api/client/profiles/:id", requireClientSession, async (req: any, res) => {
     const { id } = req.params;
-    const { data: profile, error } = await supabase.from("client_profiles")
-      .select("*, tickets(*), documents(*), emails(*), calendar_events(*), financial_documents(*)")
+    
+    // Fetch profile
+    const { data: profile, error: profileError } = await supabase.from("client_profiles")
+      .select("*")
       .eq("id", id)
       .eq("client_id", req.clientId)
       .single();
     
+    if (profileError) return res.status(500).json({ ok: false, error: profileError.message });
+
+    // Fetch stats
+    const [
+      { count: ticketsCount },
+      { count: complaintsCount },
+      { count: salesCount },
+      { count: docsCount },
+      { count: emailsCount },
+      { count: eventsCount },
+      { count: tasksCount },
+      { data: financialDocs }
+    ] = await Promise.all([
+      supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("profile_id", id).eq("kind", "pedido"),
+      supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("profile_id", id).eq("kind", "reclamação"),
+      supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("profile_id", id).eq("kind", "venda"),
+      supabase.from("documents").select("*", { count: 'exact', head: true }).eq("profile_id", id),
+      supabase.from("emails").select("*", { count: 'exact', head: true }).eq("profile_id", id),
+      supabase.from("calendar_events").select("*", { count: 'exact', head: true }).eq("profile_id", id),
+      supabase.from("tasks").select("*", { count: 'exact', head: true }).eq("profile_id", id),
+      supabase.from("financial_documents").select("amount, status").eq("profile_id", id)
+    ]);
+
+    const stats = {
+      tickets: ticketsCount || 0,
+      complaints: complaintsCount || 0,
+      sales: salesCount || 0,
+      documents: docsCount || 0,
+      emails: emailsCount || 0,
+      events: eventsCount || 0,
+      tasks: tasksCount || 0,
+      financial: {
+        count: financialDocs?.length || 0,
+        total: financialDocs?.reduce((acc, d) => acc + (d.amount || 0), 0) || 0,
+        paid: financialDocs?.filter(d => d.status === 'pago').reduce((acc, d) => acc + (d.amount || 0), 0) || 0,
+        pending: financialDocs?.filter(d => ['pendente', 'atrasado'].includes(d.status)).reduce((acc, d) => acc + (d.amount || 0), 0) || 0,
+      }
+    };
+
+    res.json({ ok: true, profile, stats });
+  });
+
+  app.patch("/api/client/profiles/:id", requireClientSession, requirePermission('clients', 'edit'), async (req: any, res) => {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    const { data, error } = await supabase.from("client_profiles")
+      .update(updateData)
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
     if (error) return res.status(500).json({ ok: false, error: error.message });
-    res.json({ ok: true, profile });
+
+    const { data: user } = await supabase.from("client_users").select("name").eq("id", req.userId).single();
+    await logAudit(req.clientId, req.userId, user?.name || "Sistema", "update", "clients", "profile", id, `Cliente atualizado: ${data.company_name}`);
+
+    res.json({ ok: true, profile: data });
   });
 
   app.post("/api/client/profiles", requireClientSession, requirePermission('clients', 'create'), async (req: any, res) => {
