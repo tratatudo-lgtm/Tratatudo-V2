@@ -17,6 +17,7 @@ import {
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { Automation } from '../../types/hub';
+import { apiFetch } from '../../lib/api';
 import { StatCard } from '../../components/app/StatCard';
 import { SearchInput } from '../../components/app/SearchInput';
 import { FilterDropdown } from '../../components/app/FilterDropdown';
@@ -39,7 +40,7 @@ const Automations: React.FC = () => {
   const fetchAutomations = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/client/automations');
+      const res = await apiFetch('/api/client/automations');
       const data = await res.json();
       if (data.ok) {
         setAutomations(data.automations);

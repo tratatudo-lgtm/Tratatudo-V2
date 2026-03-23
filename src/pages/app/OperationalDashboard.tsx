@@ -34,6 +34,7 @@ import {
 import { DashboardMetrics, RecentActivity } from '../../types/hub';
 import { StatCard } from '../../components/app/StatCard';
 import { cn } from '../../lib/utils';
+import { apiFetch } from '../../lib/api';
 
 const OperationalDashboard: React.FC = () => {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
@@ -47,7 +48,7 @@ const OperationalDashboard: React.FC = () => {
   const fetchMetrics = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/client/dashboard/operational-metrics');
+      const res = await apiFetch('/api/client/dashboard/operational-metrics');
       const data = await res.json();
       if (data.ok) {
         setMetrics(data.metrics);

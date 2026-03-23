@@ -400,6 +400,38 @@ export interface BillingStats {
   estimatedMonthlyRevenue: number;
 }
 
+export interface AuditLog {
+  id: string;
+  client_id: string;
+  actor_user_id: string;
+  actor_name: string;
+  action_type: string;
+  module: PermissionModule;
+  entity_type: string;
+  entity_id?: string;
+  summary: string;
+  metadata?: any;
+  created_at: string;
+}
+
+export interface SystemHealth {
+  status: 'healthy' | 'degraded' | 'down';
+  services: {
+    backend: { status: 'online' | 'offline'; latency?: number };
+    database: { status: 'online' | 'offline'; latency?: number };
+    whatsapp: { status: 'online' | 'offline' | 'warning'; details?: string };
+    storage: { status: 'online' | 'offline' };
+  };
+  last_check: string;
+}
+
+export interface SystemInfo {
+  version: string;
+  environment: string;
+  deploy_timestamp: string;
+  uptime: number;
+}
+
 export const AREA_CONFIG: Record<OperationalArea, {
   label: string;
   bgLight: string;

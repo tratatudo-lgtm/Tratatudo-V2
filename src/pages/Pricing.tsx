@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Check, Zap, Shield, Users, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { apiPost } from '../lib/api';
 
 const plans = [
   {
@@ -45,11 +46,7 @@ export function Pricing() {
 
     setLoading(planId);
     try {
-      const response = await fetch('/api/client/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId })
-      });
+      const response = await apiPost('/api/client/stripe/checkout', { planId });
 
       if (response.status === 401) {
         navigate("/login");

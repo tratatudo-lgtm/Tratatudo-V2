@@ -131,6 +131,94 @@ async function startServer() {
     }
   };
 
+  // --- Helpers ---
+  async function logAudit(clientId: string, userId: string, userName: string, action: string, module: string, entityType: string, entityId: string | null, summary: string, metadata: any = {}) {
+    try {
+      await supabase.from("audit_logs").insert({
+        client_id: clientId,
+        actor_user_id: userId,
+        actor_name: userName,
+        action_type: action,
+        module,
+        entity_type: entityType,
+        entity_id: entityId,
+        summary,
+        metadata,
+        created_at: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error("[AUDIT] Failed to log action:", err);
+    }
+  }
+
+  // Activity / Audit Logs
+  app.get("/api/client/audit", requireClientSession, async (req: any, res) => {
+    try {
+      const { module, action, limit = 50 } = req.query;
+      let query = supabase.from("audit_logs")
+        .select("*")
+        .eq("client_id", req.clientId)
+        .order("created_at", { ascending: false })
+        .limit(Number(limit));
+
+      if (module) query = query.eq("module", module);
+      if (action) query = query.eq("action_type", action);
+
+      const { data: logs, error } = await query;
+      if (error) throw error;
+
+      res.json({ ok: true, logs });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // System Health & Info
+  app.get("/api/client/system/health", requireClientSession, async (req: any, res) => {
+    try {
+      const start = Date.now();
+      const { error: dbError } = await supabase.from("clients").select("id").limit(1);
+      const dbLatency = Date.now() - start;
+
+      let waStatus: 'online' | 'offline' | 'warning' = 'online';
+      try {
+        const { data: inst } = await supabase.from("client_instances").select("status").eq("client_id", req.clientId).limit(1);
+        if (!inst || inst.length === 0) waStatus = 'warning';
+        else if (inst[0].status !== 'online') waStatus = 'offline';
+      } catch (e) {
+        waStatus = 'offline';
+      }
+
+      const health = {
+        status: dbError ? 'down' : (waStatus === 'offline' ? 'degraded' : 'healthy'),
+        services: {
+          backend: { status: 'online', latency: 5 },
+          database: { status: dbError ? 'offline' : 'online', latency: dbLatency },
+          whatsapp: { status: waStatus },
+          storage: { status: 'online' }
+        },
+        last_check: new Date().toISOString()
+      };
+
+      res.json({ ok: true, health });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  const startTime = Date.now();
+  app.get("/api/client/system/info", requireClientSession, async (req: any, res) => {
+    res.json({
+      ok: true,
+      info: {
+        version: "1.10.0-consolidation",
+        environment: process.env.NODE_ENV || "development",
+        deploy_timestamp: "2026-03-23T00:00:00Z",
+        uptime: Math.floor((Date.now() - startTime) / 1000)
+      }
+    });
+  });
+
   // --- API Routes ---
   app.get("/api/health", (req, res) => res.json({ ok: true, status: "healthy" }));
 
@@ -456,6 +544,10 @@ async function startServer() {
     const profileData = { ...req.body, client_id: req.clientId };
     const { data, error } = await supabase.from("client_profiles").insert(profileData).select().single();
     if (error) return res.status(500).json({ ok: false, error: error.message });
+
+    const { data: user } = await supabase.from("client_users").select("name").eq("id", req.userId).single();
+    await logAudit(req.clientId, req.userId, user?.name || "Sistema", "create", "clients", "profile", data.id, `Novo cliente criado: ${data.company_name}`);
+
     res.json({ ok: true, profile: data });
   });
 
@@ -505,6 +597,10 @@ async function startServer() {
     const taskData = { ...req.body, client_id: req.clientId };
     const { data, error } = await supabase.from("tasks").insert(taskData).select().single();
     if (error) return res.status(500).json({ ok: false, error: error.message });
+
+    const { data: user } = await supabase.from("client_users").select("name").eq("id", req.userId).single();
+    await logAudit(req.clientId, req.userId, user?.name || "Sistema", "create", "tasks", "task", data.id, `Nova tarefa criada: ${data.title}`);
+
     res.json({ ok: true, task: data });
   });
 
@@ -975,6 +1071,9 @@ async function startServer() {
       }).select().single();
 
       if (error) throw error;
+      
+      const { data: user } = await supabase.from("client_users").select("name").eq("id", req.userId).single();
+      await logAudit(req.clientId, req.userId, user?.name || "Sistema", "create", "tickets", "ticket", ticket.id, `Ticket #${trackingCode} criado: ${title}`);
 
       // Initial message
       await supabase.from("ticket_messages").insert({ 

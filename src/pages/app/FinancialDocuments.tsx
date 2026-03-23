@@ -20,6 +20,7 @@ import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '../../lib/utils';
 import { FinancialDocument } from '../../types/hub';
+import { apiFetch } from '../../lib/api';
 import { StatCard } from '../../components/app/StatCard';
 import { StatusBadge } from '../../components/app/StatusBadge';
 import { SearchInput } from '../../components/app/SearchInput';
@@ -42,7 +43,7 @@ const FinancialDocuments: React.FC = () => {
   const fetchDocuments = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/client/financial-documents');
+      const res = await apiFetch('/api/client/financial-documents');
       const data = await res.json();
       if (data.ok) {
         setDocuments(data.documents);

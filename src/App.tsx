@@ -23,6 +23,8 @@ import { Dashboard } from './pages/app/Dashboard';
 import OperationalDashboard from './pages/app/OperationalDashboard';
 import WhatsApp from './pages/app/WhatsApp';
 import Billing from './pages/app/Billing';
+import Activity from './pages/app/Activity';
+import SystemHealth from './pages/app/SystemHealth';
 import Tickets from './pages/app/Tickets';
 import TicketDetail from './pages/app/TicketDetail';
 import { Instance } from './pages/app/Instance';
@@ -137,6 +139,8 @@ function App() {
                   <Route path="email" element={<ProtectedRoute module="emails"><Emails /></ProtectedRoute>} />
                   <Route path="automations" element={<ProtectedRoute module="automations"><Automations /></ProtectedRoute>} />
                   <Route path="billing" element={<ProtectedRoute module="billing"><Billing /></ProtectedRoute>} />
+                  <Route path="activity" element={<ProtectedRoute module="dashboard"><Activity /></ProtectedRoute>} />
+                  <Route path="health" element={<ProtectedRoute module="dashboard"><SystemHealth /></ProtectedRoute>} />
                   <Route path="reports" element={<ProtectedRoute module="dashboard"><Placeholder title="Relatórios" /></ProtectedRoute>} />
                   <Route path="ai" element={<ProtectedRoute module="dashboard"><Placeholder title="IA Hub" /></ProtectedRoute>} />
                   <Route path="instancia" element={<ProtectedRoute module="whatsapp"><Instance /></ProtectedRoute>} />

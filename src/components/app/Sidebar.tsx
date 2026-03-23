@@ -20,7 +20,9 @@ import {
   CreditCard, 
   Settings, 
   LogOut,
-  X
+  X,
+  ShieldCheck,
+  Activity
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../lib/auth/AuthContext';
@@ -66,6 +68,8 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { name: 'IA', href: '/app/ai', icon: Bot, area: 'dashboard' },
     { name: 'Instância', href: '/app/instancia', icon: Smartphone, area: 'whatsapp' },
     { name: 'Faturação', href: '/app/billing', icon: CreditCard, area: 'billing' },
+    { name: 'Atividade', href: '/app/activity', icon: Activity, area: 'dashboard' },
+    { name: 'Saúde', href: '/app/health', icon: ShieldCheck, area: 'dashboard' },
     { name: 'Definições', href: '/app/settings', icon: Settings, area: 'settings' },
   ];
 

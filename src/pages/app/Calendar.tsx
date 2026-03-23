@@ -19,6 +19,7 @@ import {
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { CalendarEvent } from '../../types/hub';
+import { apiFetch } from '../../lib/api';
 import { StatCard } from '../../components/app/StatCard';
 import { StatusBadge } from '../../components/app/StatusBadge';
 import { SearchInput } from '../../components/app/SearchInput';
@@ -40,7 +41,7 @@ const Calendar: React.FC = () => {
   const fetchEvents = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/client/calendar-events');
+      const res = await apiFetch('/api/client/calendar-events');
       const data = await res.json();
       if (data.ok) {
         setEvents(data.events);

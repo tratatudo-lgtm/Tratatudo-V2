@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { AREA_CONFIG, ClientProfile } from '../../types/hub';
 import { toast } from 'sonner';
+import { apiFetch } from '../../lib/api';
 
 import { useAuth } from '../../lib/auth/AuthContext';
 
@@ -39,7 +40,7 @@ const Clients: React.FC = () => {
   const fetchProfiles = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/client/profiles');
+      const res = await apiFetch('/api/client/profiles');
       const data = await res.json();
       if (data.ok) {
         setProfiles(data.profiles);

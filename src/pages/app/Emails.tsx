@@ -18,6 +18,7 @@ import {
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { Email } from '../../types/hub';
+import { apiFetch } from '../../lib/api';
 import { StatCard } from '../../components/app/StatCard';
 import { SearchInput } from '../../components/app/SearchInput';
 import { FilterDropdown } from '../../components/app/FilterDropdown';
@@ -40,7 +41,7 @@ const Emails: React.FC = () => {
   const fetchEmails = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/client/emails');
+      const res = await apiFetch('/api/client/emails');
       const data = await res.json();
       if (data.ok) {
         setEmails(data.emails);

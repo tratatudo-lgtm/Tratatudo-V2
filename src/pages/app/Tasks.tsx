@@ -17,6 +17,7 @@ import {
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { Task } from '../../types/hub';
+import { apiFetch } from '../../lib/api';
 import { StatCard } from '../../components/app/StatCard';
 import { StatusBadge } from '../../components/app/StatusBadge';
 import { PriorityBadge } from '../../components/app/PriorityBadge';
@@ -40,7 +41,7 @@ const Tasks: React.FC = () => {
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/client/tasks');
+      const res = await apiFetch('/api/client/tasks');
       const data = await res.json();
       if (data.ok) {
         setTasks(data.tasks);

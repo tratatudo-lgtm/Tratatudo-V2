@@ -24,6 +24,7 @@ import { FilterDropdown } from '../../components/app/FilterDropdown';
 import { ActionButton } from '../../components/app/ActionButton';
 import { DataTable } from '../../components/app/DataTable';
 import { EmptyState } from '../../components/app/EmptyState';
+import { apiFetch } from '../../lib/api';
 
 interface TicketStats {
   total: number;
@@ -59,8 +60,8 @@ const Tickets: React.FC = () => {
       if (search) queryParams.append('search', search);
 
       const [ticketsRes, statsRes] = await Promise.all([
-        fetch(`/api/client/tickets?${queryParams.toString()}`, { credentials: 'include' }),
-        fetch('/api/client/tickets/stats', { credentials: 'include' })
+        apiFetch(`/api/client/tickets?${queryParams.toString()}`),
+        apiFetch('/api/client/tickets/stats')
       ]);
 
       const ticketsData = await ticketsRes.json();

@@ -17,6 +17,7 @@ import {
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { Document } from '../../types/hub';
+import { apiFetch } from '../../lib/api';
 import { StatCard } from '../../components/app/StatCard';
 import { SearchInput } from '../../components/app/SearchInput';
 import { FilterDropdown } from '../../components/app/FilterDropdown';
@@ -38,7 +39,7 @@ const Documents: React.FC = () => {
   const fetchDocuments = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/client/documents');
+      const res = await apiFetch('/api/client/documents');
       const data = await res.json();
       if (data.ok) {
         setDocuments(data.documents);

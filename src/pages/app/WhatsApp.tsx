@@ -22,6 +22,7 @@ import { cn } from '../../lib/utils';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { Conversation, WAMessage, ClientInstance, WhatsAppStats } from '../../types/hub';
 import { toast } from 'sonner';
+import { apiFetch } from '../../lib/api';
 
 const WhatsApp: React.FC = () => {
   const { can } = useAuth();
@@ -60,9 +61,9 @@ const WhatsApp: React.FC = () => {
     try {
       setLoading(true);
       const [convRes, instRes, statsRes] = await Promise.all([
-        fetch('/api/client/whatsapp/conversations'),
-        fetch('/api/client/whatsapp/instances'),
-        fetch('/api/client/whatsapp/stats')
+        apiFetch('/api/client/whatsapp/conversations'),
+        apiFetch('/api/client/whatsapp/instances'),
+        apiFetch('/api/client/whatsapp/stats')
       ]);
 
       const [convData, instData, statsData] = await Promise.all([
@@ -86,7 +87,7 @@ const WhatsApp: React.FC = () => {
   const fetchMessages = async (phone: string) => {
     try {
       setLoadingMessages(true);
-      const res = await fetch(`/api/client/whatsapp/conversations/${phone}/messages`);
+      const res = await apiFetch(`/api/client/whatsapp/conversations/${phone}/messages`);
       const data = await res.json();
       if (data.ok) {
         setMessages(data.messages);

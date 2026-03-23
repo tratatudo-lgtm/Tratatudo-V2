@@ -26,6 +26,7 @@ import { useAuth } from '../../lib/auth/AuthContext';
 import { Subscription, UsageMetrics, BillingStats, ClientBillingSummary } from '../../types/hub';
 import { StatCard } from '../../components/app/StatCard';
 import { toast } from 'sonner';
+import { apiFetch } from '../../lib/api';
 
 const Billing: React.FC = () => {
   const { user, can } = useAuth();
@@ -58,8 +59,8 @@ const Billing: React.FC = () => {
     try {
       setLoading(true);
       const [statsRes, subsRes] = await Promise.all([
-        fetch('/api/admin/billing/stats'),
-        fetch('/api/admin/billing/subscriptions')
+        apiFetch('/api/admin/billing/stats'),
+        apiFetch('/api/admin/billing/subscriptions')
       ]);
 
       const [statsData, subsData] = await Promise.all([
@@ -99,8 +100,8 @@ const Billing: React.FC = () => {
     try {
       setLoading(true);
       const [subRes, usageRes] = await Promise.all([
-        fetch('/api/client/billing/subscription'),
-        fetch('/api/client/billing/usage')
+        apiFetch('/api/client/billing/subscription'),
+        apiFetch('/api/client/billing/usage')
       ]);
 
       const [subData, usageData] = await Promise.all([
