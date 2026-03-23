@@ -1,4 +1,4 @@
-export type OperationalArea = 'pedidos' | 'reclamacoes' | 'vendas' | 'clientes' | 'equipa' | 'agenda' | 'tarefas' | 'documentos' | 'email' | 'faturas';
+export type OperationalArea = 'requests' | 'complaints' | 'sales' | 'tickets' | 'clientes' | 'equipa' | 'agenda' | 'tarefas' | 'documentos' | 'email' | 'faturas';
 
 export interface HubTicket {
   id: string;
@@ -6,6 +6,7 @@ export interface HubTicket {
   client_profile_id?: number;
   assigned_user_id?: string;
   tracking_code: string;
+  kind: 'pedido' | 'reclamação' | 'venda' | 'suporte';
   type: OperationalArea;
   title: string;
   description: string;
@@ -432,7 +433,7 @@ export interface SystemInfo {
   uptime: number;
 }
 
-export const AREA_CONFIG: Record<OperationalArea, {
+export const AREA_CONFIG: Record<string, {
   label: string;
   bgLight: string;
   bgMain: string;
@@ -442,7 +443,7 @@ export const AREA_CONFIG: Record<OperationalArea, {
   shadowMain: string;
   statuses: string[];
 }> = {
-  pedidos: {
+  requests: {
     label: 'Pedidos',
     bgLight: 'bg-blue-50',
     bgMain: 'bg-blue-600',
@@ -452,7 +453,7 @@ export const AREA_CONFIG: Record<OperationalArea, {
     shadowMain: 'shadow-blue-200',
     statuses: ['novo', 'em análise', 'a aguardar cliente', 'em execução', 'concluído', 'cancelado']
   },
-  reclamacoes: {
+  complaints: {
     label: 'Reclamações',
     bgLight: 'bg-red-50',
     bgMain: 'bg-red-600',
@@ -462,7 +463,7 @@ export const AREA_CONFIG: Record<OperationalArea, {
     shadowMain: 'shadow-red-200',
     statuses: ['nova', 'em investigação', 'a aguardar resposta', 'resolvida', 'encerrada']
   },
-  vendas: {
+  sales: {
     label: 'Vendas',
     bgLight: 'bg-emerald-50',
     bgMain: 'bg-emerald-600',
@@ -471,6 +472,16 @@ export const AREA_CONFIG: Record<OperationalArea, {
     textMain: 'text-emerald-600',
     shadowMain: 'shadow-emerald-200',
     statuses: ['novo lead', 'contactado', 'proposta enviada', 'negociação', 'fechado ganho', 'fechado perdido']
+  },
+  tickets: {
+    label: 'Suporte',
+    bgLight: 'bg-slate-50',
+    bgMain: 'bg-slate-600',
+    bgHover: 'hover:bg-slate-700',
+    borderLight: 'border-slate-100',
+    textMain: 'text-slate-600',
+    shadowMain: 'shadow-slate-200',
+    statuses: ['aberto', 'em análise', 'a aguardar cliente', 'concluído', 'cancelado']
   },
   clientes: {
     label: 'Clientes',

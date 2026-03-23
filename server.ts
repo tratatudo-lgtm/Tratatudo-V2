@@ -954,7 +954,7 @@ async function startServer() {
 
   app.get("/api/client/tickets", requireClientSession, async (req: any, res) => {
     try {
-      const { status, priority, category, assigned_to, search } = req.query;
+      const { status, priority, category, kind, assigned_to, search } = req.query;
       let query = supabase.from("tickets").select(`
         *,
         assigned_user:client_users!assigned_user_id(name),
@@ -964,6 +964,7 @@ async function startServer() {
       if (status) query = query.eq("status", status);
       if (priority) query = query.eq("priority", priority);
       if (category) query = query.eq("category", category);
+      if (kind) query = query.eq("kind", kind);
       if (assigned_to) query = query.eq("assigned_user_id", assigned_to);
       
       if (search) {
@@ -1053,7 +1054,7 @@ async function startServer() {
 
   app.post("/api/client/tickets", requireClientSession, async (req: any, res) => {
     try {
-      const { title, description, category, priority, client_profile_id } = req.body;
+      const { title, description, category, kind, priority, client_profile_id } = req.body;
       if (!title || !description) return res.status(400).json({ ok: false, error: "Título e descrição obrigatórios." });
       
       const trackingCode = `TT-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -1062,7 +1063,8 @@ async function startServer() {
         client_id: req.clientId, 
         title, 
         description, 
-        category: category || "suporte", 
+        category: category || "Geral", 
+        kind: kind || "suporte",
         priority: priority || "média", 
         status: "aberto", 
         tracking_code: trackingCode,

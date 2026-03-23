@@ -152,7 +152,7 @@ const TicketDetail: React.FC = () => {
                   <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
                     <div className="flex items-center gap-1">
                       <Tag className="w-3 h-3" />
-                      <span className="capitalize">{ticket.category}</span>
+                      <span className="capitalize">{ticket.kind} / {ticket.category}</span>
                     </div>
                     <span>•</span>
                     <div className="flex items-center gap-1">

@@ -27,6 +27,9 @@ import Activity from './pages/app/Activity';
 import SystemHealth from './pages/app/SystemHealth';
 import Tickets from './pages/app/Tickets';
 import TicketDetail from './pages/app/TicketDetail';
+import Requests from './pages/app/Requests';
+import Complaints from './pages/app/Complaints';
+import Sales from './pages/app/Sales';
 import { Instance } from './pages/app/Instance';
 import { Settings } from './pages/app/Settings';
 import Clients from './pages/app/Clients';
@@ -130,17 +133,23 @@ function App() {
                   <Route path="messages" element={<Navigate to="/app/whatsapp" replace />} />
                   <Route path="tickets" element={<ProtectedRoute module="tickets"><Tickets /></ProtectedRoute>} />
                   <Route path="tickets/:id" element={<ProtectedRoute module="tickets"><TicketDetail /></ProtectedRoute>} />
+                  <Route path="requests" element={<ProtectedRoute module="tickets"><Requests /></ProtectedRoute>} />
+                  <Route path="complaints" element={<ProtectedRoute module="tickets"><Complaints /></ProtectedRoute>} />
+                  <Route path="sales" element={<ProtectedRoute module="tickets"><Sales /></ProtectedRoute>} />
                   <Route path="clients" element={<ProtectedRoute module="clients"><Clients /></ProtectedRoute>} />
                   <Route path="team" element={<ProtectedRoute module="team"><Team /></ProtectedRoute>} />
-                  <Route path="agenda" element={<ProtectedRoute module="calendar"><Calendar /></ProtectedRoute>} />
+                  <Route path="calendar" element={<ProtectedRoute module="calendar"><Calendar /></ProtectedRoute>} />
+                  <Route path="agenda" element={<Navigate to="/app/calendar" replace />} />
                   <Route path="tasks" element={<ProtectedRoute module="tasks"><Tasks /></ProtectedRoute>} />
                   <Route path="documents" element={<ProtectedRoute module="documents"><Documents /></ProtectedRoute>} />
                   <Route path="financial" element={<ProtectedRoute module="financial"><FinancialDocuments /></ProtectedRoute>} />
-                  <Route path="email" element={<ProtectedRoute module="emails"><Emails /></ProtectedRoute>} />
+                  <Route path="emails" element={<ProtectedRoute module="emails"><Emails /></ProtectedRoute>} />
+                  <Route path="email" element={<Navigate to="/app/emails" replace />} />
                   <Route path="automations" element={<ProtectedRoute module="automations"><Automations /></ProtectedRoute>} />
                   <Route path="billing" element={<ProtectedRoute module="billing"><Billing /></ProtectedRoute>} />
                   <Route path="activity" element={<ProtectedRoute module="dashboard"><Activity /></ProtectedRoute>} />
-                  <Route path="health" element={<ProtectedRoute module="dashboard"><SystemHealth /></ProtectedRoute>} />
+                  <Route path="system-health" element={<ProtectedRoute module="dashboard"><SystemHealth /></ProtectedRoute>} />
+                  <Route path="health" element={<Navigate to="/app/system-health" replace />} />
                   <Route path="reports" element={<ProtectedRoute module="dashboard"><Placeholder title="Relatórios" /></ProtectedRoute>} />
                   <Route path="ai" element={<ProtectedRoute module="dashboard"><Placeholder title="IA Hub" /></ProtectedRoute>} />
                   <Route path="instancia" element={<ProtectedRoute module="whatsapp"><Instance /></ProtectedRoute>} />

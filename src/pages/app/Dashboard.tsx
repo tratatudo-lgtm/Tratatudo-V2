@@ -38,6 +38,7 @@ import {
 import { cn, extractArrayResponse, extractObjectResponse } from '../../lib/utils';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { LoadingState, ErrorState } from '../../components/States';
+import { apiFetch, apiPost } from '../../lib/api';
 
 interface DashboardData {
   stats: {
@@ -88,20 +89,11 @@ export function Dashboard() {
   const [loadingAI, setLoadingAI] = useState(false);
 
   const fetchAIInsights = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
     try {
       setLoadingAI(true);
-      const res = await fetch(`${baseUrl}/api/client/ai/insights`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ context: 'dashboard' }),
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await apiPost('/api/client/ai/insights', { context: 'dashboard' });
+      if (data) {
         setAiInsights(data);
-      } else if (res.status === 401) {
-        console.warn('[APP] AI Insights failed: Unauthorized');
       }
     } catch (err) {
       console.error("[APP] AI Insights failed:", err);
@@ -123,64 +115,40 @@ export function Dashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-      const endpoints = [
-        `${baseUrl}/api/client/dashboard/stats`,
-        `${baseUrl}/api/dashboard/stats`
-      ];
-      
-      let lastError = null;
-      
       try {
         setLoading(true);
         setError(null);
         
-        for (const url of endpoints) {
-          try {
-            console.log(`[APP] Fetching dashboard stats: ${url}`);
-            const response = await fetch(url, {
-              credentials: 'include'
-            });
-            
-            if (response.ok) {
-              const result = await response.json();
-              console.log(`[APP] Dashboard data received from ${url}:`, result);
-              
-              // Map the response to our interface
-              const mappedData: DashboardData = {
-                stats: result.stats || {},
-                instance: extractObjectResponse(result, 'instance'),
-                subscription: extractObjectResponse(result, 'subscription'),
-                activity: extractArrayResponse(result, 'activity')
-              };
-              
-              // Fetch chart data
-              try {
-                const chartRes = await fetch(`${baseUrl}/api/client/dashboard/charts`, {
-                  credentials: 'include'
-                });
-                if (chartRes.ok) {
-                  const chartData = await chartRes.json();
-                  mappedData.charts = chartData;
-                }
-              } catch (e) {
-                console.error("[APP] Failed to fetch chart data:", e);
-              }
-
-              setData(mappedData);
-              setLoading(false);
-              fetchAIInsights();
-              return;
-            } else if (response.status === 401) {
-              throw new Error('Sessão expirada. Por favor, faça login novamente.');
-            }
-          } catch (err: any) {
-            console.error(`[APP] Fetch dashboard failed for ${url}:`, err);
-            lastError = err;
-          }
-        }
+        // Try primary endpoint
+        const response = await apiFetch('/api/client/dashboard/stats');
+        const result = await response.json();
         
-        throw lastError || new Error('Falha ao carregar dados do painel');
+        if (result.ok) {
+          // Map the response to our interface
+          const mappedData: DashboardData = {
+            stats: result.stats || {},
+            instance: extractObjectResponse(result, 'instance'),
+            subscription: extractObjectResponse(result, 'subscription'),
+            activity: extractArrayResponse(result, 'activity')
+          };
+          
+          // Fetch chart data
+          try {
+            const chartRes = await apiFetch('/api/client/dashboard/charts');
+            if (chartRes.ok) {
+              const chartData = await chartRes.json();
+              mappedData.charts = chartData;
+            }
+          } catch (e) {
+            console.error("[APP] Failed to fetch chart data:", e);
+          }
+
+          setData(mappedData);
+          setLoading(false);
+          fetchAIInsights();
+        } else {
+          throw new Error(result.error || 'Falha ao carregar dados do painel');
+        }
         
       } catch (err: any) {
         console.error('[APP] Dashboard fetch failed:', err);

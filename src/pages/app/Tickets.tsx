@@ -36,6 +36,7 @@ interface TicketStats {
 
 const Tickets: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const initialKind = searchParams.get('kind') || 'all';
   const initialCategory = searchParams.get('category') || 'all';
 
   const [tickets, setTickets] = useState<HubTicket[]>([]);
@@ -44,11 +45,13 @@ const Tickets: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [kindFilter, setKindFilter] = useState(initialKind);
   const [categoryFilter, setCategoryFilter] = useState(initialCategory);
 
   useEffect(() => {
+    setKindFilter(initialKind);
     setCategoryFilter(initialCategory);
-  }, [initialCategory]);
+  }, [initialKind, initialCategory]);
 
   const fetchData = async () => {
     try {
@@ -56,6 +59,7 @@ const Tickets: React.FC = () => {
       const queryParams = new URLSearchParams();
       if (statusFilter !== 'all') queryParams.append('status', statusFilter);
       if (priorityFilter !== 'all') queryParams.append('priority', priorityFilter);
+      if (kindFilter !== 'all') queryParams.append('kind', kindFilter);
       if (categoryFilter !== 'all') queryParams.append('category', categoryFilter);
       if (search) queryParams.append('search', search);
 
@@ -79,7 +83,7 @@ const Tickets: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [statusFilter, priorityFilter, categoryFilter, search]);
+  }, [statusFilter, priorityFilter, kindFilter, categoryFilter, search]);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -239,14 +243,25 @@ const Tickets: React.FC = () => {
               onChange={setPriorityFilter}
             />
             <FilterDropdown 
+              label="Tipo"
+              value={kindFilter}
+              options={[
+                { label: 'Todos', value: 'all' },
+                { label: 'Pedidos', value: 'pedido' },
+                { label: 'Reclamações', value: 'reclamação' },
+                { label: 'Vendas', value: 'venda' },
+                { label: 'Suporte', value: 'suporte' }
+              ]}
+              onChange={setKindFilter}
+            />
+            <FilterDropdown 
               label="Categoria"
               value={categoryFilter}
               options={[
                 { label: 'Todas', value: 'all' },
-                { label: 'Pedidos', value: 'pedidos' },
-                { label: 'Reclamações', value: 'reclamacoes' },
-                { label: 'Vendas', value: 'vendas' },
-                { label: 'Suporte', value: 'suporte' }
+                { label: 'Geral', value: 'Geral' },
+                { label: 'Iluminação Pública', value: 'Iluminação Pública' },
+                { label: 'Outros', value: 'Outros' }
               ]}
               onChange={setCategoryFilter}
             />
