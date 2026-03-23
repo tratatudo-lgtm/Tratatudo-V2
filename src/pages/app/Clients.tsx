@@ -14,12 +14,19 @@ import {
   Clock,
   ChevronRight,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  X,
+  Building2,
+  User,
+  Tag,
+  FileText,
+  Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AREA_CONFIG, ClientProfile } from '../../types/hub';
 import { toast } from 'sonner';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, apiPost } from '../../lib/api';
+import { cn } from '../../lib/utils';
 
 import { useAuth } from '../../lib/auth/AuthContext';
 
@@ -30,6 +37,15 @@ const Clients: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [isAddingClient, setIsAddingClient] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    company_name: '',
+    contact_name: '',
+    email: '',
+    phone_e164: '',
+    customer_type: 'Lead',
+    notes: ''
+  });
 
   const config = AREA_CONFIG.clientes;
 
@@ -52,6 +68,38 @@ const Clients: React.FC = () => {
       toast.error('Erro de ligação ao servidor');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.company_name || !formData.contact_name || !formData.email) {
+      toast.error('Por favor preencha os campos obrigatórios');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const res = await apiPost('/api/client/profiles', formData);
+      if (res.ok) {
+        toast.success('Cliente criado com sucesso!');
+        setIsAddingClient(false);
+        setFormData({
+          company_name: '',
+          contact_name: '',
+          email: '',
+          phone_e164: '',
+          customer_type: 'Lead',
+          notes: ''
+        });
+        fetchProfiles();
+      } else {
+        toast.error(res.error || 'Erro ao criar cliente');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao criar cliente');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -267,6 +315,170 @@ const Clients: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* New Client Modal */}
+      <AnimatePresence>
+        {isAddingClient && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", config.bgLight, config.textMain)}>
+                    <UserPlus size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">Novo Cliente</h3>
+                    <p className="text-sm text-slate-500">Adicione um novo cliente à sua base de dados.</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsAddingClient(false)}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddClient} className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Company Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      <Building2 size={14} className="text-slate-400" />
+                      Nome da Empresa / Entidade *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.company_name}
+                      onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                      placeholder="Ex: TrataTudo Lda"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                    />
+                  </div>
+
+                  {/* Contact Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      <User size={14} className="text-slate-400" />
+                      Nome do Contacto Principal *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.contact_name}
+                      onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                      placeholder="Ex: João Silva"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                    />
+                  </div>
+
+                  {/* Email */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      <Mail size={14} className="text-slate-400" />
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="email@exemplo.com"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                    />
+                  </div>
+
+                  {/* Phone */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      <Phone size={14} className="text-slate-400" />
+                      Telefone (E.164)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.phone_e164}
+                      onChange={(e) => setFormData({ ...formData, phone_e164: e.target.value })}
+                      placeholder="+351912345678"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                    />
+                  </div>
+
+                  {/* Customer Type */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      <Tag size={14} className="text-slate-400" />
+                      Tipo de Cliente
+                    </label>
+                    <select
+                      value={formData.customer_type}
+                      onChange={(e) => setFormData({ ...formData, customer_type: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                    >
+                      {config.statuses.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <FileText size={14} className="text-slate-400" />
+                    Notas Internas
+                  </label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Observações relevantes sobre o cliente..."
+                    rows={3}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingClient(false)}
+                    className="px-6 py-2.5 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className={cn(
+                      "px-8 py-2.5 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg",
+                      config.bgMain,
+                      config.bgHover,
+                      config.shadowMain,
+                      isSubmitting && "opacity-70 cursor-not-allowed"
+                    )}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        A criar...
+                      </>
+                    ) : (
+                      <>
+                        <Save size={18} />
+                        Criar Cliente
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

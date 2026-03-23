@@ -205,34 +205,31 @@ export function TicketBase({ area }: { area: OperationalArea }) {
     try {
       setLoading(true);
       setError(null);
-
+      // Map OperationalArea to backend 'kind'
       const kindMap: Record<string, string> = {
-        requests: 'pedido',
-        complaints: 'reclamação',
-        sales: 'venda'
+        'requests': 'pedido',
+        'complaints': 'reclamação',
+        'sales': 'venda',
+        'tickets': 'suporte'
       };
-
-      const params = new URLSearchParams();
+      
       const kind = kindMap[area];
-      if (kind) params.set('kind', kind);
-
-      const url = params.toString()
-        ? `/api/client/tickets?${params.toString()}`
-        : '/api/client/tickets';
-
-      const response = await apiFetch(url, { method: 'GET' });
+      const params = new URLSearchParams();
+      if (kind) params.append('kind', kind);
+      
+      const url = `/api/client/tickets${params.toString() ? `?${params.toString()}` : ''}`;
+      const response = await apiFetch(url);
       const data = await response.json();
-
+      
       if (!response.ok) {
-        throw new Error(data?.error || `Erro ao carregar tickets (${response.status})`);
+        throw new Error(data.error || `Erro ${response.status}`);
       }
 
       const rawTickets = extractArrayResponse<any>(data, 'tickets');
-      setTickets(rawTickets.map((t: any) => ({ ...t, type: area })));
+      setTickets(rawTickets.map(t => ({ ...t, type: area })));
     } catch (err: any) {
       console.error('[HUB] Fetch failed:', err);
-      setError(err.message || 'Erro ao carregar tickets.');
-      setTickets([]);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -242,20 +239,11 @@ export function TicketBase({ area }: { area: OperationalArea }) {
     try {
       setLoadingMessages(true);
       setAnalysis(null);
-
-      const response = await apiFetch(`/api/client/tickets/${ticketId}/messages`, {
-        method: 'GET'
-      });
+      const response = await apiFetch(`/api/client/tickets/${ticketId}/messages`);
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || `Erro ao carregar mensagens (${response.status})`);
-      }
-
       setMessages(extractArrayResponse<TicketMessage>(data, 'messages'));
     } catch (err: any) {
-      console.error('[HUB] Messages failed:', err);
-      setMessages([]);
+      console.error(`[HUB] Messages failed:`, err);
     } finally {
       setLoadingMessages(false);
     }

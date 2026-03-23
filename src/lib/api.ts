@@ -11,9 +11,7 @@ export const API_URL = rawApiUrl.endsWith('/') ? rawApiUrl.slice(0, -1) : rawApi
  * Standard fetch wrapper with credentials and base URL
  */
 export async function apiFetch(path: string, options: RequestInit = {}) {
-  const baseUrl = path.startsWith('http') ? path : `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
-  const method = (options.method || 'GET').toUpperCase();
-  const url = method === 'GET' ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}_t=${Date.now()}` : baseUrl;
+  const url = path.startsWith('http') ? path : `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
   
   const defaultOptions: RequestInit = {
     credentials: 'include',
@@ -26,7 +24,6 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   const response = await fetch(url, {
     ...defaultOptions,
     ...options,
-    cache: 'no-store',
   });
 
   return response;
