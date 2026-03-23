@@ -35,7 +35,7 @@ interface Ticket {
   subject: string;
   description: string;
   status: 'aberto' | 'em análise' | 'pendente' | 'resolvido';
-  kind?: 'suporte' | 'reclamação' | 'pedido' | 'outros';
+  kind?: 'suporte' | 'reclamação' | 'pedido' | 'venda' | 'outros';
   category: string;
   priority: 'baixa' | 'média' | 'alta' | 'urgente';
   created_at: string;
@@ -62,7 +62,7 @@ export default function AdminTickets() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('todos');
-  const [filterKind, setFilterKind] = useState<'todos' | 'suporte' | 'outros'>('todos');
+  const [filterKind, setFilterKind] = useState<'todos' | 'suporte' | 'pedido' | 'reclamação' | 'venda' | 'outros'>('todos');
   
   // Detail Panel State
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -231,8 +231,8 @@ export default function AdminTickets() {
     
     const matchesKind = 
       filterKind === 'todos' || 
-      (filterKind === 'suporte' && t.kind === 'suporte') ||
-      (filterKind === 'outros' && t.kind !== 'suporte');
+      t.kind === filterKind ||
+      (filterKind === 'outros' && !['suporte', 'pedido', 'reclamação', 'venda'].includes(t.kind || ''));
 
     return matchesSearch && matchesStatus && matchesKind;
   });
@@ -357,14 +357,47 @@ export default function AdminTickets() {
             Suporte
           </button>
           <button
-            onClick={() => setFilterKind('outros')}
+            onClick={() => setFilterKind('pedido')}
             className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
-              filterKind === 'outros' 
-                ? 'bg-white text-orange-700 shadow-sm' 
+              filterKind === 'pedido' 
+                ? 'bg-white text-blue-700 shadow-sm' 
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Pedidos
+          </button>
+          <button
+            onClick={() => setFilterKind('reclamação')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+              filterKind === 'reclamação' 
+                ? 'bg-white text-red-700 shadow-sm' 
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <AlertCircle className="w-4 h-4" />
+            Reclamações
+          </button>
+          <button
+            onClick={() => setFilterKind('venda')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+              filterKind === 'venda' 
+                ? 'bg-white text-purple-700 shadow-sm' 
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Zap className="w-4 h-4" />
+            Vendas
+          </button>
+          <button
+            onClick={() => setFilterKind('outros')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+              filterKind === 'outros' 
+                ? 'bg-white text-slate-700 shadow-sm' 
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <HelpCircle className="w-4 h-4" />
             Outros
           </button>
         </div>
@@ -388,9 +421,17 @@ export default function AdminTickets() {
                 {/* Status & Icon */}
                 <div className="flex items-center gap-4 shrink-0">
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    ticket.kind === 'suporte' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'
+                    ticket.kind === 'suporte' ? 'bg-emerald-50 text-emerald-600' : 
+                    ticket.kind === 'pedido' ? 'bg-blue-50 text-blue-600' :
+                    ticket.kind === 'reclamação' ? 'bg-red-50 text-red-600' :
+                    ticket.kind === 'venda' ? 'bg-purple-50 text-purple-600' :
+                    'bg-slate-50 text-slate-600'
                   }`}>
-                    {ticket.kind === 'suporte' ? <LifeBuoy className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
+                    {ticket.kind === 'suporte' ? <LifeBuoy className="w-6 h-6" /> : 
+                     ticket.kind === 'pedido' ? <FileText className="w-6 h-6" /> :
+                     ticket.kind === 'reclamação' ? <AlertCircle className="w-6 h-6" /> :
+                     ticket.kind === 'venda' ? <Zap className="w-6 h-6" /> :
+                     <HelpCircle className="w-6 h-6" />}
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">

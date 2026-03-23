@@ -3,10 +3,12 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { UserRole, PermissionAction, PermissionModule, ROLE_PERMISSIONS } from '../../types/hub';
 
 interface User {
+  id: string;
   phone_e164: string;
   client_id: string;
   company_name: string;
   role: UserRole;
+  finePermissions?: { module: string; actions: string[] }[];
 }
 
 interface AuthContextType {
@@ -26,6 +28,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const can = useCallback((module: PermissionModule, action: PermissionAction): boolean => {
     if (!user) return false;
+
+    // 1. Check fine-grained permissions first
+    const finePerm = user.finePermissions?.find(p => p.module === module);
+    if (finePerm && finePerm.actions.includes(action)) {
+      return true;
+    }
+
+    // 2. Fallback to role-based permissions
     const permissions = ROLE_PERMISSIONS[user.role];
     if (!permissions) return false;
     const modulePermissions = permissions[module];
@@ -46,10 +56,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await response.json();
         if (data.authenticated) {
           setUser({ 
+            id: data.userId,
             phone_e164: data.phone_e164,
-            client_id: data.client_id,
+            client_id: data.id,
             company_name: data.company_name,
-            role: data.role || 'visualizador'
+            role: data.role || 'visualizador',
+            finePermissions: data.finePermissions || []
           });
           return true;
         }

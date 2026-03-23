@@ -69,7 +69,7 @@ interface DashboardData {
   charts?: {
     daily: Array<{ date: string; tickets: number; complaints: number; resolved: number }>;
     statusDistribution: { aberto: number; analise: number; resolvido: number };
-    typeDistribution: { pedido: number; reclamacao: number; outro: number };
+    typeDistribution: { pedido: number; reclamação: number; outro: number };
   };
 }
 
@@ -184,7 +184,7 @@ export function Dashboard() {
                 { date: '2024-03-17', tickets: 12, complaints: 3, resolved: 8 }
               ],
               statusDistribution: { aberto: 10, analise: 5, resolvido: 35 },
-              typeDistribution: { pedido: 25, reclamacao: 15, outro: 10 }
+              typeDistribution: { pedido: 25, reclamação: 15, outro: 10 }
             }
           });
           setError(null);
@@ -523,7 +523,7 @@ export function Dashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={[
                   { name: 'Pedidos', value: data?.charts?.typeDistribution.pedido || 0 },
-                  { name: 'Reclamações', value: data?.charts?.typeDistribution.reclamacao || 0 },
+                  { name: 'Reclamações', value: data?.charts?.typeDistribution.reclamação || 0 },
                   { name: 'Outros', value: data?.charts?.typeDistribution.outro || 0 },
                 ]}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />

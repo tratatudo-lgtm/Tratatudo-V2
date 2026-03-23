@@ -98,6 +98,7 @@ export interface ClientUser {
   owner_id?: string;
   name: string;
   email: string;
+  phone_e164?: string;
   role: UserRole;
   status: 'active' | 'inactive' | 'invited';
   invited_by?: string;

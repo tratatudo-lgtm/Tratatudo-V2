@@ -1,5 +1,3 @@
-import dotenv from "dotenv";
-dotenv.config({ path: "/home/ubuntu/Tratatudo-V2/.env" });
 import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
@@ -97,6 +95,15 @@ async function startServer() {
       req.clientId = client.id;
       req.userRole = decoded.role || 'visualizador';
       req.userId = decoded.userId;
+
+      // Fetch fine-grained permissions
+      const { data: finePermissions } = await supabase
+        .from("client_user_permissions")
+        .select("module, actions")
+        .eq("user_id", req.userId);
+      
+      req.finePermissions = finePermissions || [];
+      
       next();
     } catch (err) {
       res.clearCookie("hub_session");
@@ -107,12 +114,20 @@ async function startServer() {
   const requirePermission = (module: string, action: string) => {
     return (req: any, res: any, next: any) => {
       const role = req.userRole;
-      const permissions = ROLE_PERMISSIONS[role as UserRole];
       
-      if (!permissions || !permissions[module as PermissionModule]?.includes(action as PermissionAction)) {
-        return res.status(403).json({ ok: false, error: "Acesso negado. Permissões insuficientes." });
+      // 1. Check fine-grained permissions first
+      const finePerm = req.finePermissions?.find((p: any) => p.module === module);
+      if (finePerm && finePerm.actions.includes(action)) {
+        return next();
       }
-      next();
+
+      // 2. Fallback to role-based permissions
+      const rolePermissions = ROLE_PERMISSIONS[role as UserRole];
+      if (rolePermissions && rolePermissions[module as PermissionModule]?.includes(action as PermissionAction)) {
+        return next();
+      }
+      
+      return res.status(403).json({ ok: false, error: "Acesso negado. Permissões insuficientes." });
     };
   };
 
@@ -252,8 +267,8 @@ async function startServer() {
     
     await supabase.from("auth_otps").update({ used_at: new Date().toISOString() }).eq("id", otp.id);
     
-    // Check if user is a client user
-    const { data: clientUser } = await supabase.from("client_users").select("*").eq("email", phone_e164).single(); // Assuming login by phone/email
+    // 1. Check if user is a client user (staff) by phone
+    const { data: clientUser } = await supabase.from("client_users").select("*").eq("phone_e164", phone_e164).single();
     
     let client;
     let role: UserRole = 'visualizador';
@@ -265,12 +280,12 @@ async function startServer() {
       role = clientUser.role as UserRole;
       userId = clientUser.id;
     } else {
-      // Check if user is the main client owner
+      // 2. Check if user is the main client owner by phone
       const { data: c } = await supabase.from("clients").select("id, company_name, phone_e164").eq("phone_e164", phone_e164).single();
       if (c) {
         client = c;
         role = 'admin';
-        userId = c.id;
+        userId = c.id; // Owner uses client ID as user ID for simplicity, or we could have a user record for them
       }
     }
 
@@ -278,13 +293,13 @@ async function startServer() {
     
     const token = jwt.sign({ 
       clientId: client.id, 
-      phone_e164: client.phone_e164,
+      phone_e164: phone_e164,
       role,
       userId
     }, JWT_SECRET, { expiresIn: "24h" });
     
     res.cookie("hub_session", token, { httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 24 * 60 * 60 * 1000 });
-    res.json({ ok: true, client: { ...client, role } });
+    res.json({ ok: true, client: { ...client, role, userId } });
   });
 
   app.get("/api/auth/session", async (req, res) => {
@@ -315,7 +330,7 @@ async function startServer() {
       const { data: inst } = await supabase.from("client_instances").select("*").eq("client_id", clientId).single();
       const { data: sub } = await supabase.from("subscriptions").select("*").eq("client_id", clientId).single();
       
-      const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("kind", "reclamacao");
+      const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("kind", "reclamação");
       const { count: sentMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("direction", "outbound");
       const { count: receivedMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("direction", "inbound");
 
@@ -345,7 +360,7 @@ async function startServer() {
     // Fetch stats for the instance page
     const { count: msgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
     const { count: tks } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
-    const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("kind", "reclamacao");
+    const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("kind", "reclamação");
     const { count: sentMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("direction", "outbound");
     const { count: receivedMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("direction", "inbound");
 
@@ -382,7 +397,7 @@ async function startServer() {
     
     const { count: msgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
     const { count: tks } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
-    const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("kind", "reclamacao");
+    const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("kind", "reclamação");
 
     res.json({ 
       ok: true, 
