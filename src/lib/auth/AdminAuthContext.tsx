@@ -12,6 +12,7 @@ interface AdminAuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  fetchWithAuth: (path: string, options?: RequestInit) => Promise<Response>;
 }
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
@@ -95,6 +96,15 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const fetchWithAuth = useCallback(async (path: string, options: RequestInit = {}) => {
+    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
+    const response = await fetch(`${baseUrl}${path}`, {
+      ...options,
+      credentials: 'include',
+    });
+    return response;
+  }, []);
+
   return (
     <AdminAuthContext.Provider 
       value={{ 
@@ -103,7 +113,8 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         loading, 
         login, 
         logout, 
-        refreshSession 
+        refreshSession,
+        fetchWithAuth
       }}
     >
       {children}

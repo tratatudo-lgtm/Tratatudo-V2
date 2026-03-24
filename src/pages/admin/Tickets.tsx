@@ -29,11 +29,12 @@ import { LoadingState, ErrorState } from '../../components/States';
 interface TicketData {
   id: string;
   client_id: string;
-  company_name: string;
-  subject: string;
-  description: string;
-  status: 'open' | 'in_progress' | 'resolved' | 'closed';
-  priority: 'low' | 'medium' | 'high';
+  subject?: string;
+  title?: string;
+  description?: string;
+  text?: string;
+  status: string;
+  priority?: string;
   created_at: string;
   updated_at: string;
   internal_notes?: string;
@@ -57,23 +58,18 @@ export function AdminTickets() {
   const [internalNote, setInternalNote] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const { logout } = useAdminAuth();
+  const { logout, fetchWithAuth } = useAdminAuth();
 
   const fetchTickets = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-    const url = `${baseUrl}/api/admin/tickets`;
-    
     try {
       setLoading(true);
       setError(null);
       
-      const res = await fetch(url, {
-        credentials: 'include'
-      });
+      const res = await fetchWithAuth('/api/admin/tickets');
       
       if (res.ok) {
         const data = await res.json();
-        const ticketsData = extractArrayResponse<TicketData>(data, 'tickets');
+        const ticketsData = extractArrayResponse<TicketData>(data);
         setTickets(ticketsData);
       } else if (res.status === 401) {
         await logout();
@@ -96,7 +92,6 @@ export function AdminTickets() {
     setLoadingMessages(true);
     try {
       // TODO: Backend endpoint /api/admin/tickets/:id/messages does not exist yet.
-      // This functionality is prepared in the UI but requires backend implementation.
       setTicketMessages([]);
     } catch (err) {
       console.error('Failed to fetch messages');
@@ -118,15 +113,13 @@ export function AdminTickets() {
     toast.info('Análise de ticket (Admin) aguarda implementação no backend.');
   };
 
-  const handleUpdateStatus = async (newStatus: TicketData['status']) => {
+  const handleUpdateStatus = async (newStatus: string) => {
     if (!selectedTicket) return;
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
     try {
-      const response = await fetch(`${baseUrl}/api/admin/tickets/${selectedTicket.id}/status`, {
+      const response = await fetchWithAuth(`/api/admin/tickets/${selectedTicket.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-        credentials: 'include'
+        body: JSON.stringify({ status: newStatus })
       });
 
       if (!response.ok) throw new Error('Falha ao atualizar estado');
@@ -146,8 +139,9 @@ export function AdminTickets() {
   };
 
   const filteredTickets = tickets.filter(t => {
-    const matchesSearch = t.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         t.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const title = t.subject || t.title || `Ticket ${t.id}`;
+    const matchesSearch = t.client_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          t.id.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
@@ -184,80 +178,83 @@ export function AdminTickets() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* List Column */}
         <div className="lg:col-span-1 space-y-4">
-          {filteredTickets.map((ticket, index) => (
-            <motion.div
-              key={ticket.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.05 }}
-              onClick={() => setSelectedTicket(ticket)}
-              className={cn(
-                "p-6 rounded-[2rem] border transition-all cursor-pointer group relative overflow-hidden",
-                selectedTicket?.id === ticket.id 
-                  ? "bg-primary text-white border-primary shadow-xl shadow-primary/20" 
-                  : "bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200"
-              )}
-            >
-              {selectedTicket?.id === ticket.id && (
-                <motion.div 
-                  layoutId="active-indicator"
-                  className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none"
-                />
-              )}
-              
-              <div className="flex items-start justify-between mb-4">
-                <div className={cn(
-                  "px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest",
-                  selectedTicket?.id === ticket.id ? "bg-white/20 text-white" : 
-                  ticket.priority === 'high' ? "bg-red-50 text-red-600" :
-                  ticket.priority === 'medium' ? "bg-orange-50 text-orange-600" : "bg-blue-50 text-blue-600"
-                )}>
-                  Prioridade {ticket.priority}
-                </div>
-                <span className={cn(
-                  "text-[10px] font-bold",
-                  selectedTicket?.id === ticket.id ? "text-white/60" : "text-slate-400"
-                )}>
-                  #{ticket.id.slice(0, 8)}
-                </span>
-              </div>
-
-              <h3 className={cn(
-                "text-base font-black tracking-tight mb-1 line-clamp-1",
-                selectedTicket?.id === ticket.id ? "text-white" : "text-slate-900"
-              )}>
-                {ticket.subject}
-              </h3>
-              <p className={cn(
-                "text-xs font-bold uppercase tracking-widest mb-4",
-                selectedTicket?.id === ticket.id ? "text-white/70" : "text-slate-400"
-              )}>
-                {ticket.company_name}
-              </p>
-
-              <div className="flex items-center justify-between pt-4 border-t border-current/10">
-                <div className="flex items-center gap-2">
+          {filteredTickets.map((ticket, index) => {
+            const title = ticket.subject || ticket.title || `Ticket ${ticket.id}`;
+            return (
+              <motion.div
+                key={ticket.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+                onClick={() => setSelectedTicket(ticket)}
+                className={cn(
+                  "p-6 rounded-[2rem] border transition-all cursor-pointer group relative overflow-hidden",
+                  selectedTicket?.id === ticket.id 
+                    ? "bg-primary text-white border-primary shadow-xl shadow-primary/20" 
+                    : "bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200"
+                )}
+              >
+                {selectedTicket?.id === ticket.id && (
+                  <motion.div 
+                    layoutId="active-indicator"
+                    className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none"
+                  />
+                )}
+                
+                <div className="flex items-start justify-between mb-4">
                   <div className={cn(
-                    "w-2 h-2 rounded-full",
-                    ticket.status === 'open' ? "bg-red-500" :
-                    ticket.status === 'in_progress' ? "bg-orange-500" : "bg-emerald-500"
-                  )} />
-                  <span className={cn(
-                    "text-[10px] font-black uppercase tracking-widest",
-                    selectedTicket?.id === ticket.id ? "text-white" : "text-slate-600"
+                    "px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest",
+                    selectedTicket?.id === ticket.id ? "bg-white/20 text-white" : 
+                    ticket.priority === 'high' ? "bg-red-50 text-red-600" :
+                    ticket.priority === 'medium' ? "bg-orange-50 text-orange-600" : "bg-blue-50 text-blue-600"
                   )}>
-                    {ticket.status.replace('_', ' ')}
+                    {ticket.priority ? `Prioridade ${ticket.priority}` : 'Prioridade N/A'}
+                  </div>
+                  <span className={cn(
+                    "text-[10px] font-bold",
+                    selectedTicket?.id === ticket.id ? "text-white/60" : "text-slate-400"
+                  )}>
+                    #{ticket.id.slice(0, 8)}
                   </span>
                 </div>
-                <span className={cn(
-                  "text-[10px] font-bold",
-                  selectedTicket?.id === ticket.id ? "text-white/60" : "text-slate-400"
+
+                <h3 className={cn(
+                  "text-base font-black tracking-tight mb-1 line-clamp-1",
+                  selectedTicket?.id === ticket.id ? "text-white" : "text-slate-900"
                 )}>
-                  {new Date(ticket.created_at).toLocaleDateString()}
-                </span>
-              </div>
-            </motion.div>
-          ))}
+                  {title}
+                </h3>
+                <p className={cn(
+                  "text-xs font-bold uppercase tracking-widest mb-4",
+                  selectedTicket?.id === ticket.id ? "text-white/70" : "text-slate-400"
+                )}>
+                  ID Cliente: {ticket.client_id}
+                </p>
+
+                <div className="flex items-center justify-between pt-4 border-t border-current/10">
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-2 h-2 rounded-full",
+                      ticket.status === 'open' ? "bg-red-500" :
+                      ticket.status === 'in_progress' ? "bg-orange-500" : "bg-emerald-500"
+                    )} />
+                    <span className={cn(
+                      "text-[10px] font-black uppercase tracking-widest",
+                      selectedTicket?.id === ticket.id ? "text-white" : "text-slate-600"
+                    )}>
+                      {ticket.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <span className={cn(
+                    "text-[10px] font-bold",
+                    selectedTicket?.id === ticket.id ? "text-white/60" : "text-slate-400"
+                  )}>
+                    {new Date(ticket.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+              </motion.div>
+            );
+          })}
 
           {filteredTickets.length === 0 && (
             <div className="bg-white rounded-[2rem] border border-slate-100 p-12 text-center">
@@ -287,11 +284,13 @@ export function AdminTickets() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <h2 className="text-xl font-black text-slate-900 tracking-tight">{selectedTicket.subject}</h2>
+                          <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                            {selectedTicket.subject || selectedTicket.title || `Ticket ${selectedTicket.id}`}
+                          </h2>
                           <span className="text-[10px] font-bold text-slate-400">#{selectedTicket.id}</span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{selectedTicket.company_name}</span>
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">ID Cliente: {selectedTicket.client_id}</span>
                           <span className="text-slate-300">•</span>
                           <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
                             <Clock className="w-3 h-3" /> {new Date(selectedTicket.created_at).toLocaleString()}
@@ -302,7 +301,7 @@ export function AdminTickets() {
                     <div className="flex items-center gap-2">
                       <select 
                         value={selectedTicket.status}
-                        onChange={(e) => handleUpdateStatus(e.target.value as any)}
+                        onChange={(e) => handleUpdateStatus(e.target.value)}
                         className={cn(
                           "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border-none focus:ring-2 transition-all cursor-pointer",
                           selectedTicket.status === 'open' ? "bg-red-50 text-red-600 focus:ring-red-200" :
@@ -338,7 +337,7 @@ export function AdminTickets() {
                     <div className="space-y-6 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
                       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                         <p className="text-sm text-slate-700 leading-relaxed font-medium">
-                          {selectedTicket.description}
+                          {selectedTicket.description || selectedTicket.text || 'Sem descrição disponível.'}
                         </p>
                         <div className="mt-2 flex justify-end">
                           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Descrição Inicial</span>
@@ -432,12 +431,6 @@ export function AdminTickets() {
                             <p className="text-xs font-black text-slate-900">{selectedTicket.client_id}</p>
                           </div>
                         </div>
-                        <button 
-                          onClick={() => window.location.href = `/admin/clients?search=${selectedTicket.client_id}`}
-                          className="w-full py-3 bg-slate-50 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center justify-center gap-2"
-                        >
-                          Ver Ficha Completa <ArrowRight className="w-3 h-3" />
-                        </button>
                       </div>
                     </div>
 

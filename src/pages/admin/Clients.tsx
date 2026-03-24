@@ -38,9 +38,8 @@ interface Client {
   contact_name?: string;
   email: string;
   phone: string;
-  status: 'active' | 'suspended' | 'pending';
+  status: 'active' | 'suspended' | 'pending' | 'trial';
   plan: 'starter' | 'pro' | 'enterprise';
-  environment: 'trial' | 'production';
   trial_start: string | null;
   trial_end: string | null;
   production_activated_at: string | null;
@@ -57,7 +56,7 @@ export function AdminClients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(new URLSearchParams(window.location.search).get('search') || '');
   
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -188,8 +187,6 @@ export function AdminClients() {
   };
 
   const handleProlongTrial = async () => {
-    if (!prolongingClient || processing) return;
-    
     // TODO: Backend endpoint /api/admin/clients/:id/prolong does not exist yet.
     toast.info('Funcionalidade de prolongar trial aguarda implementação no backend.');
     setIsProlongModalOpen(false);
@@ -234,8 +231,8 @@ export function AdminClients() {
   };
 
   const handleSyncInstance = async (id: string) => {
-    // TODO: Backend endpoint /api/admin/instances/sync does not exist yet.
-    toast.info('Sincronização de instância (Admin) aguarda implementação no backend.');
+    // TODO: Backend endpoint /api/admin/clients/:id/sync not confirmed.
+    toast.info('Funcionalidade de sincronizar instância aguarda confirmação do backend.');
   };
 
   const copyToClipboard = (text: string) => {
@@ -247,12 +244,11 @@ export function AdminClients() {
     client.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.client_id.toLowerCase().includes(searchTerm.toLowerCase())
+    (client.client_id || client.id).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getTrialStatus = (client: Client) => {
-    if (client.environment !== 'trial') return null;
-    if (!client.trial_end) return 'unknown';
+    if (!client.trial_end) return null;
     const now = new Date();
     const end = new Date(client.trial_end);
     if (end < now) return 'expired';
@@ -531,6 +527,8 @@ export function AdminClients() {
             <tbody className="divide-y divide-slate-50">
               {filteredClients.map((client) => {
                 const trialStatus = getTrialStatus(client);
+                const isTrial = client.status === 'trial' || client.instance?.is_hub === true;
+                
                 return (
                   <motion.tr 
                     key={client.id}
@@ -542,9 +540,9 @@ export function AdminClients() {
                       <div className="flex items-center gap-4">
                         <div className={cn(
                           "w-12 h-12 rounded-2xl flex items-center justify-center transition-all",
-                          client.environment === 'trial' ? "bg-blue-50 text-blue-500" : "bg-emerald-50 text-emerald-500"
+                          isTrial ? "bg-blue-50 text-blue-500" : "bg-emerald-50 text-emerald-500"
                         )}>
-                          {client.environment === 'trial' ? <Clock className="w-6 h-6" /> : <ShieldCheck className="w-6 h-6" />}
+                          {isTrial ? <Clock className="w-6 h-6" /> : <ShieldCheck className="w-6 h-6" />}
                         </div>
                         <div>
                           <p className="text-sm font-black text-slate-900">{client.company_name}</p>
@@ -565,9 +563,9 @@ export function AdminClients() {
                         <div className="flex items-center gap-2">
                           <span className={cn(
                             "text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md",
-                            client.environment === 'trial' ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
+                            isTrial ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
                           )}>
-                            {client.environment === 'trial' ? 'Trial / Hub' : 'Produção / Dedicada'}
+                            {isTrial ? 'Trial / Hub' : 'Produção / Dedicada'}
                           </span>
                           {client.instance?.is_hub && (
                             <span className="text-[8px] font-black bg-slate-900 text-white px-1.5 py-0.5 rounded uppercase tracking-tighter">Hub</span>
@@ -593,7 +591,7 @@ export function AdminClients() {
                         <span className="text-xs font-black text-slate-900 uppercase tracking-tight flex items-center gap-1">
                           <Zap className="w-3 h-3 text-primary" /> {client.plan}
                         </span>
-                        {client.environment === 'trial' && client.trial_end && (
+                        {client.trial_end && (
                           <div className="flex flex-col">
                             <span className={cn(
                               "text-[10px] font-bold",
@@ -611,7 +609,7 @@ export function AdminClients() {
                             </span>
                           </div>
                         )}
-                        {client.environment === 'production' && client.production_activated_at && (
+                        {client.production_activated_at && (
                           <span className="text-[10px] font-bold text-slate-400">
                             Ativo desde: {new Date(client.production_activated_at).toLocaleDateString()}
                           </span>
@@ -622,17 +620,22 @@ export function AdminClients() {
                       <span className={cn(
                         "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
                         client.status === 'active' ? "bg-emerald-50 text-emerald-600" : 
-                        client.status === 'suspended' ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600"
+                        client.status === 'suspended' ? "bg-red-50 text-red-600" : 
+                        client.status === 'trial' ? "bg-blue-50 text-blue-600" : "bg-orange-50 text-orange-600"
                       )}>
                         {client.status === 'active' ? <CheckCircle2 className="w-3 h-3" /> : 
-                         client.status === 'suspended' ? <XCircle className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                        {client.status === 'active' ? 'Ativo' : client.status === 'suspended' ? 'Suspenso' : 'Pendente'}
+                         client.status === 'suspended' ? <XCircle className="w-3 h-3" /> : 
+                         client.status === 'trial' ? <Clock className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                        {isTrial && client.status !== 'trial' ? 'Trial ' : ''}
+                        {client.status === 'active' ? 'Ativo' : 
+                         client.status === 'suspended' ? 'Suspenso' : 
+                         client.status === 'trial' ? 'Trial' : 'Pendente'}
                       </span>
                     </td>
                     <td className="px-8 py-6 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         {/* Primary Actions */}
-                        {client.environment === 'trial' && (
+                        {isTrial && (
                           <>
                             <button 
                               onClick={() => { setProlongingClient(client); setIsProlongModalOpen(true); }}
@@ -668,7 +671,7 @@ export function AdminClients() {
                         </button>
                         
                         <button 
-                          onClick={() => window.location.href = `/admin/messages?client=${client.client_id}`}
+                          onClick={() => window.location.href = `/admin/messages?client=${client.client_id || client.id}`}
                           className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-primary transition-all shadow-sm"
                           title="Ver Mensagens"
                         >
@@ -676,7 +679,7 @@ export function AdminClients() {
                         </button>
                         
                         <button 
-                          onClick={() => window.location.href = `/admin/tickets?client=${client.client_id}`}
+                          onClick={() => window.location.href = `/admin/tickets?client=${client.client_id || client.id}`}
                           className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-orange-500 transition-all shadow-sm"
                           title="Ver Tickets"
                         >

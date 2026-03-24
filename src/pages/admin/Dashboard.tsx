@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, 
@@ -47,8 +48,6 @@ interface DashboardStats {
   total_messages_24h: number;
   active_instances: number;
   system_health: number;
-  revenue_monthly: number;
-  growth_rate: number;
   messages_chart: { date: string; count: number }[];
   clients_chart: { date: string; count: number }[];
 }
@@ -372,12 +371,18 @@ export function AdminDashboard() {
             <p className="text-xs font-bold text-white/70 uppercase tracking-widest mb-6">Gestão de emergência</p>
             
             <div className="space-y-3">
-              <button className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-left px-4 flex items-center justify-between">
+              <Link 
+                to="/admin/instances"
+                className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-left px-4 flex items-center justify-between"
+              >
                 Verificar Instâncias <ChevronRight className="w-4 h-4" />
-              </button>
-              <button className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-left px-4 flex items-center justify-between">
+              </Link>
+              <Link 
+                to="/admin/logs"
+                className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-left px-4 flex items-center justify-between"
+              >
                 Logs de Erro <ChevronRight className="w-4 h-4" />
-              </button>
+              </Link>
             </div>
           </div>
         </div>

@@ -4,21 +4,18 @@ import {
   MessageSquare, 
   Search, 
   Filter, 
-  Loader2, 
   ArrowRight, 
   Phone, 
   Calendar, 
   Clock,
-  User,
   Smartphone,
   CheckCircle2,
-  ExternalLink,
   X,
   UserCheck,
   Bot,
-  AlertCircle,
   Copy,
-  ChevronRight
+  ChevronRight,
+  Hash
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, extractArrayResponse } from '../../lib/utils';
@@ -28,14 +25,11 @@ import { LoadingState, ErrorState } from '../../components/States';
 interface Message {
   id: string;
   client_id: string;
-  company_name: string;
-  instance_name?: string;
   phone_e164: string;
   text: string;
   direction: 'inbound' | 'outbound';
-  status?: 'sent' | 'delivered' | 'read' | 'failed' | 'pending';
+  instance?: string;
   created_at: string;
-  type: string;
 }
 
 export function AdminMessages() {
@@ -45,28 +39,18 @@ export function AdminMessages() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   
-  const queryParams = new URLSearchParams(window.location.search);
-  const clientIdFilter = queryParams.get('client');
-
-  const { logout } = useAdminAuth();
+  const { logout, fetchWithAuth } = useAdminAuth();
 
   const fetchMessages = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-    const url = clientIdFilter 
-      ? `${baseUrl}/api/admin/messages?client_id=${clientIdFilter}`
-      : `${baseUrl}/api/admin/messages`;
-    
     try {
       setLoading(true);
       setError(null);
       
-      const res = await fetch(url, {
-        credentials: 'include'
-      });
+      const res = await fetchWithAuth('/api/admin/messages');
       
       if (res.ok) {
         const data = await res.json();
-        const messagesData = extractArrayResponse<Message>(data, 'messages');
+        const messagesData = extractArrayResponse<Message>(data);
         setMessages(messagesData);
       } else if (res.status === 401) {
         await logout();
@@ -83,10 +67,10 @@ export function AdminMessages() {
 
   useEffect(() => {
     fetchMessages();
-  }, [clientIdFilter]);
+  }, []);
 
   const filteredMessages = messages.filter(msg => 
-    msg.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    msg.client_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     msg.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
     msg.phone_e164.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -119,25 +103,10 @@ export function AdminMessages() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Fluxo de Mensagens</h1>
-            {clientIdFilter && (
-              <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100">
-                Filtrado por Cliente
-              </span>
-            )}
-          </div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Fluxo de Mensagens</h1>
           <p className="text-slate-500 font-medium">Visualização global de todas as interações em tempo real</p>
         </div>
         <div className="flex items-center gap-3">
-          {clientIdFilter && (
-            <button 
-              onClick={() => window.location.href = '/admin/messages'}
-              className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1"
-            >
-              <X className="w-3 h-3" /> Limpar Filtro
-            </button>
-          )}
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
@@ -175,14 +144,9 @@ export function AdminMessages() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-black text-slate-900 truncate">{msg.company_name}</span>
+                    <span className="text-sm font-black text-slate-900 truncate">Cliente: {msg.client_id}</span>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">•</span>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">{msg.phone_e164}</span>
-                    {msg.instance_name && (
-                      <span className="text-[8px] font-black bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-tighter">
-                        {msg.instance_name}
-                      </span>
-                    )}
                   </div>
                   <p className="text-sm text-slate-600 line-clamp-2 font-medium leading-relaxed">
                     {msg.text}
@@ -203,14 +167,9 @@ export function AdminMessages() {
                       )}>
                         {msg.direction === 'inbound' ? 'Recebida' : 'Enviada'}
                       </span>
-                      {msg.status && (
-                        <span className={cn(
-                          "text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded",
-                          msg.status === 'read' ? "bg-blue-100 text-blue-600" :
-                          msg.status === 'delivered' ? "bg-emerald-100 text-emerald-600" :
-                          msg.status === 'failed' ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-400"
-                        )}>
-                          {msg.status}
+                      {msg.instance && (
+                        <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                          <Hash className="w-3 h-3" /> {msg.instance}
                         </span>
                       )}
                     </div>
@@ -219,13 +178,6 @@ export function AdminMessages() {
               </div>
               
               <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); window.location.href = `/admin/clients?search=${msg.client_id}`; }}
-                  className="p-2.5 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-primary transition-all shadow-sm"
-                  title="Ver Cliente"
-                >
-                  <User className="w-4 h-4" />
-                </button>
                 <button className="p-2.5 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm">
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -264,7 +216,7 @@ export function AdminMessages() {
                   </div>
                   <div>
                     <h3 className="font-black text-slate-900">Detalhe da Mensagem</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedMessage.company_name}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID Cliente: {selectedMessage.client_id}</p>
                   </div>
                 </div>
                 <button onClick={() => setSelectedMessage(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
@@ -286,7 +238,7 @@ export function AdminMessages() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Destinatário/Remetente</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Telefone</p>
                     <p className="text-xs font-bold text-slate-900 font-mono">{selectedMessage.phone_e164}</p>
                   </div>
                   <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
@@ -300,21 +252,15 @@ export function AdminMessages() {
                     <p className="text-xs font-bold text-slate-900 capitalize">{selectedMessage.direction}</p>
                   </div>
                   <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Estado</p>
-                    <p className="text-xs font-bold text-slate-900 capitalize">{selectedMessage.status || 'N/A'}</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Instância</p>
+                    <p className="text-xs font-bold text-slate-900">{selectedMessage.instance || 'N/A'}</p>
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4">
-                  <button 
-                    onClick={() => window.location.href = `/admin/clients?search=${selectedMessage.client_id}`}
-                    className="flex-1 px-6 py-4 border border-slate-200 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
-                  >
-                    <User className="w-4 h-4" /> Ver Cliente
-                  </button>
+                <div className="pt-4">
                   <button 
                     onClick={() => setSelectedMessage(null)}
-                    className="flex-1 bg-slate-900 text-white px-6 py-4 rounded-2xl font-bold text-sm hover:bg-slate-800 transition-all"
+                    className="w-full bg-slate-900 text-white px-6 py-4 rounded-2xl font-bold text-sm hover:bg-slate-800 transition-all"
                   >
                     Fechar
                   </button>
