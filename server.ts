@@ -638,6 +638,115 @@ Responde APENAS neste formato JSON:
     }
   });
 
+
+  app.post("/api/client/dashboard/at-risk-clients/auto-contact", requireClientSession, aiRateLimiter, async (req: any, res) => {
+    const clientId = req.clientId;
+
+    try {
+      const { data: profiles, error } = await supabase
+        .from("client_profiles")
+        .select("id, company_name, contact_name, email, phone_e164, customer_score, customer_type, notes, last_interaction_at")
+        .eq("client_id", clientId)
+        .order("company_name", { ascending: true });
+
+      if (error) throw error;
+
+      const results: any[] = [];
+
+      for (const profile of (profiles || []).slice(0, 10)) {
+        if (!profile.phone_e164) continue;
+
+        const [
+          { data: financialDocs },
+          { data: tickets }
+        ] = await Promise.all([
+          supabase
+            .from("financial_documents")
+            .select("id, status, amount, due_date, document_number")
+            .eq("client_id", clientId)
+            .eq("client_profile_id", profile.id),
+          supabase
+            .from("tickets")
+            .select("id, title, priority, status, kind, tracking_code, created_at")
+            .eq("client_id", clientId)
+            .eq("client_profile_id", profile.id)
+            .order("created_at", { ascending: false })
+        ]);
+
+        const overdueInvoices = (financialDocs || []).filter((d: any) =>
+          ["atrasado", "vencido"].includes(String(d.status || "").toLowerCase())
+        );
+
+        const urgentTickets = (tickets || []).filter((tk: any) =>
+          String(tk.priority || "").toLowerCase() === "urgente"
+        );
+
+        const lowScore = Number(profile.customer_score || 0) <= 4;
+        const riskScore =
+          (overdueInvoices.length * 4) +
+          (urgentTickets.length * 3) +
+          (lowScore ? 2 : 0);
+
+        if (riskScore <= 0) continue;
+
+        const totalDebt = overdueInvoices.reduce((acc: number, d: any) => acc + Number(d.amount || 0), 0);
+
+        const prompt = `És um assistente de relacionamento com clientes.
+Cria uma mensagem curta, educada e profissional em português de Portugal para WhatsApp.
+Objetivo: pedir contacto/regularização sem soar agressivo.
+
+Cliente:
+- Empresa: ${profile.company_name}
+- Contacto: ${profile.contact_name || ""}
+- Score: ${profile.customer_score ?? 0}/10
+- Faturas em atraso: ${overdueInvoices.length}
+- Dívida total: ${totalDebt}
+- Tickets urgentes: ${urgentTickets.length}
+
+Responde APENAS em JSON válido:
+{
+  "contact_message": "..."
+}`;
+
+        const completion = await groq.chat.completions.create({
+          messages: [
+            {
+              role: "system",
+              content: "És um assistente de CRM e cobrança amigável. Responde sempre em JSON e em português de Portugal."
+            },
+            { role: "user", content: prompt }
+          ],
+          model: "llama-3.3-70b-versatile",
+          response_format: { type: "json_object" }
+        });
+
+        const analysis = JSON.parse(completion.choices[0]?.message?.content || "{}");
+        const text = analysis?.contact_message;
+
+        if (!text) continue;
+
+        await sendWhatsAppNotification(clientId, profile.phone_e164, text);
+
+        results.push({
+          id: profile.id,
+          company_name: profile.company_name,
+          phone_e164: profile.phone_e164,
+          risk_score: riskScore,
+          sent: true
+        });
+      }
+
+      res.json({
+        ok: true,
+        total_sent: results.length,
+        results
+      });
+    } catch (err: any) {
+      console.error("[AUTO CONTACT AT RISK CLIENTS ERROR]:", err);
+      res.status(500).json({ ok: false, error: err.message || "Falha no contacto automático." });
+    }
+  });
+
   // Client Tickets
   app.get("/api/client/tickets", requireClientSession, requirePermission('tickets', 'view'), async (req: any, res) => {
     const { data: tickets } = await supabase.from("tickets").select("*, client_profiles(company_name)").eq("client_id", req.clientId).order("created_at", { ascending: false });
@@ -978,6 +1087,21 @@ Responde APENAS neste formato JSON:
       res.json({ ok: true, messages });
     } catch (err: any) {
       res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+
+  app.post("/api/client/whatsapp/send", requireClientSession, requirePermission('whatsapp', 'view'), async (req: any, res) => {
+    try {
+      const { phone, text } = req.body || {};
+      if (!phone || !text) {
+        return res.status(400).json({ ok: false, error: "Telefone e mensagem são obrigatórios." });
+      }
+
+      await sendWhatsAppNotification(req.clientId, phone, text);
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message || "Falha ao enviar mensagem WhatsApp." });
     }
   });
 

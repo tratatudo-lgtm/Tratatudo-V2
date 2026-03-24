@@ -103,6 +103,7 @@ export function Dashboard() {
   const [atRiskClients, setAtRiskClients] = useState<any[]>([]);
   const [clientAI, setClientAI] = useState<Record<string, any>>({});
   const fetchClientAI = async (clientId: string | number) => {
+  const [autoContacting, setAutoContacting] = useState(false);
     try {
       setLoadingClientAI(prev => ({ ...prev, [clientId]: true }));
       const response = await apiFetch(`/api/client/dashboard/at-risk-clients/${clientId}/ai`);
@@ -118,6 +119,36 @@ export function Dashboard() {
   };
 
   const [loadingClientAI, setLoadingClientAI] = useState<Record<string, boolean>>({});
+  const sendClientWhatsApp = async (client: any) => {
+  const autoContactAtRiskClients = async () => {
+    try {
+      setAutoContacting(true);
+      const result = await apiPost("/api/client/dashboard/at-risk-clients/auto-contact", {});
+      alert(`Contacto automático concluído: ${result?.total_sent ?? 0} cliente(s) contactado(s).`);
+    } catch (err) {
+      console.error("[APP] Auto contact failed:", err);
+      alert("Erro no contacto automático.");
+    } finally {
+      setAutoContacting(false);
+    }
+  };
+
+    try {
+      const msg = clientAI[client.id]?.contact_message;
+      if (!msg || !client.phone_e164) return;
+
+      await apiPost("/api/client/whatsapp/send", {
+        phone: client.phone_e164,
+        text: msg
+      });
+
+      alert("Mensagem enviada com sucesso 🚀");
+    } catch (err) {
+      console.error("[APP] WhatsApp send failed:", err);
+      alert("Erro ao enviar mensagem");
+    }
+  };
+
 
   const fetchAIInsights = async () => {
     try {
@@ -531,7 +562,15 @@ export function Dashboard() {
             <select className="text-xs bg-slate-50 border-none rounded-lg px-2 py-1 outline-none font-bold text-slate-500">
               <option>Últimos 30 dias</option>
             </select>
-          </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-widest text-rose-500">{atRiskClients.length} sinalizado(s)</span>
+                  <button
+                    onClick={autoContactAtRiskClients}
+                    className="px-3 py-1.5 rounded-lg bg-rose-500 text-white text-[10px] font-black uppercase tracking-wider hover:bg-rose-600 transition-colors"
+                  >
+                    {autoContacting ? "A contactar..." : "Contactar clientes em risco"}
+                  </button>
+                </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data?.charts?.daily || []}>
@@ -567,23 +606,41 @@ export function Dashboard() {
                   fill="url(#colorTickets)" 
                 />
                 <Area 
-                  type="monotone" 
-                  dataKey="complaints" 
-                  name="Reclamações"
-                  stroke="#ef4444" 
-                  strokeWidth={2}
-                  fill="transparent"
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-rose-500" />
-                <h3 className="font-bold text-slate-900">Clientes em risco</h3>
-              </div>
-              <span className="text-xs font-black uppercase tracking-widest text-rose-500">{atRiskClients.length} sinalizado(s)</span>
-            </div>
-            <div className="divide-y divide-slate-50">
-                {atRiskClients.length > 0 ? atRiskClients.map((client, i) => (
-                  <div key={client.id || i} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => fetchClientAI(client.id)}
+                            className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-wider hover:bg-blue-100 transition-colors"
+                          >
+                            {loadingClientAI[client.id] ? "A gerar..." : "Gerar IA"}
+                          </button>
+
+                          {clientAI[client.id]?.contact_message && (
+                            <button
+                              onClick={() => sendClientWhatsApp(client)}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider hover:bg-emerald-600 transition-colors"
+                            >
+                              Enviar IA
+                            </button>
+                          )}
+
+                          <Link
+                            to={`/app/clients/${client.id}`}
+                            className="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-slate-800 transition-colors"
+                          >
+                            Abrir cliente
+                          </Link>
+
+                          {client.phone_e164 && (
+                            <a
+                              href={`https://wa.me/${String(client.phone_e164).replace(/\D/g, "")}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-colors"
+                            >
+                              WhatsApp
+                            </a>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => fetchClientAI(client.id)}
