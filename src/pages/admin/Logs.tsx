@@ -43,74 +43,28 @@ export function AdminLogs() {
   useEffect(() => {
     const fetchLogs = async () => {
       const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-      const endpoints = [
-        `${baseUrl}/api/admin/logs`,
-        `${baseUrl}/api/logs`
-      ];
-      
-      let lastError = null;
+      const url = `${baseUrl}/api/admin/logs`;
       
       try {
         setLoading(true);
         setError(null);
         
-        for (const url of endpoints) {
-          console.log(`[ADMIN] Fetching logs: ${url}`);
-          try {
-            const response = await fetch(url, {
-              credentials: 'include'
-            });
-            
-            if (response.ok) {
-              const data = await response.json();
-              const logsData = extractArrayResponse<SystemLog>(data, 'logs');
-              setLogs(logsData);
-              setLoading(false);
-              return;
-            } else if (response.status === 401) {
-              console.warn('[ADMIN] Session expired, logging out...');
-              await logout();
-              return;
-            }
-          } catch (e) {
-            lastError = e;
-          }
+        const response = await fetch(url, {
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const logsData = extractArrayResponse<SystemLog>(data, 'logs');
+          setLogs(logsData);
+        } else if (response.status === 401) {
+          await logout();
+        } else {
+          throw new Error('Falha ao carregar logs do sistema');
         }
-        
-        throw lastError || new Error('Falha ao carregar logs do sistema');
-        
       } catch (err: any) {
         console.error('[ADMIN] Fetch logs failed:', err);
         setError(err.message || 'Não foi possível carregar os logs.');
-        
-        // Professional fallback for demo/development
-        if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
-          console.log('[ADMIN] Using fallback logs data');
-          setLogs([
-            {
-              id: '1',
-              level: 'info',
-              source: 'system',
-              message: 'Sistema iniciado com sucesso.',
-              created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString()
-            },
-            {
-              id: '2',
-              level: 'error',
-              source: 'auth',
-              message: 'Falha na autenticação para o utilizador admin@tratatudo.pt.',
-              created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString()
-            },
-            {
-              id: '3',
-              level: 'warning',
-              source: 'whatsapp',
-              message: 'Instância TT-MARIA desconectada inesperadamente.',
-              created_at: new Date(Date.now() - 15 * 60 * 1000).toISOString()
-            }
-          ]);
-          setError(null);
-        }
       } finally {
         setLoading(false);
       }

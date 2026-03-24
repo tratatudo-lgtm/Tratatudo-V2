@@ -59,75 +59,28 @@ export function AdminInstances() {
 
   const fetchInstances = async () => {
     const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-    const endpoints = [
-      `${baseUrl}/api/admin/instances`,
-      `${baseUrl}/api/instances`
-    ];
-    
-    let lastError = null;
+    const url = `${baseUrl}/api/admin/instances`;
     
     try {
       setLoading(true);
       setError(null);
       
-      for (const url of endpoints) {
-        console.log(`[ADMIN] Fetching instances: ${url}`);
-        try {
-          const res = await fetch(url, {
-            credentials: 'include'
-          });
-          
-          if (res.ok) {
-            const data = await res.json();
-            const instancesData = extractArrayResponse<Instance>(data, 'instances');
-            setInstances(instancesData);
-            setLoading(false);
-            return;
-          } else if (res.status === 401) {
-            console.warn('[ADMIN] Session expired, logging out...');
-            await logout();
-            return;
-          }
-        } catch (e) {
-          lastError = e;
-        }
+      const res = await fetch(url, {
+        credentials: 'include'
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        const instancesData = extractArrayResponse<Instance>(data, 'instances');
+        setInstances(instancesData);
+      } else if (res.status === 401) {
+        await logout();
+      } else {
+        throw new Error('Falha ao carregar instâncias WhatsApp');
       }
-      
-      throw lastError || new Error('Falha ao carregar instâncias WhatsApp');
-      
     } catch (err: any) {
       console.error('[ADMIN] Fetch instances failed:', err);
       setError(err.message || 'Não foi possível carregar as instâncias.');
-      
-      // Professional fallback for demo/development
-      if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
-        console.log('[ADMIN] Using fallback instances data');
-        setInstances([
-          {
-            id: '1',
-            client_id: '1',
-            company_name: 'João Silva Lda',
-            instance_name: 'TT-JOAO',
-            status: 'online',
-            whatsapp_number: '+351912345678',
-            last_connected: new Date().toISOString(),
-            is_hub: true,
-            updated_at: new Date().toISOString()
-          },
-          {
-            id: '2',
-            client_id: '2',
-            company_name: 'Maria Santos Unipessoal',
-            instance_name: 'TT-MARIA',
-            status: 'offline',
-            whatsapp_number: '+351919876543',
-            last_connected: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-            is_hub: false,
-            updated_at: new Date().toISOString()
-          }
-        ]);
-        setError(null);
-      }
     } finally {
       setLoading(false);
     }
@@ -183,54 +136,13 @@ export function AdminInstances() {
       return;
     }
 
-    setIsCreating(true);
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/instances/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: selectedClientId }),
-        credentials: 'include'
-      });
-
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Erro ao criar instância');
-
-      toast.success('Instância criada com sucesso!');
-      
-      // Now fetch QR Code
-      handleFetchQrCode(result.instance.instance_name);
-      fetchInstances();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar instância');
-    } finally {
-      setIsCreating(false);
-    }
+    // TODO: Backend endpoint /api/admin/instances/create does not exist yet.
+    toast.info('Criação de instância (Admin) aguarda implementação no backend.');
   };
 
   const handleFetchQrCode = async (instanceName: string) => {
-    setIsFetchingQr(true);
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/instances/qrcode/${instanceName}`, {
-        credentials: 'include'
-      });
-      const result = await response.json();
-      
-      if (!response.ok) throw new Error(result.error || 'Erro ao obter QR Code');
-
-      // Evolution API usually returns base64 in result.base64 or similar
-      if (result.base64) {
-        setQrCode(result.base64);
-      } else if (result.code) {
-        // If it returns a code, we might need to generate QR on frontend or it's already a base64
-        setQrCode(result.code);
-      } else {
-        toast.error('QR Code não disponível de momento. Tente novamente em instantes.');
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao obter QR Code');
-    } finally {
-      setIsFetchingQr(false);
-    }
+    // TODO: Backend endpoint /api/admin/instances/qrcode/:instanceName does not exist yet.
+    toast.info('Geração de QR Code (Admin) aguarda implementação no backend.');
   };
 
   const filteredInstances = instances.filter(inst => 

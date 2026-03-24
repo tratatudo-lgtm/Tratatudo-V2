@@ -8,8 +8,6 @@ interface User {
   client_id: string;
   company_name: string;
   role: UserRole;
-  plan?: 'starter' | 'pro' | 'enterprise';
-  features?: Record<string, boolean>;
   finePermissions?: { module: string; actions: string[] }[];
 }
 
@@ -31,11 +29,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const can = useCallback((module: PermissionModule, action: PermissionAction): boolean => {
     if (!user) return false;
 
+    // 1. Check fine-grained permissions first
     const finePerm = user.finePermissions?.find(p => p.module === module);
     if (finePerm && finePerm.actions.includes(action)) {
       return true;
     }
 
+    // 2. Fallback to role-based permissions
     const permissions = ROLE_PERMISSIONS[user.role];
     if (!permissions) return false;
     const modulePermissions = permissions[module];
@@ -45,30 +45,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshSession = useCallback(async () => {
     const url = `${import.meta.env.VITE_API_URL}/api/auth/session`;
-
+    
     try {
       const response = await fetch(url, {
         method: 'GET',
         credentials: 'include'
       });
-
+      
       if (response.ok) {
         const data = await response.json();
         if (data.authenticated) {
-          setUser({
+          setUser({ 
             id: data.userId,
             phone_e164: data.phone_e164,
             client_id: data.id,
             company_name: data.company_name,
             role: data.role || 'visualizador',
-            plan: data.plan || 'starter',
-            features: data.features || {},
             finePermissions: data.finePermissions || []
           });
           return true;
         }
       }
-
       setUser(null);
       return false;
     } catch (error) {
@@ -86,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, { 
         method: 'POST',
         credentials: 'include'
       });
@@ -97,12 +94,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        loading,
-        signOut,
+    <AuthContext.Provider 
+      value={{ 
+        user, 
+        isAuthenticated: !!user, 
+        loading, 
+        signOut, 
         refreshSession,
         can
       }}

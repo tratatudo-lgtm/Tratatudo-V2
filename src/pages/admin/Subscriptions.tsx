@@ -42,73 +42,28 @@ export function AdminSubscriptions() {
 
   const fetchSubscriptions = async () => {
     const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-    const endpoints = [
-      `${baseUrl}/api/admin/subscriptions`,
-      `${baseUrl}/api/subscriptions`
-    ];
-    
-    let lastError = null;
+    const url = `${baseUrl}/api/admin/subscriptions`;
     
     try {
       setLoading(true);
       setError(null);
       
-      for (const url of endpoints) {
-        console.log(`[ADMIN] Fetching subscriptions: ${url}`);
-        try {
-          const res = await fetch(url, {
-            credentials: 'include'
-          });
-          
-          if (res.ok) {
-            const data = await res.json();
-            const subsData = extractArrayResponse<Subscription>(data, 'subscriptions');
-            setSubscriptions(subsData);
-            setLoading(false);
-            return;
-          } else if (res.status === 401) {
-            console.warn('[ADMIN] Session expired, logging out...');
-            await logout();
-            return;
-          }
-        } catch (e) {
-          lastError = e;
-        }
+      const res = await fetch(url, {
+        credentials: 'include'
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        const subsData = extractArrayResponse<Subscription>(data, 'subscriptions');
+        setSubscriptions(subsData);
+      } else if (res.status === 401) {
+        await logout();
+      } else {
+        throw new Error('Falha ao carregar subscrições');
       }
-      
-      throw lastError || new Error('Falha ao carregar subscrições');
-      
     } catch (err: any) {
       console.error('[ADMIN] Fetch subscriptions failed:', err);
       setError(err.message || 'Não foi possível carregar as subscrições.');
-      
-      // Professional fallback for demo/development
-      if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
-        console.log('[ADMIN] Using fallback subscriptions data');
-        setSubscriptions([
-          {
-            id: '1',
-            client_id: 'C-1001',
-            company_name: 'João Silva Lda',
-            plan: 'Pro',
-            status: 'active',
-            amount: 49.90,
-            next_billing: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString(),
-            created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: '2',
-            client_id: 'C-1002',
-            company_name: 'Maria Santos Unipessoal',
-            plan: 'Trial',
-            status: 'active',
-            amount: 0,
-            next_billing: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-            created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-          }
-        ]);
-        setError(null);
-      }
     } finally {
       setLoading(false);
     }

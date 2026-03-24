@@ -223,9 +223,9 @@ const Tickets: React.FC = () => {
               options={[
                 { label: 'Todos', value: 'all' },
                 { label: 'Aberto', value: 'aberto' },
-                { label: 'Em Tratamento', value: 'em tratamento' },
+                { label: 'Em Análise', value: 'em análise' },
                 { label: 'Em Execução', value: 'em execução' },
-                { label: 'Resolvido', value: 'resolvido' },
+                { label: 'Concluído', value: 'concluído' },
                 { label: 'Cancelado', value: 'cancelado' }
               ]}
               onChange={setStatusFilter}
