@@ -329,9 +329,9 @@ export function TicketBase({ area }: { area: OperationalArea }) {
     const category = (t.category || '').toLowerCase();
 
     const matchesStatus = filter === 'Todos' || 
-                         (filter === 'Em aberto' && ['novo', 'nova', 'novo lead', 'aberto'].includes(status)) ||
-                         (filter === 'Em análise' && ['em análise', 'em investigação', 'contactado'].includes(status)) ||
-                         (filter === 'Resolvidos' && ['concluído', 'resolvida', 'fechado ganho'].includes(status)) ||
+                           (filter === 'Em aberto' && ['novo', 'nova', 'novo lead', 'aberto'].includes(status)) ||
+                           (filter === 'Em análise' && ['em análise', 'em tratamento', 'em investigação', 'contactado'].includes(status)) ||
+                           (filter === 'Resolvidos' && ['concluído', 'resolvida', 'resolvido', 'encerrada', 'encerrado', 'fechado ganho'].includes(status)) ||
                          t.status === filter;
 
     const matchesCategory = categoryFilter === 'Todas' || category === categoryFilter.toLowerCase();
@@ -559,8 +559,8 @@ export function TicketBase({ area }: { area: OperationalArea }) {
                 {can('tickets', 'edit') && (
                   <button 
                     onClick={() => handleUpdateStatus(selectedRequest.id, 
-                      area === 'requests' ? 'concluído' : 
-                      area === 'complaints' ? 'resolvida' : 
+                        area === 'requests' ? 'resolvido' :
+                        area === 'complaints' ? 'resolvido' :
                       'fechado ganho'
                     )} 
                     className={cn("flex-1 py-3 text-white rounded-xl font-bold text-sm shadow-lg", AREA_CONFIG[area].bgMain)}

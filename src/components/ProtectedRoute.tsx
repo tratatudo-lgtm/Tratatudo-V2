@@ -1,52 +1,31 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth/AuthContext';
-import { PermissionModule, PermissionAction } from '../types/hub';
-import { ShieldAlert } from 'lucide-react';
+import { usePermissions } from '../lib/usePermissions';
+import type { PermissionModule } from '../types/hub';
 
-interface ProtectedRouteProps {
+interface Props {
   children: React.ReactNode;
   module?: PermissionModule;
-  action?: PermissionAction;
+  feature?: string;
 }
 
-export function ProtectedRoute({ children, module, action = 'view' }: ProtectedRouteProps) {
-  const { user, can, loading } = useAuth();
-  const location = useLocation();
+export function ProtectedRoute({ children, module, feature }: Props) {
+  const { user, loading } = useAuth();
+  const { canSee } = usePermissions();
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  if (loading) return null;
 
   if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" replace />;
   }
 
-  if (module && !can(module, action)) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
-        <div className="bg-red-50 p-4 rounded-full mb-6">
-          <ShieldAlert className="w-12 h-12 text-red-600" />
-        </div>
-        <h1 className="text-2xl font-display font-bold text-slate-900 mb-2">
-          Acesso Negado
-        </h1>
-        <p className="text-slate-600 max-w-md mb-8">
-          Não tem permissões suficientes para aceder a este módulo ({module}). 
-          Por favor, contacte o administrador do sistema se acredita que isto é um erro.
-        </p>
-        <button 
-          onClick={() => window.history.back()}
-          className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 transition-colors"
-        >
-          Voltar
-        </button>
-      </div>
-    );
+  if (module && !canSee(module)) {
+    return <Navigate to="/app/billing" replace />;
+  }
+
+  if (feature && user.features && user.features[feature] === false) {
+    return <Navigate to="/app/billing" replace />;
   }
 
   return <>{children}</>;

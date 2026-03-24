@@ -459,7 +459,7 @@ export const AREA_CONFIG: Record<string, {
     borderLight: 'border-blue-100',
     textMain: 'text-blue-600',
     shadowMain: 'shadow-blue-200',
-    statuses: ['novo', 'em análise', 'a aguardar cliente', 'em execução', 'concluído', 'cancelado']
+    statuses: ['novo', 'em tratamento', 'a aguardar cliente', 'resolvido', 'encerrado']
   },
   complaints: {
     label: 'Reclamações',
@@ -469,7 +469,7 @@ export const AREA_CONFIG: Record<string, {
     borderLight: 'border-red-100',
     textMain: 'text-red-600',
     shadowMain: 'shadow-red-200',
-    statuses: ['nova', 'em investigação', 'a aguardar resposta', 'resolvida', 'encerrada']
+    statuses: ['novo', 'em tratamento', 'a aguardar cliente', 'resolvido', 'encerrado']
   },
   sales: {
     label: 'Vendas',
@@ -489,7 +489,7 @@ export const AREA_CONFIG: Record<string, {
     borderLight: 'border-slate-100',
     textMain: 'text-slate-600',
     shadowMain: 'shadow-slate-200',
-    statuses: ['aberto', 'em análise', 'a aguardar cliente', 'concluído', 'cancelado']
+    statuses: ['novo', 'em tratamento', 'a aguardar cliente', 'resolvido', 'encerrado']
   },
   clientes: {
     label: 'Clientes',

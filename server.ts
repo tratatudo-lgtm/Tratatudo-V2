@@ -42,6 +42,7 @@ const EVO_KEY = process.env.EVO_KEY || "";
 
 async function startServer() {
   const app = express();
+  app.set('trust proxy', 1);
   const PORT = Number(process.env.PORT || 3002);
 
   app.use(cors({
@@ -303,18 +304,113 @@ async function startServer() {
   });
 
   app.get("/api/auth/session", async (req, res) => {
-    const token = req.cookies.hub_session;
-    if (!token) return res.json({ ok: true, authenticated: false });
-    try {
-      const decoded: any = jwt.verify(token, JWT_SECRET);
-      const { data: client } = await supabase.from("clients").select("id, company_name, phone_e164").eq("id", decoded.clientId).single();
-      if (!client) throw new Error();
-      res.json({ ok: true, authenticated: true, ...client, role: decoded.role, userId: decoded.userId });
-    } catch {
-      res.clearCookie("hub_session");
-      res.json({ ok: true, authenticated: false });
-    }
-  });
+      const token = req.cookies.hub_session;
+      if (!token) return res.json({ ok: true, authenticated: false });
+
+      try {
+        const decoded: any = jwt.verify(token, JWT_SECRET);
+
+        const { data: client } = await supabase
+          .from("clients")
+          .select("id, company_name, phone_e164, status")
+          .eq("id", decoded.clientId)
+          .single();
+
+        if (!client) throw new Error();
+
+        const { data: subscription } = await supabase
+          .from("subscriptions")
+          .select("plan, plan_name, status, updated_at")
+          .eq("client_id", decoded.clientId)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const rawPlan = String(subscription?.plan || subscription?.plan_name || client.status || "starter").toLowerCase();
+
+        const normalizedPlan =
+          rawPlan === "enterprise" ? "enterprise" :
+          rawPlan === "pro" ? "pro" :
+          rawPlan === "trial" ? "starter" :
+          "starter";
+
+        const PLAN_FEATURES: Record<string, any> = {
+          starter: {
+            dashboard: false,
+            whatsapp: true,
+            tickets: true,
+            clients: true,
+            calendar: false,
+            tasks: false,
+            documents: false,
+            emails: false,
+            automations: false,
+            financial: false,
+            team: false,
+            billing: true,
+            settings: true,
+            reports: false,
+            ai: false,
+            activity: false,
+            system_health: false,
+            instance: false
+          },
+          pro: {
+            dashboard: true,
+            whatsapp: true,
+            tickets: true,
+            clients: true,
+            calendar: true,
+            tasks: true,
+            documents: true,
+            emails: true,
+            automations: true,
+            financial: false,
+            team: false,
+            billing: true,
+            settings: true,
+            reports: false,
+            ai: true,
+            activity: false,
+            system_health: false,
+            instance: true
+          },
+          enterprise: {
+            dashboard: true,
+            whatsapp: true,
+            tickets: true,
+            clients: true,
+            calendar: true,
+            tasks: true,
+            documents: true,
+            emails: true,
+            automations: true,
+            financial: true,
+            team: true,
+            billing: true,
+            settings: true,
+            reports: true,
+            ai: true,
+            activity: true,
+            system_health: true,
+            instance: true
+          }
+        };
+
+        res.json({
+          ok: true,
+          authenticated: true,
+          ...client,
+          role: decoded.role,
+          userId: decoded.userId,
+          plan: normalizedPlan,
+          features: PLAN_FEATURES[normalizedPlan] || PLAN_FEATURES.starter
+        });
+      } catch {
+        res.clearCookie("hub_session");
+        res.json({ ok: true, authenticated: false });
+      }
+    });
 
   app.post("/api/auth/logout", (req, res) => {
     res.clearCookie("hub_session", { httpOnly: true, secure: true, sameSite: "none", path: "/" });
@@ -529,10 +625,14 @@ async function startServer() {
   });
 
   // Client Tickets
-  app.get("/api/client/tickets", requireClientSession, requirePermission('tickets', 'view'), async (req: any, res) => {
-    const { data: tickets } = await supabase.from("tickets").select("*, client_profiles(company_name)").eq("client_id", req.clientId).order("created_at", { ascending: false });
-    res.json({ ok: true, tickets: tickets?.map(t => ({ ...t, client_name: (t.client_profiles as any)?.company_name })) });
-  });
+    app.get("/api/client/tickets", requireClientSession, requirePermission('tickets', 'view'), async (req: any, res) => {
+      const { kind } = req.query;
+      let query = supabase.from("tickets").select("*, client_profiles(company_name)").eq("client_id", req.clientId).order("created_at", { ascending: false });
+      if (kind) query = query.eq("kind", String(kind));
+      const { data: tickets, error } = await query;
+      if (error) return res.status(500).json({ ok: false, error: error.message });
+      res.json({ ok: true, tickets: tickets?.map(t => ({ ...t, client_name: (t.client_profiles as any)?.company_name })) });
+    });
 
   // Client CRM (Profiles)
   app.get("/api/client/profiles", requireClientSession, requirePermission('clients', 'view'), async (req: any, res) => {
@@ -822,7 +922,7 @@ async function startServer() {
       
       const [ { data: profiles }, { data: tickets } ] = await Promise.all([
         supabase.from("client_profiles").select("id, company_name, contact_name, phone_e164").eq("client_id", req.clientId).in("phone_e164", phones),
-        supabase.from("tickets").select("id, tracking_code, status, phone_e164").eq("client_id", req.clientId).in("phone_e164", phones).neq("status", "concluído")
+        supabase.from("tickets").select("id, tracking_code, status, phone_e164").eq("client_id", req.clientId).in("phone_e164", phones).not("status", "in", "(concluído,resolvido,resolvida,encerrado,encerrada)")
       ]);
 
       conversations = conversations.map(c => {
@@ -894,7 +994,7 @@ async function startServer() {
         supabase.from("wa_messages").select("phone_e164", { count: 'exact', head: true }).eq("client_id", req.clientId),
         supabase.from("wa_messages").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId).gte("created_at", today.toISOString()),
         supabase.from("client_instances").select("status").eq("client_id", req.clientId),
-        supabase.from("tickets").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId).neq("status", "concluído").not("phone_e164", "is", null)
+        supabase.from("tickets").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId).not("status", "in", "(concluído,resolvido,resolvida,encerrado,encerrada)").not("phone_e164", "is", null)
       ]);
 
       // Note: totalConversations count is tricky with head: true and grouping. 
@@ -1015,9 +1115,9 @@ async function startServer() {
 
       const stats = {
         total: tickets?.length || 0,
-        open: tickets?.filter(t => t.status === 'aberto' || t.status === 'novo' || t.status === 'nova').length || 0,
-        in_progress: tickets?.filter(t => ['em análise', 'em investigação', 'em execução', 'a aguardar cliente', 'a aguardar resposta'].includes(t.status)).length || 0,
-        completed: tickets?.filter(t => ['concluído', 'resolvida', 'encerrada', 'resolvido'].includes(t.status)).length || 0,
+        open: tickets?.filter(t => ['aberto', 'novo', 'nova'].includes(t.status)).length || 0,
+        in_progress: tickets?.filter(t => ['em análise', 'em tratamento', 'em investigação', 'em execução', 'a aguardar cliente', 'a aguardar resposta'].includes(t.status)).length || 0,
+        completed: tickets?.filter(t => ['concluído', 'resolvida', 'resolvido', 'encerrada', 'encerrado'].includes(t.status)).length || 0,
         urgent: tickets?.filter(t => t.priority === 'urgente').length || 0
       };
 
@@ -1225,6 +1325,501 @@ async function startServer() {
   });
 
   // Admin Billing (SaaS Operation)
+
+  app.get("/api/admin/dashboard/stats", requireAdminSession, async (req: any, res) => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const [
+        { count: totalClients },
+        { count: trialClients },
+        { count: activeClients },
+        { count: totalSubscriptions },
+        { count: activeSubscriptions },
+        { count: totalInstances },
+        { count: onlineInstances },
+        { count: totalMessages },
+        { count: messagesToday },
+        { count: totalTickets },
+        { count: openTickets }
+      ] = await Promise.all([
+        supabase.from("clients").select("id", { count: "exact", head: true }),
+        supabase.from("clients").select("id", { count: "exact", head: true }).eq("status", "trial"),
+        supabase.from("clients").select("id", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("subscriptions").select("id", { count: "exact", head: true }),
+        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("client_instances").select("id", { count: "exact", head: true }),
+        supabase.from("client_instances").select("id", { count: "exact", head: true }).eq("status", "online"),
+        supabase.from("wa_messages").select("id", { count: "exact", head: true }),
+        supabase.from("wa_messages").select("id", { count: "exact", head: true }).gte("created_at", today.toISOString()),
+        supabase.from("tickets").select("id", { count: "exact", head: true }),
+        supabase.from("tickets").select("id", { count: "exact", head: true }).not("status", "in", "(concluído,resolvido,resolvida,encerrado,encerrada)")
+      ]);
+
+      res.json({
+        ok: true,
+        stats: {
+          totalClients: totalClients || 0,
+          trialClients: trialClients || 0,
+          activeClients: activeClients || 0,
+          totalSubscriptions: totalSubscriptions || 0,
+          activeSubscriptions: activeSubscriptions || 0,
+          totalInstances: totalInstances || 0,
+          onlineInstances: onlineInstances || 0,
+          totalMessages: totalMessages || 0,
+          messagesToday: messagesToday || 0,
+          totalTickets: totalTickets || 0,
+          openTickets: openTickets || 0
+        }
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/alerts", requireAdminSession, async (req: any, res) => {
+    try {
+      const alerts: any[] = [];
+
+      const in7days = new Date();
+      in7days.setDate(in7days.getDate() + 7);
+
+      const { data: expiringSubs } = await supabase
+        .from("subscriptions")
+        .select("id, client_id, status, ends_at")
+        .lte("ends_at", in7days.toISOString())
+        .order("ends_at", { ascending: true })
+        .limit(10);
+
+      for (const sub of expiringSubs || []) {
+        alerts.push({
+          type: "subscription",
+          severity: "warning",
+          title: "Subscrição a expirar",
+          description: `Cliente #${sub.client_id} com subscrição a expirar em breve.`,
+          created_at: sub.ends_at
+        });
+      }
+
+      const { data: offlineInstances } = await supabase
+        .from("client_instances")
+        .select("id, client_id, instance_name, status, updated_at")
+        .neq("status", "online")
+        .order("updated_at", { ascending: false })
+        .limit(10);
+
+      for (const inst of offlineInstances || []) {
+        alerts.push({
+          type: "instance",
+          severity: "error",
+          title: "Instância offline",
+          description: `${inst.instance_name || "Instância"} do cliente #${inst.client_id} está offline.`,
+          created_at: inst.updated_at
+        });
+      }
+
+      res.json({ ok: true, alerts });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/clients", requireAdminSession, async (req: any, res) => {
+    try {
+      const { status, plan } = req.query;
+
+      let query = supabase
+        .from("clients")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (status) query = query.eq("status", String(status));
+
+      const { data: clients, error } = await query;
+      if (error) throw error;
+
+      const clientIds = (clients || []).map((c: any) => c.id);
+
+      let subscriptions: any[] = [];
+      let instances: any[] = [];
+
+      if (clientIds.length > 0) {
+        const { data: subs } = await supabase
+          .from("subscriptions")
+          .select("*")
+          .in("client_id", clientIds)
+          .order("updated_at", { ascending: false });
+
+        const { data: insts } = await supabase
+          .from("client_instances")
+          .select("*")
+          .in("client_id", clientIds)
+          .order("created_at", { ascending: false });
+
+        subscriptions = subs || [];
+        instances = insts || [];
+      }
+
+        const mapped = (clients || [])
+          .map((client: any) => {
+            const subscription = subscriptions.find((s: any) => s.client_id === client.id) || null;
+            const instance = instances.find((i: any) => i.client_id === client.id) || null;
+
+            const planValue = String(
+              subscription?.plan ||
+              subscription?.plan_name ||
+              client.plan ||
+              (client.status === "trial" ? "starter" : "starter")
+            ).toLowerCase();
+
+            return {
+              ...client,
+              plan: planValue,
+              phone: client.phone_e164 || client.phone || "",
+              subscription,
+              instance
+            };
+          });
+
+      const filtered = plan
+        ? mapped.filter((client: any) => String(client.plan || "").toLowerCase() === String(plan).toLowerCase())
+        : mapped;
+
+      res.json({ ok: true, clients: filtered });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/admin/clients/trial", requireAdminSession, async (req: any, res) => {
+    try {
+      const {
+        phone_e164,
+        company_name,
+        contact_name,
+        email,
+        bot_instructions,
+        plan
+      } = req.body;
+
+      if (!phone_e164 || !company_name) {
+        return res.status(400).json({ ok: false, error: "Telefone e nome da empresa são obrigatórios." });
+      }
+
+      const now = new Date();
+      const trialEnd = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
+      const normalizedPlan = String(plan || "starter").toLowerCase();
+
+      const { data: client, error: clientError } = await supabase
+        .from("clients")
+        .insert({
+          phone_e164,
+          company_name,
+          contact_name: contact_name || null,
+          email: email || null,
+          bot_instructions: bot_instructions || null,
+          status: "trial",
+          plan: normalizedPlan,
+          trial_start: now.toISOString(),
+          trial_end: trialEnd,
+          created_at: now.toISOString(),
+          updated_at: now.toISOString()
+        })
+        .select()
+        .single();
+
+      if (clientError || !client) throw clientError || new Error("Falha ao criar cliente.");
+
+      await supabase.from("subscriptions").upsert({
+        client_id: client.id,
+        plan: normalizedPlan,
+        plan_name: normalizedPlan,
+        status: "trial",
+        ends_at: trialEnd,
+        updated_at: now.toISOString()
+      });
+
+      // Trial fica sempre no hub
+      await supabase.from("client_instances").upsert({
+        client_id: client.id,
+        instance_name: "TrataTudo bot",
+        status: "online",
+        is_hub: true,
+        created_at: now.toISOString()
+      });
+
+      res.json({ ok: true, client });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.put("/api/admin/clients/:id", requireAdminSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const payload = req.body || {};
+
+      const updateData: any = {
+        company_name: payload.company_name,
+        email: payload.email || null,
+        phone_e164: payload.phone_e164 || payload.phone || null,
+        contact_name: payload.contact_name || null,
+        bot_instructions: payload.bot_instructions || null,
+        updated_at: new Date().toISOString()
+      };
+
+      if (payload.plan) {
+        updateData.plan = String(payload.plan).toLowerCase();
+      }
+
+      const { data: client, error } = await supabase
+        .from("clients")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (payload.plan) {
+        await supabase
+          .from("subscriptions")
+          .update({
+            plan: String(payload.plan).toLowerCase(),
+            plan_name: String(payload.plan).toLowerCase(),
+            updated_at: new Date().toISOString()
+          })
+          .eq("client_id", id);
+      }
+
+      res.json({ ok: true, client });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.patch("/api/admin/clients/:id/status", requireAdminSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!status) {
+        return res.status(400).json({ ok: false, error: "Estado obrigatório." });
+      }
+
+      const { data: client, error } = await supabase
+        .from("clients")
+        .update({
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await supabase
+        .from("subscriptions")
+        .update({
+          status: status === "active" ? "active" : status,
+          updated_at: new Date().toISOString()
+        })
+        .eq("client_id", id);
+
+      res.json({ ok: true, client });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.delete("/api/admin/clients/:id", requireAdminSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+
+      await supabase.from("client_instances").delete().eq("client_id", id);
+      await supabase.from("subscriptions").delete().eq("client_id", id);
+      const { error } = await supabase.from("clients").delete().eq("id", id);
+
+      if (error) throw error;
+
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/admin/clients/:id/activate-production", requireAdminSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const now = new Date().toISOString();
+
+      const { data: client, error: clientError } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (clientError || !client) {
+        return res.status(404).json({ ok: false, error: "Cliente não encontrado." });
+      }
+
+      const normalizedPlan = String(client.plan || "starter").toLowerCase();
+      const instanceName = `client-${id}`;
+
+      // 1) Criar instância real na Evolution API
+      if (!EVO_URL || !EVO_KEY) {
+        return res.status(500).json({ ok: false, error: "Evolution API config missing" });
+      }
+
+      let evoPayload: any = null;
+      let evoStatus = "pending";
+
+      try {
+        const evoRes = await fetch(`${EVO_URL}/instance/create`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": EVO_KEY
+          },
+          body: JSON.stringify({
+            instanceName,
+            qrcode: true,
+            integration: "WHATSAPP-BAILEYS"
+          })
+        });
+
+        const evoJson = await evoRes.json().catch(() => ({}));
+
+        if (!evoRes.ok) {
+          return res.status(500).json({
+            ok: false,
+            error: `Falha ao criar instância na Evolution API (${evoRes.status})`,
+            details: evoJson
+          });
+        }
+
+        evoPayload = evoJson;
+        evoStatus = "pending";
+      } catch (e: any) {
+        return res.status(500).json({
+          ok: false,
+          error: e?.message || "Falha ao contactar a Evolution API."
+        });
+      }
+
+      // 2) Remover registo HUB se existir
+      await supabase
+        .from("client_instances")
+        .delete()
+        .eq("client_id", id)
+        .eq("is_hub", true);
+
+      // 3) Guardar instância dedicada
+      const { data: instance, error: instanceError } = await supabase
+        .from("client_instances")
+        .upsert({
+          client_id: id,
+          instance_name: instanceName,
+          status: evoStatus,
+          is_hub: false,
+          created_at: now,
+          updated_at: now
+        })
+        .select()
+        .single();
+
+      if (instanceError) throw instanceError;
+
+      // 4) Ativar cliente em produção
+      const { error: updateClientError } = await supabase
+        .from("clients")
+        .update({
+          status: "active",
+          plan: normalizedPlan,
+          production_activated_at: now,
+          updated_at: now
+        })
+        .eq("id", id);
+
+      if (updateClientError) throw updateClientError;
+
+      // 5) Atualizar subscrição
+      await supabase.from("subscriptions").upsert({
+        client_id: id,
+        plan: normalizedPlan,
+        plan_name: normalizedPlan,
+        status: "active",
+        updated_at: now
+      });
+
+      res.json({
+        ok: true,
+        message: "Cliente ativado em produção com instância própria.",
+        instance_name: instanceName,
+        instance,
+        evolution: evoPayload
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/instances", requireAdminSession, async (req: any, res) => {
+    try {
+      const { data: instances, error } = await supabase
+        .from("client_instances")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      res.json({ ok: true, instances: instances || [] });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/messages", requireAdminSession, async (req: any, res) => {
+    try {
+      const { data: messages, error } = await supabase
+        .from("wa_messages")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (error) throw error;
+
+      res.json({ ok: true, messages: messages || [] });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/logs", requireAdminSession, async (req: any, res) => {
+    try {
+      res.json({ ok: true, logs: [] });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/subscriptions", requireAdminSession, async (req: any, res) => {
+    try {
+      const { data: subscriptions, error } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      res.json({ ok: true, subscriptions: subscriptions || [] });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   app.get("/api/admin/billing/stats", requireAdminSession, async (req: any, res) => {
     try {
       const [ { count: totalClients }, { data: subs } ] = await Promise.all([
@@ -1277,15 +1872,69 @@ async function startServer() {
 
   // Admin Routes
   app.post("/api/admin/auth/login", async (req, res) => {
-    const { email, password } = req.body;
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    if (authError || !authData.user) return res.status(401).json({ ok: false, error: "Credenciais inválidas." });
-    const { data: admin } = await supabase.from("admins").select("*").eq("user_id", authData.user.id).single();
-    if (!admin) return res.status(403).json({ ok: false, error: "Acesso negado." });
-    const token = jwt.sign({ userId: authData.user.id, email: authData.user.email, isAdmin: true }, JWT_SECRET, { expiresIn: "12h" });
-    res.cookie("tratatudo_admin_session", token, { httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 12 * 60 * 60 * 1000 });
-    res.json({ ok: true, email: authData.user.email });
-  });
+      const { email, password } = req.body;
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError || !authData.user) return res.status(401).json({ ok: false, error: "Credenciais inválidas." });
+
+      const { data: admin } = await supabase.from("admins").select("*").eq("user_id", authData.user.id).single();
+      if (!admin) return res.status(403).json({ ok: false, error: "Acesso negado." });
+
+      const token = jwt.sign(
+        { userId: authData.user.id, email: authData.user.email, isAdmin: true },
+        JWT_SECRET,
+        { expiresIn: "12h" }
+      );
+
+      res.cookie("tratatudo_admin_session", token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: "/",
+        maxAge: 12 * 60 * 60 * 1000
+      });
+
+      res.json({ ok: true, email: authData.user.email, role: "admin" });
+    });
+
+  app.get("/api/admin/auth/session", async (req, res) => {
+      const token = req.cookies.tratatudo_admin_session;
+      if (!token) return res.status(401).json({ authenticated: false });
+
+      try {
+        const decoded: any = jwt.verify(token, JWT_SECRET);
+        if (!decoded.isAdmin) return res.status(401).json({ authenticated: false });
+
+        const { data: admin } = await supabase
+          .from("admins")
+          .select("*")
+          .eq("user_id", decoded.userId)
+          .single();
+
+        if (!admin) return res.status(403).json({ authenticated: false });
+
+        return res.json({
+          authenticated: true,
+          email: decoded.email,
+          role: "admin"
+        });
+      } catch (err) {
+        res.clearCookie("tratatudo_admin_session", {
+          path: "/",
+          sameSite: "none",
+          secure: true
+        });
+        return res.status(401).json({ authenticated: false });
+      }
+    });
+
+  app.post("/api/admin/auth/logout", async (req, res) => {
+      res.clearCookie("tratatudo_admin_session", {
+        path: "/",
+        sameSite: "none",
+        secure: true
+      });
+      return res.json({ ok: true });
+    });
 
   app.get("/api/admin/tickets", requireAdminSession, async (req: any, res) => {
     const { data: tickets } = await supabase.from("tickets").select("*, clients(company_name)").order("created_at", { ascending: false });

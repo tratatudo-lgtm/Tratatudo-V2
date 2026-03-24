@@ -57,7 +57,14 @@ export function AdminClients() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [newClient, setNewClient] = useState({ phone_e164: '', company_name: '', contact_name: '', email: '', bot_instructions: '' });
+  const [newClient, setNewClient] = useState({
+    phone_e164: '',
+    company_name: '',
+    contact_name: '',
+    email: '',
+    bot_instructions: '',
+    plan: 'starter'
+  });
   const [creating, setCreating] = useState(false);
 
   const { logout } = useAdminAuth();
