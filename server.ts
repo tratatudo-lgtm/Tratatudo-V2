@@ -1006,6 +1006,75 @@ async function startServer() {
   });
 
   // Tickets Routes
+
+  app.get("/api/client/dashboard/at-risk-clients", requireClientSession, async (req: any, res) => {
+    const clientId = req.clientId;
+    try {
+      const { data: profiles, error } = await supabase
+        .from("client_profiles")
+        .select("id, company_name, contact_name, email, phone_e164, customer_score, customer_type, last_interaction_at")
+        .eq("client_id", clientId)
+        .order("company_name", { ascending: true });
+
+      if (error) throw error;
+
+      const results: any[] = [];
+
+      for (const profile of profiles || []) {
+        const [
+          { data: financialDocs },
+          { data: tickets }
+        ] = await Promise.all([
+          supabase
+            .from("financial_documents")
+            .select("id, status, amount, due_date")
+            .eq("client_id", clientId)
+            .eq("client_profile_id", profile.id),
+          supabase
+            .from("tickets")
+            .select("id, title, priority, status, kind, tracking_code")
+            .eq("client_id", clientId)
+            .eq("client_profile_id", profile.id)
+        ]);
+
+        const overdueInvoices = (financialDocs || []).filter((d: any) =>
+          ["atrasado", "vencido"].includes(String(d.status || "").toLowerCase())
+        );
+
+        const urgentTickets = (tickets || []).filter((tk: any) =>
+          String(tk.priority || "").toLowerCase() === "urgente"
+        );
+
+        const lowScore = Number(profile.customer_score || 0) <= 4;
+
+        const riskScore =
+          (overdueInvoices.length * 4) +
+          (urgentTickets.length * 3) +
+          (lowScore ? 2 : 0);
+
+        if (riskScore > 0) {
+          results.push({
+            ...profile,
+            overdue_invoices: overdueInvoices.length,
+            urgent_tickets: urgentTickets.length,
+            risk_score: riskScore,
+            total_debt: overdueInvoices.reduce((acc: number, d: any) => acc + Number(d.amount || 0), 0),
+            top_ticket: urgentTickets[0] || null
+          });
+        }
+      }
+
+      results.sort((a, b) => b.risk_score - a.risk_score);
+
+      res.json({
+        ok: true,
+        clients: results.slice(0, 10)
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   app.get("/api/client/tickets/stats", requireClientSession, async (req: any, res) => {
     try {
       const { data: tickets, error } = await supabase.from("tickets")
