@@ -529,6 +529,115 @@ async function startServer() {
     }
   });
 
+
+  app.get("/api/client/dashboard/at-risk-clients/:id/ai", requireClientSession, aiRateLimiter, async (req: any, res) => {
+    const clientId = req.clientId;
+    const profileId = req.params.id;
+
+    try {
+      const { data: profile, error: profileError } = await supabase
+        .from("client_profiles")
+        .select("id, company_name, contact_name, email, phone_e164, customer_score, customer_type, notes, last_interaction_at")
+        .eq("client_id", clientId)
+        .eq("id", profileId)
+        .single();
+
+      if (profileError || !profile) {
+        return res.status(404).json({ ok: false, error: "Cliente não encontrado." });
+      }
+
+      const [
+        { data: financialDocs },
+        { data: tickets }
+      ] = await Promise.all([
+        supabase
+          .from("financial_documents")
+          .select("id, status, amount, due_date, document_number")
+          .eq("client_id", clientId)
+          .eq("client_profile_id", profileId),
+        supabase
+          .from("tickets")
+          .select("id, title, priority, status, kind, tracking_code, created_at")
+          .eq("client_id", clientId)
+          .eq("client_profile_id", profileId)
+          .order("created_at", { ascending: false })
+      ]);
+
+      const overdueInvoices = (financialDocs || []).filter((d: any) =>
+        ["atrasado", "vencido"].includes(String(d.status || "").toLowerCase())
+      );
+
+      const urgentTickets = (tickets || []).filter((tk: any) =>
+        String(tk.priority || "").toLowerCase() === "urgente"
+      );
+
+      const totalDebt = overdueInvoices.reduce((acc: number, d: any) => acc + Number(d.amount || 0), 0);
+
+      const prompt = `Analisa o risco operacional e comercial do cliente abaixo e responde APENAS em JSON válido.
+
+Cliente:
+- Empresa: ${profile.company_name}
+- Contacto: ${profile.contact_name || ""}
+- Email: ${profile.email || ""}
+- Telefone: ${profile.phone_e164 || ""}
+- Customer score: ${profile.customer_score ?? 0}/10
+- Tipo: ${profile.customer_type || ""}
+- Última interação: ${profile.last_interaction_at || ""}
+- Notas: ${profile.notes || ""}
+
+Indicadores:
+- Faturas em atraso: ${overdueInvoices.length}
+- Dívida total em atraso: ${totalDebt}
+- Tickets urgentes: ${urgentTickets.length}
+
+Faturas em atraso:
+${JSON.stringify(overdueInvoices.slice(0, 5), null, 2)}
+
+Tickets urgentes:
+${JSON.stringify(urgentTickets.slice(0, 5), null, 2)}
+
+Quero uma análise curta, prática e orientada à ação para gestão de clientes em risco.
+
+Responde APENAS neste formato JSON:
+{
+  "summary": "...",
+  "main_risk": "...",
+  "recommended_action": "...",
+  "contact_message": "..."
+}`;
+
+      const completion = await groq.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: "És um analista de risco comercial e operacional para CRM. Responde sempre em português de Portugal e sempre em JSON."
+          },
+          { role: "user", content: prompt }
+        ],
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" }
+      });
+
+      const analysis = JSON.parse(completion.choices[0]?.message?.content || "{}");
+
+      res.json({
+        ok: true,
+        profile: {
+          id: profile.id,
+          company_name: profile.company_name,
+          customer_score: profile.customer_score ?? 0,
+          overdue_invoices: overdueInvoices.length,
+          urgent_tickets: urgentTickets.length,
+          total_debt: totalDebt
+        },
+        analysis
+      });
+    } catch (err: any) {
+      console.error("[AT RISK CLIENT AI ERROR]:", err);
+      res.status(500).json({ ok: false, error: "IA temporariamente indisponível." });
+    }
+  });
+
   // Client Tickets
   app.get("/api/client/tickets", requireClientSession, requirePermission('tickets', 'view'), async (req: any, res) => {
     const { data: tickets } = await supabase.from("tickets").select("*, client_profiles(company_name)").eq("client_id", req.clientId).order("created_at", { ascending: false });
