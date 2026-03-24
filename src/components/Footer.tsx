@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MessageSquare, Mail, Phone, MapPin, Instagram, Linkedin, Twitter } from 'lucide-react';
+import { Brain, Mail, Phone, MapPin, Instagram, Linkedin, Twitter } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -10,15 +10,15 @@ export function Footer() {
           <div className="space-y-6">
             <Link to="/" className="flex items-center gap-2">
               <div className="bg-primary p-2 rounded-lg">
-                <MessageSquare className="text-white w-6 h-6" />
+                <Brain className="text-white w-6 h-6" />
               </div>
               <span className="text-2xl font-display font-bold text-white">
-                Trata<span className="text-primary">Tudo</span>
+                Trata<span className="text-primary">Tudo</span> <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full ml-1">AI</span>
               </span>
             </Link>
             <p className="text-sm leading-relaxed">
-              Automatize o atendimento da sua organização no WhatsApp. 
-              Eficiência, proximidade e inovação para o setor público e privado.
+              Plataforma inteligente de gestão e automação empresarial com IA. 
+              CRM, WhatsApp, tarefas e financeiro num único sistema para o setor público e privado.
             </p>
             <div className="flex gap-4">
               <a href="#" className="hover:text-primary transition-colors"><Instagram className="w-5 h-5" /></a>

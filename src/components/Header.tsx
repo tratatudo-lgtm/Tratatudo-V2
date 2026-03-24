@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, MessageSquare, ArrowRight } from 'lucide-react';
+import { Menu, X, Brain, ArrowRight } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -33,11 +33,11 @@ export function Header() {
     >
       <div className="container mx-auto px-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 group">
-          <div className="bg-primary p-2 rounded-lg group-hover:scale-110 transition-transform">
-            <MessageSquare className="text-white w-6 h-6" />
+          <div className="bg-primary p-2 rounded-lg group-hover:scale-110 transition-transform shadow-lg shadow-primary/20">
+            <Brain className="text-white w-6 h-6" />
           </div>
           <span className="text-2xl font-display font-bold text-slate-900">
-            Trata<span className="text-primary">Tudo</span>
+            Trata<span className="text-primary">Tudo</span> <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full ml-1">AI</span>
           </span>
         </Link>
 

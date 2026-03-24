@@ -49,19 +49,6 @@ interface DashboardData {
     complaints?: number;
     inProgressTickets?: number;
     resolvedTickets?: number;
-    metrics?: {
-      total_clients?: number;
-      active_clients?: number;
-      pending_tasks?: number;
-      upcoming_events?: number;
-      overdue_financial_documents?: number;
-      total_documents?: number;
-      total_emails?: number;
-      total_automations?: number;
-      active_automations?: number;
-      failed_automations?: number;
-      recent_activity?: any[];
-    };
   };
   instance: {
     instance_name: string;
@@ -100,55 +87,6 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [aiInsights, setAiInsights] = useState<{ insights: any[], summary: string } | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
-  const [atRiskClients, setAtRiskClients] = useState<any[]>([]);
-  const [clientAI, setClientAI] = useState<Record<string, any>>({});
-  const fetchClientAI = async (clientId: string | number) => {
-  const [autoContacting, setAutoContacting] = useState(false);
-    try {
-      setLoadingClientAI(prev => ({ ...prev, [clientId]: true }));
-      const response = await apiFetch(`/api/client/dashboard/at-risk-clients/${clientId}/ai`);
-      const result = await response.json();
-      if (result.ok) {
-        setClientAI(prev => ({ ...prev, [clientId]: result.analysis }));
-      }
-    } catch (err) {
-      console.error("[APP] Client AI fetch failed:", err);
-    } finally {
-      setLoadingClientAI(prev => ({ ...prev, [clientId]: false }));
-    }
-  };
-
-  const [loadingClientAI, setLoadingClientAI] = useState<Record<string, boolean>>({});
-  const sendClientWhatsApp = async (client: any) => {
-  const autoContactAtRiskClients = async () => {
-    try {
-      setAutoContacting(true);
-      const result = await apiPost("/api/client/dashboard/at-risk-clients/auto-contact", {});
-      alert(`Contacto automático concluído: ${result?.total_sent ?? 0} cliente(s) contactado(s).`);
-    } catch (err) {
-      console.error("[APP] Auto contact failed:", err);
-      alert("Erro no contacto automático.");
-    } finally {
-      setAutoContacting(false);
-    }
-  };
-
-    try {
-      const msg = clientAI[client.id]?.contact_message;
-      if (!msg || !client.phone_e164) return;
-
-      await apiPost("/api/client/whatsapp/send", {
-        phone: client.phone_e164,
-        text: msg
-      });
-
-      alert("Mensagem enviada com sucesso 🚀");
-    } catch (err) {
-      console.error("[APP] WhatsApp send failed:", err);
-      alert("Erro ao enviar mensagem");
-    }
-  };
-
 
   const fetchAIInsights = async () => {
     try {
@@ -194,29 +132,6 @@ export function Dashboard() {
             activity: extractArrayResponse(result, 'activity')
           };
           
-            try {
-              const metricsRes = await apiFetch("/api/client/dashboard/operational-metrics");
-              if (metricsRes.ok) {
-                const metricsJson = await metricsRes.json();
-                mappedData.metrics = metricsJson.metrics || {};
-                if (Array.isArray(metricsJson?.metrics?.recent_activity)) {
-                  mappedData.activity = metricsJson.metrics.recent_activity;
-                }
-              }
-            } catch (e) {
-              console.error("[APP] Failed to fetch operational metrics:", e);
-            }
-            try {
-              const riskRes = await apiFetch("/api/client/dashboard/at-risk-clients");
-              if (riskRes.ok) {
-                const riskJson = await riskRes.json();
-                setAtRiskClients(riskJson.clients || []);
-              }
-            } catch (e) {
-              console.error("[APP] Failed to fetch at-risk clients:", e);
-            }
-
-
           // Fetch chart data
           try {
             const chartRes = await apiFetch('/api/client/dashboard/charts');
@@ -302,40 +217,48 @@ export function Dashboard() {
   }
 
   const stats = [
-    {
-      name: 'Total de Clientes',
-      value: (data?.metrics?.total_clients ?? 0).toString(),
+    { 
+      name: 'Total de Mensagens', 
+      value: (data?.stats?.totalMessages ?? data?.stats?.messages ?? 0).toLocaleString() || '0', 
+      change: '+0%', 
+      trend: 'neutral', 
       icon: MessageSquare,
       color: 'text-blue-600',
       bg: 'bg-blue-50'
     },
-    {
-      name: 'Clientes Ativos',
-      value: (data?.metrics?.active_clients ?? 0).toString(),
-      icon: CheckCircle2,
-      color: 'text-emerald-600',
-      bg: 'bg-emerald-50'
-    },
-    {
-      name: 'Tarefas Pendentes',
-      value: (data?.metrics?.pending_tasks ?? 0).toString(),
+    { 
+      name: 'Pedidos em Aberto', 
+      value: (data?.stats?.openTickets ?? 0).toString() || '0', 
+      change: '0%', 
+      trend: 'neutral', 
       icon: ClipboardList,
-      color: 'text-amber-600',
-      bg: 'bg-amber-50'
+      color: 'text-orange-600',
+      bg: 'bg-orange-50'
     },
-    {
-      name: 'Eventos Próximos',
-      value: (data?.metrics?.upcoming_events ?? 0).toString(),
-      icon: Clock,
-      color: 'text-indigo-600',
-      bg: 'bg-indigo-50'
-    },
-    {
-      name: 'Faturas em Atraso',
-      value: (data?.metrics?.overdue_financial_documents ?? 0).toString(),
+    { 
+      name: 'Reclamações', 
+      value: (data?.stats?.complaints ?? 0).toString() || '0', 
+      change: '0%', 
+      trend: 'neutral', 
       icon: AlertCircle,
-      color: 'text-rose-600',
-      bg: 'bg-rose-50'
+      color: 'text-red-600',
+      bg: 'bg-red-50'
+    },
+    { 
+      name: 'Estado da Instância', 
+      value: data?.instance?.status === 'online' ? 'Online' : 'Offline', 
+      status: data?.instance?.status === 'online' ? 'success' : 'error',
+      icon: Smartphone,
+      color: data?.instance?.status === 'online' ? 'text-green-600' : 'text-slate-600',
+      bg: data?.instance?.status === 'online' ? 'bg-green-50' : 'bg-slate-50'
+    },
+    { 
+      name: 'Subscrição', 
+      value: data?.subscription?.status === 'active' ? 'Ativa' : 'Inativa', 
+      status: data?.subscription?.status === 'active' ? 'info' : 'warning',
+      icon: CreditCard,
+      color: 'text-purple-600',
+      bg: 'bg-purple-50'
     },
   ];
 
@@ -357,39 +280,10 @@ export function Dashboard() {
       return 'N/A';
     }
   };
-  const riskScore = ((data?.metrics?.overdue_financial_documents ?? 0) * 3) + ((data?.metrics?.failed_automations ?? 0) * 2) + ((data?.metrics?.pending_tasks ?? 0) * 1);
-  const opportunityScore = ((data?.metrics?.active_clients ?? 0) * 2) + ((data?.metrics?.total_clients ?? 0) - (data?.metrics?.active_clients ?? 0));
-  const recommendedAction =
-    (data?.metrics?.overdue_financial_documents ?? 0) > 0
-      ? `Prioridade máxima: regularizar ${(data?.metrics?.overdue_financial_documents ?? 0)} fatura(s) em atraso.`
-      : (data?.metrics?.failed_automations ?? 0) > 0
-      ? `Ação recomendada: rever ${(data?.metrics?.failed_automations ?? 0)} automação(ões) com falha.`
-      : (data?.metrics?.pending_tasks ?? 0) > 0
-      ? `Ação recomendada: concluir ${(data?.metrics?.pending_tasks ?? 0)} tarefa(s) pendente(s).`
-      : "Operação estável. Sem ação corretiva imediata.";
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Inteligência Operacional</div>
-              <h3 className="text-lg font-bold text-slate-900 mb-1">Ação recomendada</h3>
-              <p className="text-sm text-slate-600">{recommendedAction}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4 min-w-[260px]">
-              <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4">
-                <div className="text-[10px] font-black uppercase tracking-widest text-rose-500 mb-1">Risk Score</div>
-                <div className="text-2xl font-black text-rose-600">{riskScore}</div>
-              </div>
-              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
-                <div className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-1">Opportunity Score</div>
-                <div className="text-2xl font-black text-blue-600">{opportunityScore}</div>
-              </div>
-            </div>
-          </div>
-        </div>
         <div>
           <h1 className="text-2xl font-display font-bold text-slate-900">Painel de Controlo</h1>
           <p className="text-slate-500">Bem-vindo de volta. Aqui está o resumo da sua operação.</p>
@@ -399,53 +293,6 @@ export function Dashboard() {
           Última atualização: {new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
         </div>
       </div>
-        {((data?.metrics?.overdue_financial_documents ?? 0) > 0 || (data?.metrics?.failed_automations ?? 0) > 0 || (data?.metrics?.pending_tasks ?? 0) > 0) ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(data?.metrics?.overdue_financial_documents ?? 0) > 0 && (
-              <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-black uppercase tracking-widest text-rose-500">Alerta Financeiro</div>
-                  <div className="text-sm font-bold text-rose-700">{data?.metrics?.overdue_financial_documents} fatura(s) em atraso</div>
-                </div>
-              </div>
-            )}
-            {(data?.metrics?.failed_automations ?? 0) > 0 && (
-              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
-                  <Zap className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-black uppercase tracking-widest text-amber-500">Automações</div>
-                  <div className="text-sm font-bold text-amber-700">{data?.metrics?.failed_automations} automação(ões) com falha</div>
-                </div>
-              </div>
-            )}
-            {(data?.metrics?.pending_tasks ?? 0) > 0 && (
-              <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-yellow-100 text-yellow-600 flex items-center justify-center">
-                  <ClipboardList className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-black uppercase tracking-widest text-yellow-600">Execução</div>
-                  <div className="text-sm font-bold text-yellow-700">{data?.metrics?.pending_tasks} tarefa(s) pendente(s)</div>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-black uppercase tracking-widest text-emerald-500">Estado Geral</div>
-              <div className="text-sm font-bold text-emerald-700">Operação estável, sem alertas críticos neste momento</div>
-            </div>
-          </div>
-        )}
 
       {/* AI Insights Section */}
       <motion.div 
@@ -562,15 +409,7 @@ export function Dashboard() {
             <select className="text-xs bg-slate-50 border-none rounded-lg px-2 py-1 outline-none font-bold text-slate-500">
               <option>Últimos 30 dias</option>
             </select>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-black uppercase tracking-widest text-rose-500">{atRiskClients.length} sinalizado(s)</span>
-                  <button
-                    onClick={autoContactAtRiskClients}
-                    className="px-3 py-1.5 rounded-lg bg-rose-500 text-white text-[10px] font-black uppercase tracking-wider hover:bg-rose-600 transition-colors"
-                  >
-                    {autoContacting ? "A contactar..." : "Contactar clientes em risco"}
-                  </button>
-                </div>
+          </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data?.charts?.daily || []}>
@@ -606,101 +445,12 @@ export function Dashboard() {
                   fill="url(#colorTickets)" 
                 />
                 <Area 
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => fetchClientAI(client.id)}
-                            className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-wider hover:bg-blue-100 transition-colors"
-                          >
-                            {loadingClientAI[client.id] ? "A gerar..." : "Gerar IA"}
-                          </button>
-
-                          {clientAI[client.id]?.contact_message && (
-                            <button
-                              onClick={() => sendClientWhatsApp(client)}
-                              className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider hover:bg-emerald-600 transition-colors"
-                            >
-                              Enviar IA
-                            </button>
-                          )}
-
-                          <Link
-                            to={`/app/clients/${client.id}`}
-                            className="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-slate-800 transition-colors"
-                          >
-                            Abrir cliente
-                          </Link>
-
-                          {client.phone_e164 && (
-                            <a
-                              href={`https://wa.me/${String(client.phone_e164).replace(/\D/g, "")}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-colors"
-                            >
-                              WhatsApp
-                            </a>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => fetchClientAI(client.id)}
-                            className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-wider hover:bg-blue-100 transition-colors"
-                          >
-                            {loadingClientAI[client.id] ? "A gerar..." : "Gerar IA"}
-                          </button>
-                          <Link
-                            to={`/app/clients/${client.id}`}
-                            className="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-slate-800 transition-colors"
-                          >
-                            Abrir cliente
-                          </Link>
-                          {client.phone_e164 && (
-                            <a
-                              href={`https://wa.me/${String(client.phone_e164).replace(/\D/g, "")}`}
-                              target="_blank"
-                      {clientAI[client.id] && (
-                        <div className="mt-3 p-3 bg-slate-50 border border-slate-100 rounded-xl max-w-md ml-auto text-left">
-                          <div className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">IA do Cliente</div>
-                          <p className="text-xs text-slate-700 mb-2"><span className="font-bold">Resumo:</span> {clientAI[client.id]?.summary}</p>
-                          <p className="text-xs text-slate-700 mb-2"><span className="font-bold">Risco principal:</span> {clientAI[client.id]?.main_risk}</p>
-                          <p className="text-xs text-slate-700 mb-2"><span className="font-bold">Ação recomendada:</span> {clientAI[client.id]?.recommended_action}</p>
-                          <p className="text-xs text-slate-700"><span className="font-bold">Mensagem pronta:</span> {clientAI[client.id]?.contact_message}</p>
-                        </div>
-                      )}
-                              rel="noopener noreferrer"
-                              className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-colors"
-                            >
-                              WhatsApp
-                            </a>
-                          )}
-                        </div>
-                      <div className="flex items-center gap-2">
-                        <Link
-                          to={`/app/clients/${client.id}`}
-                          className="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-slate-800 transition-colors"
-                        >
-                          Abrir cliente
-                        </Link>
-                        {client.phone_e164 && (
-                          <a
-                            href={`https://wa.me/${String(client.phone_e164).replace(/\D/g, "")}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-colors"
-                          >
-                            WhatsApp
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )) : (
-              )) : (
-                <div className="p-8 text-center text-slate-500 text-sm">Nenhum cliente em risco neste momento.</div>
-              )}
-            </div>
-          </div>
-
+                  type="monotone" 
+                  dataKey="complaints" 
+                  name="Reclamações"
+                  stroke="#ef4444" 
+                  strokeWidth={2}
+                  fill="transparent"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -801,40 +551,25 @@ export function Dashboard() {
               <button className="text-xs text-primary font-bold hover:underline">Ver histórico completo</button>
             </div>
             <div className="divide-y divide-slate-50">
-                {data?.activity?.map((item, i) => {
-                  const iconClass =
-                    item.type === "cliente" ? "text-blue-500" :
-                    item.type === "tarefa" ? "text-amber-500" :
-                    item.type === "evento" ? "text-indigo-500" :
-                    item.type === "documento" ? "text-slate-500" :
-                    item.type === "email" ? "text-cyan-500" :
-                    item.type === "financeiro" ? "text-emerald-500" :
-                    "text-primary";
-
-                  const Icon =
-                    item.type === "cliente" ? MessageSquare :
-                    item.type === "tarefa" ? ClipboardList :
-                    item.type === "evento" ? Clock :
-                    item.type === "documento" ? BarChart3 :
-                    item.type === "email" ? MessageSquare :
-                    item.type === "financeiro" ? CreditCard :
-                    Activity;
-
-                  return (
-                    <div key={i} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
-                      <div className={cn("p-2 rounded-lg bg-slate-50", iconClass)}>
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-900 truncate">{item.title}</p>
-                        <p className="text-xs text-slate-500 truncate">{item.description || (item.status ? `Estado: ${item.status}` : "Sem descrição")}</p>
-                      </div>
-                      <div className="text-[10px] font-medium text-slate-400 whitespace-nowrap">
-                        {formatTime(item.created_at)}
-                      </div>
-                    </div>
-                  );
-                })}
+              {data?.activity?.map((item, i) => (
+                <div key={i} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
+                  <div className={cn(
+                    "p-2 rounded-lg bg-slate-50",
+                    item.type === 'ticket' ? "text-orange-500" : "text-blue-500"
+                  )}>
+                    {item.type === 'ticket' ? <ClipboardList className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-900 truncate">
+                      {item.type === 'ticket' ? 'Pedido: ' : 'Mensagem: '}
+                      {item.title}
+                    </p>
+                    <p className="text-xs text-slate-500 truncate">Estado: {item.status}</p>
+                  </div>
+                  <div className="text-[10px] font-medium text-slate-400 whitespace-nowrap">
+                    {formatTime(item.created_at)}
+                  </div>
+                </div>
               ))}
               {data?.activity.length === 0 && (
                 <div className="p-8 text-center text-slate-500 text-sm">
