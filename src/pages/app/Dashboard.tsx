@@ -565,22 +565,46 @@ export function Dashboard() {
               <span className="text-xs font-black uppercase tracking-widest text-rose-500">{atRiskClients.length} sinalizado(s)</span>
             </div>
             <div className="divide-y divide-slate-50">
-              {atRiskClients.length > 0 ? atRiskClients.map((client, i) => (
-                <div key={client.id || i} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
-                  <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-black">
-                    {client.company_name?.slice(0,2)?.toUpperCase() || "CL"}
+                {atRiskClients.length > 0 ? atRiskClients.map((client, i) => (
+                  <div key={client.id || i} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
+                    <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-black">
+                      {client.company_name?.slice(0,2)?.toUpperCase() || "CL"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-900 truncate">{client.company_name}</p>
+                      <p className="text-xs text-slate-500 truncate">
+                        {client.overdue_invoices} fatura(s) em atraso • {client.urgent_tickets} ticket(s) urgente(s) • score {client.customer_score ?? 0}/10
+                      </p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-rose-500 mt-1">
+                        Motivo principal: {client.overdue_invoices > 0 ? `${client.overdue_invoices} fatura(s) em atraso` : client.urgent_tickets > 0 ? `${client.urgent_tickets} ticket(s) urgente(s)` : `score baixo (${client.customer_score ?? 0}/10)`}
+                      </p>
+                    </div>
+                    <div className="text-right flex flex-col items-end gap-2">
+                      <div>
+                        <div className="text-xs font-black text-rose-600">Risk {client.risk_score}</div>
+                        <div className="text-[10px] font-medium text-slate-400">{Number(client.total_debt || 0).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={`/app/clients/${client.id}`}
+                          className="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-slate-800 transition-colors"
+                        >
+                          Abrir cliente
+                        </Link>
+                        {client.phone_e164 && (
+                          <a
+                            href={`https://wa.me/${String(client.phone_e164).replace(/\D/g, "")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-colors"
+                          >
+                            WhatsApp
+                          </a>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-900 truncate">{client.company_name}</p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {client.overdue_invoices} fatura(s) em atraso • {client.urgent_tickets} ticket(s) urgente(s) • score {client.customer_score ?? 0}/10
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs font-black text-rose-600">Risk {client.risk_score}</div>
-                    <div className="text-[10px] font-medium text-slate-400">{Number(client.total_debt || 0).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
-                  </div>
-                </div>
+                )) : (
               )) : (
                 <div className="p-8 text-center text-slate-500 text-sm">Nenhum cliente em risco neste momento.</div>
               )}
