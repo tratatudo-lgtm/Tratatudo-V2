@@ -298,10 +298,39 @@ export function Dashboard() {
       return 'N/A';
     }
   };
+  const riskScore = ((data?.metrics?.overdue_financial_documents ?? 0) * 3) + ((data?.metrics?.failed_automations ?? 0) * 2) + ((data?.metrics?.pending_tasks ?? 0) * 1);
+  const opportunityScore = ((data?.metrics?.active_clients ?? 0) * 2) + ((data?.metrics?.total_clients ?? 0) - (data?.metrics?.active_clients ?? 0));
+  const recommendedAction =
+    (data?.metrics?.overdue_financial_documents ?? 0) > 0
+      ? `Prioridade máxima: regularizar ${(data?.metrics?.overdue_financial_documents ?? 0)} fatura(s) em atraso.`
+      : (data?.metrics?.failed_automations ?? 0) > 0
+      ? `Ação recomendada: rever ${(data?.metrics?.failed_automations ?? 0)} automação(ões) com falha.`
+      : (data?.metrics?.pending_tasks ?? 0) > 0
+      ? `Ação recomendada: concluir ${(data?.metrics?.pending_tasks ?? 0)} tarefa(s) pendente(s).`
+      : "Operação estável. Sem ação corretiva imediata.";
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Inteligência Operacional</div>
+              <h3 className="text-lg font-bold text-slate-900 mb-1">Ação recomendada</h3>
+              <p className="text-sm text-slate-600">{recommendedAction}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4 min-w-[260px]">
+              <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4">
+                <div className="text-[10px] font-black uppercase tracking-widest text-rose-500 mb-1">Risk Score</div>
+                <div className="text-2xl font-black text-rose-600">{riskScore}</div>
+              </div>
+              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                <div className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-1">Opportunity Score</div>
+                <div className="text-2xl font-black text-blue-600">{opportunityScore}</div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div>
           <h1 className="text-2xl font-display font-bold text-slate-900">Painel de Controlo</h1>
           <p className="text-slate-500">Bem-vindo de volta. Aqui está o resumo da sua operação.</p>
