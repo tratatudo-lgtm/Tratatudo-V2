@@ -311,6 +311,53 @@ export function Dashboard() {
           Última atualização: {new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
         </div>
       </div>
+        {((data?.metrics?.overdue_financial_documents ?? 0) > 0 || (data?.metrics?.failed_automations ?? 0) > 0 || (data?.metrics?.pending_tasks ?? 0) > 0) ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {(data?.metrics?.overdue_financial_documents ?? 0) > 0 && (
+              <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-black uppercase tracking-widest text-rose-500">Alerta Financeiro</div>
+                  <div className="text-sm font-bold text-rose-700">{data?.metrics?.overdue_financial_documents} fatura(s) em atraso</div>
+                </div>
+              </div>
+            )}
+            {(data?.metrics?.failed_automations ?? 0) > 0 && (
+              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-black uppercase tracking-widest text-amber-500">Automações</div>
+                  <div className="text-sm font-bold text-amber-700">{data?.metrics?.failed_automations} automação(ões) com falha</div>
+                </div>
+              </div>
+            )}
+            {(data?.metrics?.pending_tasks ?? 0) > 0 && (
+              <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-yellow-100 text-yellow-600 flex items-center justify-center">
+                  <ClipboardList className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-black uppercase tracking-widest text-yellow-600">Execução</div>
+                  <div className="text-sm font-bold text-yellow-700">{data?.metrics?.pending_tasks} tarefa(s) pendente(s)</div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xs font-black uppercase tracking-widest text-emerald-500">Estado Geral</div>
+              <div className="text-sm font-bold text-emerald-700">Operação estável, sem alertas críticos neste momento</div>
+            </div>
+          </div>
+        )}
 
       {/* AI Insights Section */}
       <motion.div 
