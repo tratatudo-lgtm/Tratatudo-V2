@@ -261,8 +261,26 @@ export function AdminClients() {
   };
 
   const handleSyncInstance = async (id: string) => {
-    // TODO: Backend endpoint /api/admin/clients/:id/sync not confirmed.
-    toast.info('Funcionalidade de sincronizar instância aguarda confirmação do backend.');
+    try {
+      setProcessing(true);
+
+      const response = await fetch(`${baseUrl}/api/admin/clients/${id}/sync`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Falha ao sincronizar instância');
+      }
+
+      toast.success('Instância sincronizada com sucesso.');
+      await fetchClients();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao sincronizar instância');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const copyToClipboard = (text: string) => {

@@ -731,6 +731,102 @@ app.post("/api/admin/tickets/:id/analyze", requireAdminSession, async (req: any,
   }
 });
 
+
+app.post("/api/admin/clients/:id/sync", requireAdminSession, async (req: any, res: any) => {
+  try {
+    const id = req.params.id;
+    if (!id) {
+      return res.status(400).json({ ok: false, error: "Id é obrigatório" });
+    }
+
+    const { data: client, error: clientError } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (clientError || !client) {
+      return res.status(404).json({ ok: false, error: clientError?.message || "Cliente não encontrado" });
+    }
+
+    const instanceName =
+      client.production_instance_name ||
+      client.instance_name ||
+      (client.status === "active" ? `client-${id}` : "TrataTudo bot");
+
+    const isHub = instanceName === "TrataTudo bot";
+
+    const { data: existingInstance, error: fetchError } = await supabase
+      .from("client_instances")
+      .select("*")
+      .eq("client_id", id)
+      .maybeSingle();
+
+    if (fetchError) {
+      return res.status(500).json({ ok: false, error: fetchError.message });
+    }
+
+    let instanceRow = existingInstance;
+
+    if (!instanceRow) {
+      const { data: inserted, error: insertError } = await supabase
+        .from("client_instances")
+        .insert({
+          client_id: Number(id),
+          instance_name: instanceName,
+          status: isHub ? "active" : "pending",
+          is_hub: isHub,
+          created_at: new Date().toISOString()
+        })
+        .select("*")
+        .single();
+
+      if (insertError) {
+        return res.status(500).json({ ok: false, error: insertError.message });
+      }
+
+      instanceRow = inserted;
+    } else {
+      const { data: updated, error: updateError } = await supabase
+        .from("client_instances")
+        .update({
+          instance_name: instanceName,
+          status: isHub ? "active" : (instanceRow.status || "pending"),
+          is_hub: isHub
+        })
+        .eq("id", instanceRow.id)
+        .select("*")
+        .single();
+
+      if (updateError) {
+        return res.status(500).json({ ok: false, error: updateError.message });
+      }
+
+      instanceRow = updated;
+    }
+
+    return res.json({
+      ok: true,
+      client: {
+        id: String(client.id),
+        company_name: client.company_name || "",
+        status: client.status || "pending"
+      },
+      instance: {
+        id: instanceRow?.id,
+        instance_name: instanceRow?.instance_name || instanceName,
+        status: instanceRow?.status || (isHub ? "active" : "pending"),
+        is_hub: !!instanceRow?.is_hub
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Erro ao sincronizar instância"
+    });
+  }
+});
+
 app.post("/api/admin/clients/:id/reactivate-trial", requireAdminSession, async (req: any, res: any) => {
   try {
     const id = req.params.id;
@@ -786,7 +882,7 @@ app.post("/api/bot/reply", async (req: any, res: any) => {
 
     const { data: client, error: clientError } = await supabase
       .from("clients")
-      .select("id, company_name, bot_instructions, status, trial_end, trial_ends_at")
+      .select("id, company_name, bot_instructions, status, trial_end, trial_ends_at, instance_name")
       .eq("id", client_id)
       .single();
 
@@ -816,28 +912,60 @@ app.post("/api/bot/reply", async (req: any, res: any) => {
       });
     }
 
+    const { data: historyRows } = await supabase
+      .from("wa_messages")
+      .select("direction, text, created_at")
+      .eq("phone_e164", phone_e164)
+      .eq("client_id", Number(client.id))
+      .order("created_at", { ascending: false })
+      .limit(12);
+
+    const history = (historyRows || [])
+      .filter((m: any) => String(m.text || "").trim())
+      .reverse()
+      .map((m: any) => ({
+        role: m.direction === "out" ? "assistant" : "user",
+        content: String(m.text || "").trim()
+      }));
+
     const systemPrompt = String(
       client.bot_instructions ||
       `És o assistente virtual da empresa ${client.company_name || ""}. Responde sempre em português de Portugal, de forma natural, curta e útil.`
     ).trim();
 
+    const antiRepeatRules = `
+REGRAS DE CONTEXTO E ESTILO:
+- Mantém memória do histórico recente da conversa.
+- Se a conversa já começou, NÃO voltes a dar boas-vindas nem a apresentar a marca.
+- NÃO repitas o nome do cliente em todas as mensagens. Usa o nome apenas quando soar natural.
+- NÃO repitas listas completas de produtos se o cliente já indicou interesse num produto específico.
+- Responde diretamente à última mensagem do cliente.
+- Faz no máximo uma pergunta objetiva no fim quando for útil.
+- Se o cliente pedir sugestão, dá 2 a 4 sugestões concretas e curtas.
+- Evita respostas genéricas como "estou aqui para ajudar" se o contexto já estiver avançado.
+- Se o cliente fizer follow-up, continua do ponto anterior em vez de recomeçar a conversa.
+`.trim();
+
     const userName = String(push_name || "").trim();
+
+    const messages: any[] = [
+      {
+        role: "system",
+        content: `${systemPrompt}\n\n${antiRepeatRules}`
+      },
+      ...history,
+      {
+        role: "user",
+        content: userName
+          ? `Nome do cliente: ${userName}\nTelefone: ${phone_e164}\nMensagem atual: ${text}`
+          : `Telefone: ${phone_e164}\nMensagem atual: ${text}`
+      }
+    ];
 
     const completion = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       temperature: 0.2,
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt
-        },
-        {
-          role: "user",
-          content: userName
-            ? `Nome do cliente: ${userName}\nTelefone: ${phone_e164}\nMensagem: ${text}`
-            : `Telefone: ${phone_e164}\nMensagem: ${text}`
-        }
-      ]
+      messages
     });
 
     const reply = String(completion.choices?.[0]?.message?.content || "").trim();
@@ -848,6 +976,30 @@ app.post("/api/bot/reply", async (req: any, res: any) => {
         error: "Resposta vazia do modelo"
       });
     }
+
+    const nowIso = new Date().toISOString();
+    const instanceName = String(client.instance_name || "TrataTudo bot");
+
+    await supabase
+      .from("wa_messages")
+      .insert([
+        {
+          phone_e164,
+          instance: instanceName,
+          direction: "in",
+          text: String(text).trim(),
+          client_id: Number(client.id),
+          created_at: nowIso
+        },
+        {
+          phone_e164,
+          instance: instanceName,
+          direction: "out",
+          text: reply,
+          client_id: Number(client.id),
+          created_at: nowIso
+        }
+      ]);
 
     return res.json({
       ok: true,
@@ -860,6 +1012,7 @@ app.post("/api/bot/reply", async (req: any, res: any) => {
     });
   }
 });
+
 
 app.listen(PORT, () => {
   console.log("🔥 TrataTudo API running on port", PORT);
