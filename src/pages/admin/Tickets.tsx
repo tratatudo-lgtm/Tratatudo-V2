@@ -29,6 +29,7 @@ import { LoadingState, ErrorState } from '../../components/States';
 interface TicketData {
   id: string;
   client_id: string;
+  tracking_code?: string;
   subject?: string;
   title?: string;
   description?: string;
@@ -65,7 +66,7 @@ export function AdminTickets() {
       setLoading(true);
       setError(null);
       
-      const res = await fetchWithAuth('/api/admin/tickets');
+      const res = await fetchWithAuth('/api/admin/tickets/support');
       
       if (res.ok) {
         const data = await res.json();
@@ -214,7 +215,7 @@ export function AdminTickets() {
                     "text-[10px] font-bold",
                     selectedTicket?.id === ticket.id ? "text-white/60" : "text-slate-400"
                   )}>
-                    #{ticket.id.slice(0, 8)}
+                    {ticket.tracking_code || `#${ticket.id.slice(0, 8)}`}
                   </span>
                 </div>
 
@@ -287,7 +288,7 @@ export function AdminTickets() {
                           <h2 className="text-xl font-black text-slate-900 tracking-tight">
                             {selectedTicket.subject || selectedTicket.title || `Ticket ${selectedTicket.id}`}
                           </h2>
-                          <span className="text-[10px] font-bold text-slate-400">#{selectedTicket.id}</span>
+                          <span className="text-[10px] font-bold text-slate-400">{selectedTicket.tracking_code || `#${selectedTicket.id}`}</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">ID Cliente: {selectedTicket.client_id}</span>
