@@ -773,6 +773,94 @@ app.post("/api/admin/clients/:id/reactivate-trial", requireAdminSession, async (
   }
 });
 
+app.post("/api/bot/reply", async (req: any, res: any) => {
+  try {
+    const { client_id, phone_e164, push_name, text } = req.body || {};
+
+    if (!client_id || !phone_e164 || !text) {
+      return res.status(400).json({
+        ok: false,
+        error: "client_id, phone_e164 e text são obrigatórios"
+      });
+    }
+
+    const { data: client, error: clientError } = await supabase
+      .from("clients")
+      .select("id, company_name, bot_instructions, status, trial_end, trial_ends_at")
+      .eq("id", client_id)
+      .single();
+
+    if (clientError || !client) {
+      return res.status(404).json({
+        ok: false,
+        error: clientError?.message || "Cliente não encontrado"
+      });
+    }
+
+    const trialEnd = client.trial_end || client.trial_ends_at || null;
+    if (client.status === "trial" && trialEnd) {
+      const end = new Date(trialEnd).getTime();
+      if (Number.isFinite(end) && end < Date.now()) {
+        return res.status(403).json({
+          ok: false,
+          reason: "subscription-expired",
+          error: "Trial expirado"
+        });
+      }
+    }
+
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(500).json({
+        ok: false,
+        error: "GROQ_API_KEY em falta"
+      });
+    }
+
+    const systemPrompt = String(
+      client.bot_instructions ||
+      `És o assistente virtual da empresa ${client.company_name || ""}. Responde sempre em português de Portugal, de forma natural, curta e útil.`
+    ).trim();
+
+    const userName = String(push_name || "").trim();
+
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.2,
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt
+        },
+        {
+          role: "user",
+          content: userName
+            ? `Nome do cliente: ${userName}\nTelefone: ${phone_e164}\nMensagem: ${text}`
+            : `Telefone: ${phone_e164}\nMensagem: ${text}`
+        }
+      ]
+    });
+
+    const reply = String(completion.choices?.[0]?.message?.content || "").trim();
+
+    if (!reply) {
+      return res.status(500).json({
+        ok: false,
+        error: "Resposta vazia do modelo"
+      });
+    }
+
+    return res.json({
+      ok: true,
+      reply
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Erro ao gerar resposta do bot"
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log("🔥 TrataTudo API running on port", PORT);
 });
