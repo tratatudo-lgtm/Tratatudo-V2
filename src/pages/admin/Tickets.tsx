@@ -57,6 +57,7 @@ export function AdminTickets() {
   const [ticketMessages, setTicketMessages] = useState<TicketMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [internalNote, setInternalNote] = useState('');
+  const [replyText, setReplyText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const { logout, fetchWithAuth } = useAdminAuth();
@@ -92,10 +93,14 @@ export function AdminTickets() {
   const fetchTicketMessages = async (ticketId: string) => {
     setLoadingMessages(true);
     try {
-      // TODO: Backend endpoint /api/admin/tickets/:id/messages does not exist yet.
-      setTicketMessages([]);
+      const res = await fetchWithAuth(`/api/admin/tickets/${ticketId}/messages`);
+      if (!res.ok) throw new Error('Falha ao carregar mensagens do ticket');
+      const data = await res.json();
+      const messages = extractArrayResponse<TicketMessage>(data, 'messages');
+      setTicketMessages(messages);
     } catch (err) {
-      console.error('Failed to fetch messages');
+      console.error('Failed to fetch messages', err);
+      setTicketMessages([]);
     } finally {
       setLoadingMessages(false);
     }
@@ -105,13 +110,34 @@ export function AdminTickets() {
     if (selectedTicket) {
       fetchTicketMessages(selectedTicket.id);
       setInternalNote(selectedTicket.internal_notes || '');
+      setReplyText(selectedTicket.ai_suggested_reply || '');
     }
   }, [selectedTicket]);
 
   const handleAnalyzeTicket = async () => {
     if (!selectedTicket) return;
-    // TODO: Backend endpoint /api/admin/tickets/:id/analyze does not exist yet.
-    toast.info('Análise de ticket (Admin) aguarda implementação no backend.');
+    try {
+      setIsAnalyzing(true);
+      const response = await fetchWithAuth(`/api/admin/tickets/${selectedTicket.id}/analyze`, {
+        method: 'POST'
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Falha ao analisar ticket');
+      }
+      const data = await response.json();
+      setSelectedTicket({
+        ...selectedTicket,
+        ai_summary: data.summary || '',
+        ai_suggested_reply: data.suggested_reply || ''
+      });
+      setReplyText(data.suggested_reply || '');
+      toast.success('Análise concluída com sucesso.');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao analisar ticket');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleUpdateStatus = async (newStatus: string) => {
@@ -135,8 +161,41 @@ export function AdminTickets() {
 
   const handleSaveNote = async () => {
     if (!selectedTicket) return;
-    // TODO: Backend endpoint /api/admin/tickets/:id/notes does not exist yet.
-    toast.info('Notas internas de tickets aguardam implementação no backend.');
+    try {
+      const response = await fetchWithAuth(`/api/admin/tickets/${selectedTicket.id}/notes`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: internalNote })
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Falha ao guardar nota');
+      }
+      toast.success('Nota interna guardada.');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao guardar nota');
+    }
+  };
+
+  const handleReply = async () => {
+    if (!selectedTicket || !replyText.trim()) return;
+    try {
+      const response = await fetchWithAuth(`/api/admin/tickets/${selectedTicket.id}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: replyText })
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Falha ao responder ao ticket');
+      }
+      const data = await response.json();
+      setTicketMessages(prev => [...prev, data.message]);
+      setReplyText('');
+      toast.success('Resposta guardada no ticket.');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao responder ao ticket');
+    }
   };
 
   const filteredTickets = tickets.filter(t => {
@@ -382,14 +441,15 @@ export function AdminTickets() {
                     <div className="mt-8 pt-8 border-t border-slate-50">
                       <div className="relative">
                         <textarea 
-                          placeholder="Responder ao cliente (Funcionalidade aguarda backend)..."
+                          placeholder="Responder ao cliente..."
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
                           className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-4 pr-14 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none resize-none"
                           rows={2}
-                          disabled
                         />
                         <button 
-                          disabled
-                          className="absolute right-3 bottom-3 p-2.5 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 opacity-50 cursor-not-allowed"
+                          onClick={handleReply}
+                          className="absolute right-3 bottom-3 p-2.5 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
                         >
                           <Send className="w-4 h-4" />
                         </button>
@@ -442,7 +502,7 @@ export function AdminTickets() {
                         <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Insights AI</h4>
                       </div>
                       <p className="text-[10px] text-blue-700 font-medium leading-relaxed">
-                        A análise AI pode ajudar a identificar a causa raiz do problema e sugerir respostas rápidas.
+                        {selectedTicket.ai_summary || 'A análise AI pode ajudar a identificar a causa raiz do problema e sugerir respostas rápidas.'}
                       </p>
                     </div>
                   </div>
