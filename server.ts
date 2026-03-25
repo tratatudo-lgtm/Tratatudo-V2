@@ -259,225 +259,6 @@ app.get("/api/admin/tickets", requireAdminSession, async (req, res) => {
   }
 });
 
-
-app.get("/api/admin/tickets/:id/messages", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-
-    const { data: ticket, error } = await supabase
-      .from("tickets")
-      .select("id, client_id, description, metadata")
-      .eq("id", id)
-      .single();
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    const meta = ticket?.metadata && typeof ticket.metadata === "object" ? ticket.metadata : {};
-    const supportReplies = Array.isArray(meta.support_replies) ? meta.support_replies : [];
-
-    const messages = supportReplies.map((m: any, idx: number) => ({
-      id: String(m.id || `reply-${idx}`),
-      text: m.text || "",
-      sender: m.sender || "admin",
-      created_at: m.created_at || new Date().toISOString()
-    }));
-
-    return res.json({ ok: true, messages });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar mensagens do ticket" });
-  }
-});
-
-app.patch("/api/admin/tickets/:id/notes", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-    const { note } = req.body || {};
-
-    const { data: ticket, error: fetchError } = await supabase
-      .from("tickets")
-      .select("id, metadata")
-      .eq("id", id)
-      .single();
-
-    if (fetchError) return res.status(500).json({ ok: false, error: fetchError.message });
-
-    const meta = ticket?.metadata && typeof ticket.metadata === "object" ? ticket.metadata : {};
-    meta.admin_internal_note = note || "";
-    meta.admin_internal_note_updated_at = new Date().toISOString();
-
-    const { error } = await supabase
-      .from("tickets")
-      .update({
-        metadata: meta,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id);
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    return res.json({ ok: true, internal_notes: meta.admin_internal_note });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao guardar nota interna" });
-  }
-});
-
-app.post("/api/admin/tickets/:id/analyze", requireAdminSession, async (req: any, res: any) => {
-  try {
-    if (!process.env.GROQ_API_KEY) {
-      return res.status(500).json({ ok: false, error: "GROQ_API_KEY em falta" });
-    }
-
-    const id = req.params.id;
-
-    const { data: ticket, error: fetchError } = await supabase
-      .from("tickets")
-      .select("id, subject, description, status, priority, kind, category")
-      .eq("id", id)
-      .single();
-
-    if (fetchError) return res.status(500).json({ ok: false, error: fetchError.message });
-
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.2,
-      messages: [
-        {
-          role: "system",
-          content: "Responde APENAS JSON válido com as chaves summary, suggested_reply e priority."
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            subject: ticket.subject || "",
-            description: ticket.description || "",
-            status: ticket.status || "",
-            priority: ticket.priority || "",
-            kind: ticket.kind || "",
-            category: ticket.category || ""
-          })
-        }
-      ]
-    });
-
-    let text = completion.choices?.[0]?.message?.content || "{}";
-    text = text.trim();
-    if (text.startswith("```")) {
-      text = text.replace(/^```[a-zA-Z0-9_-]*\s*/m, "").replace(/\s*```$/, "").trim();
-    }
-
-    let parsed = { summary: "", suggested_reply: "", priority: "medium" };
-    try:
-      parsed = JSON.parse(text)
-    except:
-      pass
-
-    const summary = parsed.get("summary", "") if isinstance(parsed, dict) else ""
-    const suggested_reply = parsed.get("suggested_reply", "") if isinstance(parsed, dict) else ""
-    const ai_priority = parsed.get("priority", "medium") if isinstance(parsed, dict) else "medium"
-
-    const { error } = await supabase
-      .from("tickets")
-      .update({
-        ai_summary: summary,
-        ai_suggested_reply: suggested_reply,
-        ai_priority,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id);
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    return res.json({
-      ok: true,
-      summary,
-      suggested_reply,
-      priority: ai_priority
-    });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao analisar ticket" });
-  }
-});
-
-app.post("/api/admin/tickets/:id/reply", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-    const { text } = req.body || {};
-
-    if (!text || !String(text).trim()) {
-      return res.status(400).json({ ok: false, error: "Texto da resposta é obrigatório" });
-    }
-
-    const { data: ticket, error: fetchError } = await supabase
-      .from("tickets")
-      .select("id, client_id, metadata")
-      .eq("id", id)
-      .single();
-
-    if (fetchError) return res.status(500).json({ ok: false, error: fetchError.message });
-
-    const meta = ticket?.metadata && typeof ticket.metadata === "object" ? ticket.metadata : {};
-    const supportReplies = Array.isArray(meta.support_replies) ? meta.support_replies : [];
-
-    const reply = {
-      id: `reply-${Date.now()}`,
-      text: String(text).trim(),
-      sender: "admin",
-      created_at: new Date().toISOString()
-    };
-
-    supportReplies.append(reply)
-    meta.support_replies = supportReplies
-
-    const { error } = await supabase
-      .from("tickets")
-      .update({
-        metadata: meta,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id);
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    return res.json({ ok: true, message: reply });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao responder ao ticket" });
-  }
-});
-
-app.get("/api/client/tickets/:id/messages", async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-    const clientId = String(req.query.client_id || "").trim();
-
-    const { data: ticket, error } = await supabase
-      .from("tickets")
-      .select("id, client_id, metadata")
-      .eq("id", id)
-      .single();
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    if (!clientId || String(ticket.client_id) != clientId) {
-      return res.status(403).json({ ok: false, error: "Acesso negado" });
-    }
-
-    const meta = ticket?.metadata && typeof ticket.metadata === "object" ? ticket.metadata : {};
-    const supportReplies = Array.isArray(meta.support_replies) ? meta.support_replies : [];
-
-    return res.json({
-      ok: true,
-      messages: supportReplies.map((m: any, idx: number) => ({
-        id: String(m.id || `reply-${idx}`),
-        text: m.text || "",
-        sender: m.sender || "admin",
-        created_at: m.created_at || new Date().toISOString()
-      }))
-    });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar mensagens do cliente" });
-  }
-});
-
-
 app.get("/api/admin/tickets/:id/status", requireAdminSession, async (req: any, res: any) => {
   try {
     const id = req.params.id;
@@ -533,10 +314,8 @@ app.post("/api/admin/clients/trial", requireAdminSession, async (req: any, res: 
       .insert({
         company_name,
         phone_e164,
-        contact_name: contact_name || "",
         email: email || "",
         bot_instructions: bot_instructions || "",
-        plan: plan || "starter",
         status: "trial",
         trial_start: now.toISOString(),
         trial_end: trialEnd.toISOString(),
@@ -681,17 +460,33 @@ function mapTicketStatusForClient(status: string) {
 
 app.get("/api/admin/tickets/support", requireAdminSession, async (req, res) => {
   try {
+    const mapTicketStatusForClient = (status: string) => {
+      const s = (status || "").toLowerCase();
+      if (["new", "open", "aberto", "novo"].includes(s)) return "open";
+      if (["in_review", "in_progress", "em análise", "em analise", "em tratamento"].includes(s)) return "in_progress";
+      if (["resolved", "done", "closed", "concluido", "concluído", "resolvido"].includes(s)) return "resolved";
+      return "open";
+    };
+
     const { data, error } = await supabase
       .from("tickets")
       .select("*")
-      .or("kind.eq.suporte,tracking_code.ilike.SUP-%,subject.ilike.%suporte%,subject.ilike.%support%")
       .order("created_at", { ascending: false });
 
-    if (error) return res.status(500).json({ ok: false, error: error.message });
+    if (error) {
+      return res.status(500).json({ ok: false, error: error.message });
+    }
+
+    const tickets = (data || []).filter((t: any) => {
+      const kind = String(t.kind || "").toLowerCase();
+      const tracking = String(t.tracking_code || "").toUpperCase();
+      const subject = String(t.subject || "").toLowerCase();
+      return kind === "suporte" || tracking.startsWith("SUP-") || subject.includes("suporte") || subject.includes("support");
+    });
 
     return res.json({
       ok: true,
-      tickets: (data || []).map((t: any) => ({
+      tickets: tickets.map((t: any) => ({
         id: String(t.id),
         client_id: t.client_id ? String(t.client_id) : "",
         subject: t.subject || "Ticket de suporte",
@@ -712,41 +507,271 @@ app.get("/api/admin/tickets/support", requireAdminSession, async (req, res) => {
   }
 });
 
-app.get("/api/client/tickets", async (req: any, res: any) => {
+app.get("/api/admin/tickets/:id/messages", requireAdminSession, async (req: any, res: any) => {
   try {
-    const clientId = String(req.query.client_id || "").trim();
+    const id = req.params.id;
 
-    if (!clientId) {
-      return res.status(400).json({ ok: false, error: "client_id é obrigatório" });
+    const { data: ticket, error } = await supabase
+      .from("tickets")
+      .select("id, metadata")
+      .eq("id", id)
+      .single();
+
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+
+    const meta = ticket?.metadata && typeof ticket.metadata === "object" ? ticket.metadata : {};
+    const replies = Array.isArray(meta.support_replies) ? meta.support_replies : [];
+
+    return res.json({
+      ok: true,
+      messages: replies.map((m: any, idx: number) => ({
+        id: String(m.id || `reply-${idx}`),
+        text: m.text || "",
+        sender: m.sender || "admin",
+        created_at: m.created_at || new Date().toISOString()
+      }))
+    });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar mensagens do ticket" });
+  }
+});
+
+app.patch("/api/admin/tickets/:id/status", requireAdminSession, async (req: any, res: any) => {
+  try {
+    const id = req.params.id;
+    const rawStatus = String(req.body?.status || "").trim();
+
+    if (!id || !rawStatus) {
+      return res.status(400).json({ ok: false, error: "Id e status são obrigatórios" });
     }
+
+    const mapToDbStatus: Record<string, string> = {
+      open: "novo",
+      in_review: "em análise",
+      in_progress: "em tratamento",
+      resolved: "resolvido",
+      closed: "concluído"
+    };
+
+    const dbStatus = mapToDbStatus[rawStatus] || rawStatus;
 
     const { data, error } = await supabase
       .from("tickets")
+      .update({
+        status: dbStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id)
       .select("*")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false });
+      .single();
+
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+
+    return res.json({ ok: true, ticket: data });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao atualizar estado do ticket" });
+  }
+});
+
+app.patch("/api/admin/tickets/:id/notes", requireAdminSession, async (req: any, res: any) => {
+  try {
+    const id = req.params.id;
+    const note = String(req.body?.note || "");
+
+    const { data: ticket, error: fetchError } = await supabase
+      .from("tickets")
+      .select("id, metadata")
+      .eq("id", id)
+      .single();
+
+    if (fetchError) return res.status(500).json({ ok: false, error: fetchError.message });
+
+    const meta = ticket?.metadata && typeof ticket.metadata === "object" ? ticket.metadata : {};
+    meta.admin_internal_note = note;
+    meta.admin_internal_note_updated_at = new Date().toISOString();
+
+    const { error } = await supabase
+      .from("tickets")
+      .update({
+        metadata: meta,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id);
+
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+
+    return res.json({ ok: true, internal_notes: note });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao guardar nota interna" });
+  }
+});
+
+app.post("/api/admin/tickets/:id/reply", requireAdminSession, async (req: any, res: any) => {
+  try {
+    const id = req.params.id;
+    const text = String(req.body?.text || "").trim();
+
+    if (!text) {
+      return res.status(400).json({ ok: false, error: "Texto da resposta é obrigatório" });
+    }
+
+    const { data: ticket, error: fetchError } = await supabase
+      .from("tickets")
+      .select("id, metadata")
+      .eq("id", id)
+      .single();
+
+    if (fetchError) return res.status(500).json({ ok: false, error: fetchError.message });
+
+    const meta = ticket?.metadata && typeof ticket.metadata === "object" ? ticket.metadata : {};
+    const replies = Array.isArray(meta.support_replies) ? meta.support_replies : [];
+
+    const reply = {
+      id: `reply-${Date.now()}`,
+      text,
+      sender: "admin",
+      created_at: new Date().toISOString()
+    };
+
+    replies.push(reply);
+    meta.support_replies = replies;
+
+    const { error } = await supabase
+      .from("tickets")
+      .update({
+        metadata: meta,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id);
+
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+
+    return res.json({ ok: true, message: reply });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao responder ao ticket" });
+  }
+});
+
+app.post("/api/admin/tickets/:id/analyze", requireAdminSession, async (req: any, res: any) => {
+  try {
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(500).json({ ok: false, error: "GROQ_API_KEY em falta" });
+    }
+
+    const id = req.params.id;
+
+    const { data: ticket, error: fetchError } = await supabase
+      .from("tickets")
+      .select("id, subject, description, status, priority, kind, category")
+      .eq("id", id)
+      .single();
+
+    if (fetchError) return res.status(500).json({ ok: false, error: fetchError.message });
+
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.2,
+      messages: [
+        {
+          role: "system",
+          content: "Responde APENAS JSON válido com as chaves summary, suggested_reply e priority."
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            subject: ticket.subject || "",
+            description: ticket.description || "",
+            status: ticket.status || "",
+            priority: ticket.priority || "",
+            kind: ticket.kind || "",
+            category: ticket.category || ""
+          })
+        }
+      ]
+    });
+
+    let text = completion.choices?.[0]?.message?.content || "{}";
+    text = text.trim();
+
+    if (text.startsWith("```")) {
+      text = text.replace(/^```[a-zA-Z0-9_-]*\s*/m, "").replace(/\s*```$/, "").trim();
+    }
+
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = { summary: text, suggested_reply: "", priority: "medium" };
+    }
+
+    const summary = parsed?.summary || "";
+    const suggested_reply = parsed?.suggested_reply || "";
+    const ai_priority = parsed?.priority || "medium";
+
+    const { error } = await supabase
+      .from("tickets")
+      .update({
+        ai_summary: summary,
+        ai_suggested_reply: suggested_reply,
+        ai_priority,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id);
 
     if (error) return res.status(500).json({ ok: false, error: error.message });
 
     return res.json({
       ok: true,
-      tickets: (data || []).map((t: any) => ({
-        id: String(t.id),
-        client_id: t.client_id ? String(t.client_id) : "",
-        tracking_code: t.tracking_code || "",
-        subject: t.subject || "Pedido",
-        description: t.description || "",
-        status: mapTicketStatusForClient(t.status || "open"),
-        priority: t.priority || "medium",
-        created_at: t.created_at,
-        updated_at: t.updated_at || t.created_at
-      }))
+      summary,
+      suggested_reply,
+      priority: ai_priority
     });
   } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar tickets do cliente" });
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao analisar ticket" });
   }
 });
 
+app.post("/api/admin/clients/:id/reactivate-trial", requireAdminSession, async (req: any, res: any) => {
+  try {
+    const id = req.params.id;
+    const rawDays = Number(req.body?.days);
+    const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.floor(rawDays) : 3;
+
+    if (!id) {
+      return res.status(400).json({ ok: false, error: "Id é obrigatório" });
+    }
+
+    const now = new Date();
+    const trialEnd = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+    const { data, error } = await supabase
+      .from("clients")
+      .update({
+        status: "trial",
+        trial_start: now.toISOString(),
+        trial_end: trialEnd.toISOString(),
+        updated_at: now.toISOString()
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error) {
+      return res.status(500).json({ ok: false, error: error.message });
+    }
+
+    return res.json({
+      ok: true,
+      client: data,
+      days
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Erro ao reativar trial"
+    });
+  }
+});
 
 app.listen(PORT, () => {
   console.log("🔥 TrataTudo API running on port", PORT);

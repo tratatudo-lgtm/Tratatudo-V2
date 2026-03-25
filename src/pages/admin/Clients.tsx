@@ -187,10 +187,41 @@ export function AdminClients() {
   };
 
   const handleProlongTrial = async () => {
-    // TODO: Backend endpoint /api/admin/clients/:id/prolong does not exist yet.
-    toast.info('Funcionalidade de prolongar trial aguarda implementação no backend.');
-    setIsProlongModalOpen(false);
-    setProlongingClient(null);
+    if (!prolongingClient) return;
+
+    const input = window.prompt('Quantos dias de trial queres atribuir?', '3');
+    if (!input) return;
+
+    const days = Number(input);
+    if (!Number.isFinite(days) || days <= 0) {
+      toast.error('Número de dias inválido.');
+      return;
+    }
+
+    try {
+      setProcessing(true);
+
+      const response = await fetch(`${baseUrl}/api/admin/clients/${prolongingClient.id}/reactivate-trial`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Falha ao reativar trial');
+      }
+
+      toast.success(`Trial atribuído por ${days} dias.`);
+      setIsProlongModalOpen(false);
+      setProlongingClient(null);
+      await fetchClients();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao reativar trial');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
