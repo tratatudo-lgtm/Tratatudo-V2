@@ -152,7 +152,7 @@ export function Dashboard() {
         
       } catch (err: any) {
         console.error('[APP] Dashboard fetch failed:', err);
-        setError(err.message || 'Não foi possível carregar os dados do painel.');
+        setError(`DASHBOARD: ${err?.message || 'Não foi possível carregar os dados do painel.'}`);
         
         // Professional fallback for demo/development
         if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {

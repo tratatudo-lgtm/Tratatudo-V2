@@ -90,7 +90,7 @@ export function Messages() {
       throw lastError || new Error('Falha ao carregar conversas');
     } catch (err: any) {
       console.error('[APP] Fetch conversations failed:', err);
-      setError(err.message || 'Erro desconhecido');
+      setError(`MESSAGES: ${err?.message || 'Erro desconhecido'}`);
     } finally {
       setLoading(false);
     }
