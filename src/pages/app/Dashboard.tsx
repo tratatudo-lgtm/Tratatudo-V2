@@ -631,13 +631,13 @@ export function Dashboard() {
                   <span className="text-slate-500">Estado da Ligação</span>
                   <span className={cn(
                     "flex items-center gap-1.5 font-bold",
-                    data?.instance?.status === 'conectado' ? "text-green-600" : "text-red-600"
+                    data?.instance?.status === 'online' ? "text-green-600" : "text-red-600"
                   )}>
                     <div className={cn(
                       "w-1.5 h-1.5 rounded-full",
-                      data?.instance?.status === 'conectado' ? "bg-green-500 animate-pulse" : "bg-red-500"
+                      data?.instance?.status === 'online' ? "bg-green-500 animate-pulse" : "bg-red-500"
                     )}></div>
-                    {data?.instance?.status === 'conectado' ? 'Conectado' : 'Desconectado'}
+                    {data?.instance?.status === 'online' ? 'Conectado' : 'Desconectado'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
@@ -697,7 +697,7 @@ export function Dashboard() {
               </div>
 
               <Link 
-                to="/app/subscricao"
+                to="/app/subscription"
                 className="block w-full py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-center text-xs font-bold transition-all"
               >
                 Gerir Faturação
