@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { 
   MessageSquare, 
@@ -49,7 +49,7 @@ interface DashboardData {
     complaints?: number;
     inProgressTickets?: number;
     resolvedTickets?: number;
-  };
+  }, []);
   instance: {
     instance_name: string;
     is_hub: boolean;
@@ -88,7 +88,7 @@ export function Dashboard() {
   const [aiInsights, setAiInsights] = useState<{ insights: any[], summary: string } | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
 
-  const fetchAIInsights = async () => {
+  const fetchAIInsights = useCallback(async () => {
     try {
       setLoadingAI(true);
       const data = await apiPost('/api/client/ai/insights', { context: 'dashboard' });
@@ -113,10 +113,8 @@ export function Dashboard() {
     }
   };
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     if (authLoading || !user) return;
-
-    const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
