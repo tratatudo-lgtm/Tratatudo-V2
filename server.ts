@@ -49,21 +49,43 @@ app.post("/api/admin/auth/login", async (req: any, res: any) => {
   try {
     const { email, password } = req.body || {};
 
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-
     if (!email || !password) {
       return res.status(400).json({ ok: false, error: "Email e password são obrigatórios" });
     }
 
-    if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+    const anonClient = createClient(
+      SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY || SUPABASE_KEY
+    );
+
+    const { data: authData, error: authError } = await anonClient.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (authError || !authData?.user?.id) {
       return res.status(401).json({ ok: false, error: "Credenciais inválidas" });
+    }
+
+    const { data: adminRow, error: adminError } = await supabase
+      .from("admins")
+      .select("user_id")
+      .eq("user_id", authData.user.id)
+      .maybeSingle();
+
+    if (adminError) {
+      return res.status(500).json({ ok: false, error: adminError.message });
+    }
+
+    if (!adminRow?.user_id) {
+      return res.status(403).json({ ok: false, error: "Sem permissões de administrador" });
     }
 
     const token = jwt.sign(
       {
         isAdmin: true,
-        email: ADMIN_EMAIL
+        email: authData.user.email || email,
+        user_id: authData.user.id
       },
       JWT_SECRET,
       { expiresIn: "7d" }
@@ -81,10 +103,9 @@ app.post("/api/admin/auth/login", async (req: any, res: any) => {
 
     return res.json({
       ok: true,
-      email: ADMIN_EMAIL,
+      email: authData.user.email || email,
       role: "admin"
     });
-
   } catch (err: any) {
     return res.status(500).json({
       ok: false,
@@ -93,8 +114,211 @@ app.post("/api/admin/auth/login", async (req: any, res: any) => {
   }
 });
 
+const HUB_OTP_COOKIE = "tratatudo_client_session";
+const otpStore = new Map<string, { code: string; expiresAt: number; clientId: string; phone_e164: string }>();
+
+function normalizePhoneE164(raw: string) {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("351")) return `+${digits}`;
+  if (digits.length === 9) return `+351${digits}`;
+  return `+${digits}`;
+}
+
+function generateOtpCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+async function sendWhatsAppOtp(instanceName: string, phoneE164: string, text: string) {
+  const evoUrl = (process.env.EVO_URL || process.env.EVOLUTION_URL || "").replace(/\/$/, "");
+  const evoKey = process.env.EVO_KEY || process.env.EVOLUTION_API_KEY || process.env.APIKEY || "";
+
+  if (!evoUrl || !evoKey) {
+    return { ok: false, error: "Evolution API não configurada" };
+  }
+
+  const number = phoneE164.replace(/\D/g, "");
+  const url = `${evoUrl}/message/sendText/${encodeURIComponent(instanceName)}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": evoKey
+    },
+    body: JSON.stringify({ number, text })
+  });
+
+  const raw = await response.text().catch(() => "");
+  return { ok: response.ok, status: response.status, raw };
+}
+
+app.post("/api/auth/send-otp", async (req: any, res: any) => {
+  try {
+    const phoneRaw = req.body?.phone_e164 || req.body?.phone || "";
+    const phone_e164 = normalizePhoneE164(phoneRaw);
+
+    if (!phone_e164) {
+      return res.status(400).json({ ok: false, error: "Número inválido" });
+
+        }
+
+    const { data: client, error } = await supabase
+      .from("clients")
+      .select("id, company_name, phone_e164, instance_name, production_instance_name, status, trial_end, trial_ends_at, created_at")
+      .eq("phone_e164", phone_e164)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    if (!client?.id) return res.status(404).json({ ok: false, error: "Este número não está associado a nenhum cliente." });
+
+    const status = String(client.status || "").toLowerCase();
+    const trialEndRaw = client.trial_end || client.trial_ends_at || null;
+    const trialActive = status === "trial" && (!trialEndRaw || new Date(trialEndRaw).getTime() >= Date.now());
+    const activeAllowed = status === "active" || trialActive;
+
+    if (!activeAllowed) {
+      return res.status(403).json({ ok: false, error: "Este acesso não está ativo." });
+    }
+
+    const code = generateOtpCode();
+    otpStore.set(phone_e164, {
+      code,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+      clientId: String(client.id),
+      phone_e164
+    });
+
+    const instanceName = client.production_instance_name || client.instance_name || "TrataTudo bot";
+    const text = `O teu código de acesso TrataTudo é: ${code}\n\nEste código expira em 10 minutos.`;
+
+    const sent = await sendWhatsAppOtp(instanceName, phone_e164, text);
+
+    if (!sent.ok) {
+      return res.status(500).json({ ok: false, error: "Não foi possível enviar o código por WhatsApp." });
+    }
+
+    return res.json({ ok: true, message: "Código enviado com sucesso para o WhatsApp." });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao enviar OTP" });
+  }
+});
+
+app.post("/api/auth/verify-otp", async (req: any, res: any) => {
+  try {
+    const phoneRaw = req.body?.phone_e164 || req.body?.phone || "";
+    const phone_e164 = normalizePhoneE164(phoneRaw);
+    const code = String(req.body?.code || "").trim();
+
+    if (!phone_e164 || !/^\d{6}$/.test(code)) {
+      return res.status(400).json({ ok: false, error: "Dados inválidos" });
+    }
+
+    const stored = otpStore.get(phone_e164);
+    if (!stored) return res.status(401).json({ ok: false, error: "Código inválido ou expirado" });
+
+    if (stored.expiresAt < Date.now()) {
+      otpStore.delete(phone_e164);
+      return res.status(401).json({ ok: false, error: "Código expirado" });
+    }
+
+    if (stored.code !== code) {
+      return res.status(401).json({ ok: false, error: "Código inválido" });
+    }
+
+    const { data: client, error } = await supabase
+      .from("clients")
+      .select("id, company_name, phone_e164, status")
+      .eq("id", stored.clientId)
+      .maybeSingle();
+
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    if (!client?.id) return res.status(404).json({ ok: false, error: "Cliente não encontrado" });
+
+    otpStore.delete(phone_e164);
+
+    const token = jwt.sign(
+      {
+        isClient: true,
+        userId: String(client.id),
+        client_id: String(client.id),
+        phone_e164: client.phone_e164,
+        company_name: client.company_name || "",
+        role: "admin"
+      },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    const isProd = process.env.NODE_ENV === "production";
+
+    res.cookie(HUB_OTP_COOKIE, token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    return res.json({ ok: true, authenticated: true });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao validar OTP" });
+  }
+});
+
+app.get("/api/auth/session", async (req: any, res: any) => {
+  try {
+    const token = req.cookies?.[HUB_OTP_COOKIE];
+    if (!token) return res.status(200).json({ authenticated: false });
+
+    let decoded: any = null;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch {
+      return res.status(200).json({ authenticated: false });
+    }
+
+    if (!decoded?.client_id) return res.status(200).json({ authenticated: false });
+
+    const { data: client, error } = await supabase
+      .from("clients")
+      .select("id, company_name, phone_e164")
+      .eq("id", decoded.client_id)
+      .maybeSingle();
+
+    if (error || !client?.id) return res.status(200).json({ authenticated: false });
+
+    return res.json({
+      authenticated: true,
+      userId: String(client.id),
+      id: String(client.id),
+      phone_e164: client.phone_e164 || "",
+      company_name: client.company_name || "",
+      role: decoded.role || "admin",
+      finePermissions: []
+    });
+  } catch (err: any) {
+    return res.status(500).json({ authenticated: false, error: err?.message || "Erro ao validar sessão" });
+  }
+});
+
+app.post("/api/auth/logout", async (req: any, res: any) => {
+  const isProd = process.env.NODE_ENV === "production";
+  res.clearCookie(HUB_OTP_COOKIE, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/"
+  });
+  return res.json({ ok: true });
+});
+
+
+
 app.get("/api/admin/auth/session", async (req: any, res: any) => {
-  const token = req.cookies.tratatudo_admin_session;
+  const token = req.cookies?.tratatudo_admin_session;
   if (!token) return res.json({ authenticated: false });
 
   try {
@@ -114,6 +338,235 @@ app.get("/api/admin/auth/session", async (req: any, res: any) => {
 app.post("/api/admin/auth/logout", async (req: any, res: any) => {
   res.clearCookie("tratatudo_admin_session");
   return res.json({ ok: true });
+});
+
+
+
+
+function requireClientSession(req: any, res: any, next: any) {
+  const token = req.cookies?.tratatudo_client_session;
+  if (!token) return res.status(401).json({ ok: false, error: "unauthorized" });
+
+  try {
+    const decoded: any = jwt.verify(token, JWT_SECRET);
+    if (!decoded?.isClient || !decoded?.client_id) {
+      return res.status(403).json({ ok: false, error: "forbidden" });
+    }
+    req.clientSession = decoded;
+    next();
+  } catch {
+    return res.status(401).json({ ok: false, error: "invalid session" });
+  }
+}
+
+app.get("/api/client/dashboard/stats", requireClientSession, async (req: any, res: any) => {
+  try {
+    const clientId = String(req.clientSession.client_id);
+
+    const { data: clientRow } = await supabase
+      .from("clients")
+      .select("id, phone_e164")
+      .eq("id", clientId)
+      .maybeSingle();
+
+    const clientPhone = String(clientRow?.phone_e164 || "");
+
+    const [
+      ticketsRes,
+      messagesRes,
+      instancesRes,
+      subscriptionsRes
+    ] = await Promise.all([
+      supabase.from("tickets").select("id,status,priority,created_at,client_id").eq("client_id", clientId),
+      supabase.from("wa_messages").select("id,created_at,direction,text,phone_e164,instance").eq("phone_e164", clientPhone),
+      supabase.from("client_instances").select("*").eq("client_id", clientId).order("created_at", { ascending: false }).limit(1),
+      supabase.from("subscriptions").select("*").eq("client_id", clientId).order("created_at", { ascending: false }).limit(1)
+    ]);
+
+    const tickets = ticketsRes.data || [];
+    const messages = messagesRes.data || [];
+    const instance = (instancesRes.data || [])[0] || null;
+    const subscription = (subscriptionsRes.data || [])[0] || null;
+
+    const openTickets = tickets.filter((t: any) => {
+      const s = String(t.status || "").toLowerCase();
+      return !["resolved", "done", "closed", "concluído", "concluido", "resolvido"].includes(s);
+    }).length;
+
+    const inProgressTickets = tickets.filter((t: any) => {
+      const s = String(t.status || "").toLowerCase();
+      return ["analise", "analysis", "in_progress", "processing", "em análise", "em analise"].includes(s);
+    }).length;
+
+    const resolvedTickets = tickets.filter((t: any) => {
+      const s = String(t.status || "").toLowerCase();
+      return ["resolved", "done", "closed", "concluído", "concluido", "resolvido"].includes(s);
+    }).length;
+
+    const complaints = tickets.filter((t: any) => {
+      const s = String(t.priority || "").toLowerCase();
+      return ["high", "urgent", "alta", "urgente"].includes(s);
+    }).length;
+
+    const recentActivity = [
+      ...tickets.slice(0, 10).map((t: any) => ({
+        type: "ticket",
+        title: `Ticket ${t.id}`,
+        status: t.status || "open",
+        created_at: t.created_at
+      })),
+      ...messages.slice(0, 10).map((m: any) => ({
+        type: "message",
+        title: (m.text || "Mensagem").slice(0, 80),
+        status: m.direction || "inbound",
+        created_at: m.created_at
+      }))
+    ]
+      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 12);
+
+    return res.json({
+      ok: true,
+      stats: {
+        messages: messages.length,
+        totalMessages: messages.length,
+        totalTickets: tickets.length,
+        openTickets,
+        complaints,
+        inProgressTickets,
+        resolvedTickets
+      },
+      instance: instance ? {
+        instance_name: instance.instance_name || "Sem instância",
+        is_hub: instance.is_hub === true || instance.instance_name === "TrataTudo bot",
+        status: instance.status === "active" ? "online" : (instance.status || "offline")
+      } : null,
+      subscription: subscription ? {
+        status: subscription.status || "inactive",
+        plan: subscription.plan_name || subscription.plan || "Starter",
+        ends_at: subscription.ends_at || subscription.current_period_end || null
+      } : null,
+      activity: recentActivity
+    });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar dashboard cliente" });
+  }
+});
+
+app.get("/api/client/dashboard/charts", requireClientSession, async (req: any, res: any) => {
+  try {
+    const clientId = String(req.clientSession.client_id);
+
+    const { data: tickets } = await supabase
+      .from("tickets")
+      .select("status,priority,created_at,client_id")
+      .eq("client_id", clientId);
+
+    const rows = tickets || [];
+    const now = new Date();
+    const byDay = new Map<string, { tickets: number; complaints: number; resolved: number }>();
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 86400000);
+      const key = d.toISOString().slice(0, 10);
+      byDay.set(key, { tickets: 0, complaints: 0, resolved: 0 });
+    }
+
+    let aberto = 0, analise = 0, resolvido = 0;
+    let pedido = 0, reclamacao = 0, outro = 0;
+
+    for (const t of rows) {
+      const key = String(t.created_at || "").slice(0, 10);
+      const status = String(t.status || "").toLowerCase();
+      const priority = String(t.priority || "").toLowerCase();
+
+      if (byDay.has(key)) {
+        const item = byDay.get(key)!;
+        item.tickets += 1;
+        if (["high", "urgent", "alta", "urgente"].includes(priority)) item.complaints += 1;
+        if (["resolved", "done", "closed", "concluído", "concluido", "resolvido"].includes(status)) item.resolved += 1;
+      }
+
+      if (["resolved", "done", "closed", "concluído", "concluido", "resolvido"].includes(status)) resolvido += 1;
+      else if (["analise", "analysis", "in_progress", "processing", "em análise", "em analise"].includes(status)) analise += 1;
+      else aberto += 1;
+
+      if (["high", "urgent", "alta", "urgente"].includes(priority)) reclamacao += 1;
+      else pedido += 1;
+    }
+
+    if (rows.length === 0) outro = 0;
+    else outro = Math.max(0, rows.length - pedido - reclamacao);
+
+    return res.json({
+      daily: Array.from(byDay.entries()).map(([date, v]) => ({
+        date,
+        tickets: v.tickets,
+        complaints: v.complaints,
+        resolved: v.resolved
+      })),
+      statusDistribution: { aberto, analise, resolvido },
+      typeDistribution: { pedido, reclamação: reclamacao, outro }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar gráficos" });
+  }
+});
+
+app.post("/api/client/ai/insights", requireClientSession, async (req: any, res: any) => {
+  try {
+    const clientId = String(req.clientSession.client_id);
+
+    const { data: clientRow } = await supabase
+      .from("clients")
+      .select("id, phone_e164")
+      .eq("id", clientId)
+      .maybeSingle();
+
+    const clientPhone = String(clientRow?.phone_e164 || "");
+
+    const [{ data: tickets }, { data: messages }] = await Promise.all([
+      supabase.from("tickets").select("status,priority,created_at,client_id").eq("client_id", clientId),
+      supabase.from("wa_messages").select("created_at,direction,phone_e164").eq("phone_e164", clientPhone)
+    ]);
+
+    const totalTickets = (tickets || []).length;
+    const totalMessages = (messages || []).length;
+    const openTickets = (tickets || []).filter((t: any) => {
+      const s = String(t.status || "").toLowerCase();
+      return !["resolved", "done", "closed", "concluído", "concluido", "resolvido"].includes(s);
+    }).length;
+
+    return res.json({
+      insights: [
+        {
+          id: "1",
+          type: openTickets > 5 ? "warning" : "success",
+          title: "Estado operacional",
+          description: openTickets > 5
+            ? `Tens ${openTickets} tickets ainda por fechar.`
+            : "O volume de tickets em aberto está sob controlo."
+        },
+        {
+          id: "2",
+          type: totalMessages > 0 ? "info" : "warning",
+          title: "Mensagens recebidas",
+          description: `Foram registadas ${totalMessages} mensagens ligadas a este cliente.`
+        },
+        {
+          id: "3",
+          type: totalTickets > 0 ? "info" : "warning",
+          title: "Pedidos e ocorrências",
+          description: `Existem ${totalTickets} tickets associados à tua operação.`
+        }
+      ],
+      summary: openTickets > 5
+        ? "Há margem para melhorar o tempo de resposta aos pedidos em aberto."
+        : "A operação está estável e o painel já está ligado ao backend."
+    });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao gerar insights" });
+  }
 });
 
 // 📊 DASHBOARD
