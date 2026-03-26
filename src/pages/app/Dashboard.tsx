@@ -81,7 +81,7 @@ const shortcuts = [
 ];
 
 export function Dashboard() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +114,8 @@ export function Dashboard() {
   };
 
   useEffect(() => {
+    if (authLoading || !user) return;
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -196,7 +198,7 @@ export function Dashboard() {
     };
 
     fetchData();
-  }, []);
+  }, [authLoading, user?.client_id]);
 
   if (loading) {
     return <LoadingState message="A carregar o seu painel..." className="h-[60vh]" />;

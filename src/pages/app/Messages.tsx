@@ -51,7 +51,7 @@ export function Messages() {
   const [sending, setSending] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const [chatSummary, setChatSummary] = useState<any>(null);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const clientId = user?.client_id;
 
   const fetchConversations = async () => {
@@ -169,10 +169,13 @@ export function Messages() {
   };
 
   useEffect(() => {
+    if (authLoading || !user) return;
+    setError(null);
     fetchConversations();
-  }, []);
+  }, [authLoading, user?.client_id]);
 
   useEffect(() => {
+    if (authLoading || !user) return;
     if (selectedPhone) {
       fetchHistory(selectedPhone);
     }
