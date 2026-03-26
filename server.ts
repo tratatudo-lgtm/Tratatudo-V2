@@ -317,6 +317,7 @@ app.post("/api/auth/logout", async (req: any, res: any) => {
 
 
 
+
 app.get("/api/admin/auth/session", async (req: any, res: any) => {
   const token = req.cookies?.tratatudo_admin_session;
   if (!token) return res.json({ authenticated: false });
@@ -358,6 +359,304 @@ function requireClientSession(req: any, res: any, next: any) {
     return res.status(401).json({ ok: false, error: "invalid session" });
   }
 }
+
+
+
+
+
+app.get("/api/messages", requireClientSession, async (req: any, res: any) => {
+  try {
+    const clientId = String(req.clientSession.client_id);
+
+    const { data: clientRow } = await supabase
+      .from("clients")
+      .select("id, phone_e164")
+      .eq("id", clientId)
+      .maybeSingle();
+
+    const clientPhone = String(clientRow?.phone_e164 || "");
+
+    let rows: any[] = [];
+
+    const byClientId = await supabase
+      .from("wa_messages")
+      .select("id, phone_e164, text, direction, created_at, instance, client_id")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    if (!byClientId.error && (byClientId.data || []).length > 0) {
+      rows = byClientId.data || [];
+    } else {
+      const byPhone = await supabase
+        .from("wa_messages")
+        .select("id, phone_e164, text, direction, created_at, instance")
+        .eq("phone_e164", clientPhone)
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      rows = byPhone.data || [];
+    }
+
+    const grouped = new Map<string, any>();
+
+    for (const m of rows) {
+      const phone = String(m.phone_e164 || "").trim();
+      if (!phone) continue;
+
+      if (!grouped.has(phone)) {
+        grouped.set(phone, {
+          phone_e164: phone,
+          lastMsg: m.text || "",
+          time: m.created_at || new Date().toISOString(),
+          direction: m.direction || "in",
+          type: "Mensagem"
+        });
+      }
+    }
+
+    return res.json({ ok: true, messages: Array.from(grouped.values()) });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar conversas" });
+  }
+});
+
+app.get("/api/messages/conversations", requireClientSession, async (req: any, res: any) => {
+  try {
+    const clientId = String(req.clientSession.client_id);
+
+    const { data: clientRow } = await supabase
+      .from("clients")
+      .select("id, phone_e164")
+      .eq("id", clientId)
+      .maybeSingle();
+
+    const clientPhone = String(clientRow?.phone_e164 || "");
+
+    let rows: any[] = [];
+
+    const byClientId = await supabase
+      .from("wa_messages")
+      .select("id, phone_e164, text, direction, created_at, instance, client_id")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    if (!byClientId.error && (byClientId.data || []).length > 0) {
+      rows = byClientId.data || [];
+    } else {
+      const byPhone = await supabase
+        .from("wa_messages")
+        .select("id, phone_e164, text, direction, created_at, instance")
+        .eq("phone_e164", clientPhone)
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      rows = byPhone.data || [];
+    }
+
+    const grouped = new Map<string, any>();
+
+    for (const m of rows) {
+      const phone = String(m.phone_e164 || "").trim();
+      if (!phone) continue;
+
+      if (!grouped.has(phone)) {
+        grouped.set(phone, {
+          phone_e164: phone,
+          lastMsg: m.text || "",
+          time: m.created_at || new Date().toISOString(),
+          direction: m.direction || "in",
+          type: "Mensagem"
+        });
+      }
+    }
+
+    return res.json({ ok: true, messages: Array.from(grouped.values()) });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar conversas" });
+  }
+});
+
+app.get("/api/client/messages", requireClientSession, async (req: any, res: any) => {
+  try {
+    const clientId = String(req.clientSession.client_id);
+
+    const { data: clientRow } = await supabase
+      .from("clients")
+      .select("id, phone_e164, instance_name, production_instance_name")
+      .eq("id", clientId)
+      .maybeSingle();
+
+    const clientPhone = String(clientRow?.phone_e164 || "");
+    const instanceNames = [clientRow?.production_instance_name, clientRow?.instance_name, "TrataTudo bot"]
+      .filter(Boolean)
+      .map((v: any) => String(v));
+
+    let rows: any[] = [];
+
+    const byClientId = await supabase
+      .from("wa_messages")
+      .select("id, phone_e164, text, direction, created_at, instance, client_id")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    if (!byClientId.error && (byClientId.data || []).length > 0) {
+      rows = byClientId.data || [];
+    } else {
+      const byPhone = await supabase
+        .from("wa_messages")
+        .select("id, phone_e164, text, direction, created_at, instance")
+        .eq("phone_e164", clientPhone)
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      rows = byPhone.data || [];
+    }
+
+    const grouped = new Map<string, any>();
+
+    for (const m of rows) {
+      const phone = String(m.phone_e164 || "").trim();
+      if (!phone) continue;
+
+      if (!grouped.has(phone)) {
+        grouped.set(phone, {
+          phone_e164: phone,
+          lastMsg: m.text || "",
+          time: m.created_at || new Date().toISOString(),
+          direction: m.direction || "in",
+          type: "Mensagem"
+        });
+      }
+    }
+
+    return res.json({ ok: true, messages: Array.from(grouped.values()) });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar conversas" });
+  }
+});
+
+app.get("/api/client/messages/history/:phone", requireClientSession, async (req: any, res: any) => {
+  try {
+    const clientId = String(req.clientSession.client_id);
+    const phone = String(req.params.phone || "").trim();
+
+    const { data: rows, error } = await supabase
+      .from("wa_messages")
+      .select("text, direction, created_at, phone_e164")
+      .eq("phone_e164", phone)
+      .order("created_at", { ascending: true })
+      .limit(1000);
+
+    if (error) {
+      return res.status(500).json({ ok: false, error: error.message });
+    }
+
+    const messages = (rows || []).map((m: any) => ({
+      text: m.text || "",
+      direction:
+        m.direction === "inbound" || m.direction === "received" || m.direction === "in"
+          ? "received"
+          : "sent",
+      created_at: m.created_at,
+      phone_e164: m.phone_e164 || phone,
+      type: "Mensagem"
+    }));
+
+    return res.json({ ok: true, messages });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar histórico" });
+  }
+});
+
+app.post("/api/client/messages/send", requireClientSession, async (req: any, res: any) => {
+  try {
+    const clientId = String(req.clientSession.client_id);
+    const phone = String(req.body?.phone || "").trim();
+    const text = String(req.body?.text || "").trim();
+
+    if (!phone || !text) {
+      return res.status(400).json({ ok: false, error: "phone e text são obrigatórios" });
+    }
+
+    const { data: clientRow } = await supabase
+      .from("clients")
+      .select("id, instance_name, production_instance_name")
+      .eq("id", clientId)
+      .maybeSingle();
+
+    const instanceName = String(clientRow?.production_instance_name || clientRow?.instance_name || "TrataTudo bot");
+    const evoUrl = (process.env.EVO_URL || process.env.EVOLUTION_URL || "").replace(/\/$/, "");
+    const evoKey = process.env.EVO_KEY || process.env.EVOLUTION_API_KEY || process.env.APIKEY || "";
+
+    if (!evoUrl || !evoKey) {
+      return res.status(500).json({ ok: false, error: "Evolution API não configurada" });
+    }
+
+    const response = await fetch(`${evoUrl}/message/sendText/${encodeURIComponent(instanceName)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": evoKey
+      },
+      body: JSON.stringify({
+        number: phone.replace(/\D/g, ""),
+        text
+      })
+    });
+
+    const raw = await response.text().catch(() => "");
+    if (!response.ok) {
+      return res.status(500).json({ ok: false, error: "Falha ao enviar mensagem", raw });
+    }
+
+    const message = {
+      text,
+      direction: "sent",
+      created_at: new Date().toISOString(),
+      phone_e164: phone
+    };
+
+    return res.json({ ok: true, message });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao enviar mensagem" });
+  }
+});
+
+app.post("/api/client/ai/summarize-chat", requireClientSession, async (req: any, res: any) => {
+  try {
+    const phone = String(req.body?.phone || "").trim();
+    if (!phone) {
+      return res.status(400).json({ ok: false, error: "phone é obrigatório" });
+    }
+
+    const { data: rows, error } = await supabase
+      .from("wa_messages")
+      .select("text, direction, created_at, phone_e164")
+      .eq("phone_e164", phone)
+      .order("created_at", { ascending: true })
+      .limit(100);
+
+    if (error) {
+      return res.status(500).json({ ok: false, error: error.message });
+    }
+
+    const msgs = rows || [];
+    const summary = msgs.slice(-8).map((m: any) => `${m.direction}: ${m.text || ""}`).join(" | ");
+
+    return res.json({
+      ok: true,
+      summary: summary || "Sem mensagens para resumir.",
+      main_issue: msgs.length > 0 ? "Conversa ativa no WhatsApp" : "Sem atividade",
+      sentiment: "Neutro",
+      suggested_reply: "Obrigado pela tua mensagem. Vou analisar e responder-te de seguida."
+    });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err?.message || "Erro ao resumir conversa" });
+  }
+});
 
 app.get("/api/client/dashboard/stats", requireClientSession, async (req: any, res: any) => {
   try {
