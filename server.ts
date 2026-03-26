@@ -118,23 +118,112 @@ app.post("/api/admin/auth/logout", async (req: any, res: any) => {
 
 // 📊 DASHBOARD
 app.get("/api/admin/dashboard/stats", requireAdminSession, async (req, res) => {
-  const { count: totalClients } = await supabase
-    .from("clients")
-    .select("*", { count: "exact", head: true });
+  try {
+    const now = new Date();
+    const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const since7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { count: totalMessages } = await supabase
-    .from("wa_messages")
-    .select("*", { count: "exact", head: true });
+    const [
+      clientsRes,
+      messages24hRes,
+      messages7dRes,
+      instancesRes,
+      ticketsRes
+    ] = await Promise.all([
+      supabase.from("clients").select("*"),
+      supabase.from("wa_messages").select("created_at").gte("created_at", since24h),
+      supabase.from("wa_messages").select("created_at").gte("created_at", since7d),
+      supabase.from("client_instances").select("*"),
+      supabase.from("tickets").select("id,status,priority,created_at")
+    ]);
 
-  res.json({
-    total_clients: totalClients || 0,
-    active_clients: totalClients || 0,
-    trial_clients: 0,
-    total_messages_24h: totalMessages || 0,
-    active_instances: 1,
-    system_health: 100,
-    messages_chart: []
-  });
+    if (clientsRes.error) throw clientsRes.error;
+    if (messages24hRes.error) throw messages24hRes.error;
+    if (messages7dRes.error) throw messages7dRes.error;
+    if (instancesRes.error) throw instancesRes.error;
+    if (ticketsRes.error) throw ticketsRes.error;
+
+    const clients = clientsRes.data || [];
+    const messages24h = messages24hRes.data || [];
+    const messages7d = messages7dRes.data || [];
+    const instances = instancesRes.data || [];
+    const tickets = ticketsRes.data || [];
+
+    const totalClients = clients.length;
+    const activeClients = clients.filter((c: any) => (c.status || "").toLowerCase() === "active").length;
+    const trialClients = clients.filter((c: any) => {
+      const status = String(c.status || "").toLowerCase();
+      if (status !== "trial") return false;
+
+      const trialEndRaw = c.trial_end || c.trial_ends_at || null;
+      if (!trialEndRaw) return true;
+
+      const trialEndTs = new Date(trialEndRaw).getTime();
+      if (!Number.isFinite(trialEndTs)) return true;
+
+      return trialEndTs >= Date.now();
+    }).length;
+    const normalizedActive = instances.filter((i: any) =>
+      ["active", "online", "connected"].includes(String(i.status || "").toLowerCase())
+    );
+
+    const uniqueActiveInstanceNames = new Set(
+      normalizedActive.map((i: any) => String(i.instance_name || "").trim()).filter(Boolean)
+    );
+
+    const effectiveActiveInstances = uniqueActiveInstanceNames.size;
+
+    const totalMessages24h = messages24h.length;
+
+    const dayMap = new Map();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const key = d.toISOString().slice(0, 10);
+      dayMap.set(key, 0);
+    }
+
+    for (const m of messages7d) {
+      const key = String(m.created_at || "").slice(0, 10);
+      if (dayMap.has(key)) {
+        dayMap.set(key, Number(dayMap.get(key) || 0) + 1);
+      }
+    }
+
+    const messagesChart = Array.from(dayMap.entries()).map(([date, count]) => ({
+      date: date.slice(5),
+      count
+    }));
+
+    const criticalTickets = tickets.filter((t: any) => {
+      const status = String(t.status || "").toLowerCase();
+      const priority = String(t.priority || "").toLowerCase();
+      return !["resolved", "done", "closed", "concluído", "concluido", "resolvido"].includes(status) &&
+             ["high", "urgent", "alta", "urgente"].includes(priority);
+    }).length;
+
+    const systemHealth = Math.max(
+      70,
+      100
+      - (criticalTickets * 5)
+      - (effectiveActiveInstances === 0 ? 15 : 0)
+    );
+
+    return res.json({
+      total_clients: totalClients,
+      active_clients: activeClients,
+      trial_clients: trialClients,
+      total_messages_24h: totalMessages24h,
+      active_instances: effectiveActiveInstances,
+      system_health: systemHealth,
+      messages_chart: messagesChart,
+      clients_chart: []
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Erro ao carregar estatísticas do dashboard"
+    });
+  }
 });
 
 // 👥 CLIENTES
@@ -208,22 +297,101 @@ app.get("/api/admin/messages", requireAdminSession, async (req, res) => {
 });
 
 app.get("/api/admin/instances", requireAdminSession, async (req, res) => {
-  const { data } = await supabase.from("client_instances").select("*");
+  try {
+    const { data, error } = await supabase
+      .from("client_instances")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-  res.json({
-    instances: (data || []).map((i: any) => ({
-      id: i.id,
-      instance_name: i.instance_name,
-      status: i.status || "unknown",
-      company_name: i.instance_name === "TrataTudo bot" ? "TrataTudo Hub" : "Cliente",
-      is_hub: i.instance_name === "TrataTudo bot"
-    }))
-  });
+    if (error) {
+      return res.status(500).json({ ok: false, error: error.message });
+    }
+
+    const rows = data || [];
+    const grouped = new Map<string, any>();
+
+    for (const row of rows) {
+      const instanceName = row.instance_name || "Sem instância";
+      const isHub = row.is_hub === true || instanceName === "TrataTudo bot";
+
+      if (isHub) {
+        if (!grouped.has(instanceName)) {
+          grouped.set(instanceName, {
+            id: String(row.id || instanceName),
+            client_id: "hub",
+            company_name: "TRATATUDO HUB",
+            instance_name: instanceName,
+            status: row.status === "active" ? "online" : (row.status === "pending" ? "connecting" : "offline"),
+            whatsapp_number: "Hub Partilhada",
+            last_connected: row.updated_at || row.created_at || new Date().toISOString(),
+            updated_at: row.updated_at || row.created_at || new Date().toISOString(),
+            is_hub: true
+          });
+        }
+      } else {
+        grouped.set(`${instanceName}:${row.client_id}`, {
+          id: String(row.id),
+          client_id: String(row.client_id || ""),
+          company_name: row.company_name || "Cliente",
+          instance_name: instanceName,
+          status: row.status === "active" ? "online" : (row.status === "pending" ? "connecting" : "offline"),
+          whatsapp_number: row.whatsapp_number || row.phone || "Não ligado",
+          last_connected: row.updated_at || row.created_at || new Date().toISOString(),
+          updated_at: row.updated_at || row.created_at || new Date().toISOString(),
+          is_hub: false
+        });
+      }
+    }
+
+    return res.json({
+      ok: true,
+      instances: Array.from(grouped.values())
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Erro ao carregar instâncias"
+    });
+  }
 });
 
 // 📝 ALERTAS
 app.get("/api/admin/alerts", requireAdminSession, async (req, res) => {
-  res.json({ alerts: [] });
+  try {
+    const { data: tickets, error } = await supabase
+      .from("tickets")
+      .select("id,subject,description,status,priority,created_at")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (error) {
+      return res.status(500).json({ ok: false, error: error.message });
+    }
+
+    const alerts = (tickets || [])
+      .filter((t: any) => {
+        const status = String(t.status || "").toLowerCase();
+        const priority = String(t.priority || "").toLowerCase();
+        return !["resolved", "done", "closed", "concluído", "concluido", "resolvido"].includes(status) &&
+               ["high", "urgent", "alta", "urgente"].includes(priority);
+      })
+      .slice(0, 10)
+      .map((t: any) => ({
+        id: String(t.id),
+        type: "warning",
+        title: t.subject || "Ticket prioritário",
+        message: t.description || "Necessita acompanhamento.",
+        created_at: t.created_at,
+        is_read: false
+      }));
+
+    return res.json({ ok: true, alerts });
+  } catch (err: any) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Erro ao carregar alertas"
+    });
+  }
 });
 
 // 📊 TICKETS
@@ -284,6 +452,64 @@ app.get("/api/admin/tickets/:id/status", requireAdminSession, async (req: any, r
     });
   }
 });
+
+
+app.get("/api/admin/activity", requireAdminSession, async (req, res) => {
+  try {
+    const [clientsRes, messagesRes, ticketsRes] = await Promise.all([
+      supabase.from("clients").select("id,company_name,created_at").order("created_at", { ascending: false }).limit(5),
+      supabase.from("wa_messages").select("id,phone_e164,created_at,text").order("created_at", { ascending: false }).limit(5),
+      supabase.from("tickets").select("id,subject,created_at,status").order("created_at", { ascending: false }).limit(5)
+    ]);
+
+    if (clientsRes.error) throw clientsRes.error;
+    if (messagesRes.error) throw messagesRes.error;
+    if (ticketsRes.error) throw ticketsRes.error;
+
+    const activities = [
+      ...(clientsRes.data || []).map((c: any) => ({
+        id: `client-${c.id}`,
+        type: "client_joined",
+        title: "Novo cliente criado",
+        description: c.company_name || "Cliente sem nome",
+        timestamp: c.created_at
+      })),
+      ...(messagesRes.data || []).map((m: any) => ({
+        id: `msg-${m.id}`,
+        type: "message_spike",
+        title: "Nova mensagem recebida",
+        description: m.phone_e164 || "Sem número",
+        timestamp: m.created_at
+      })),
+      ...(ticketsRes.data || []).map((t: any) => ({
+        id: `ticket-${t.id}`,
+        type: "instance_error",
+        title: "Ticket atualizado",
+        description: t.subject || t.status || "Ticket",
+        timestamp: t.created_at
+      }))
+    ]
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 10)
+      .map((a: any) => ({
+        ...a,
+        timestamp: new Date(a.timestamp).toLocaleString("pt-PT", {
+          day: "2-digit",
+          month: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit"
+        })
+      }));
+
+    return res.json({ ok: true, activities });
+  } catch (err: any) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Erro ao carregar atividade recente"
+    });
+  }
+});
+
 
 // 📊 SUBSCRIÇÕES
 app.get("/api/admin/subscriptions", requireAdminSession, async (req, res) => {
@@ -826,6 +1052,127 @@ app.post("/api/admin/clients/:id/sync", requireAdminSession, async (req: any, re
     });
   }
 });
+
+
+app.post("/api/admin/instances/create", requireAdminSession, async (req: any, res: any) => {
+  try {
+    const clientId = String(req.body?.client_id || "").trim();
+    if (!clientId) {
+      return res.status(400).json({ ok: false, error: "client_id é obrigatório" });
+    }
+
+    const { data: client, error: clientError } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("id", clientId)
+      .single();
+
+    if (clientError || !client) {
+      return res.status(404).json({ ok: false, error: clientError?.message || "Cliente não encontrado" });
+    }
+
+    const instanceName = `client-${clientId}`;
+
+    const { data: existing, error: existingError } = await supabase
+      .from("client_instances")
+      .select("*")
+      .eq("client_id", clientId)
+      .maybeSingle();
+
+    if (existingError) {
+      return res.status(500).json({ ok: false, error: existingError.message });
+    }
+
+    let instanceRow: any = null;
+
+    if (existing) {
+      const { data: updated, error: updateError } = await supabase
+        .from("client_instances")
+        .update({
+          instance_name: instanceName,
+          status: "pending",
+          is_hub: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", existing.id)
+        .select("*")
+        .single();
+
+      if (updateError) {
+        return res.status(500).json({ ok: false, error: updateError.message });
+      }
+
+      instanceRow = updated;
+    } else {
+      const { data: inserted, error: insertError } = await supabase
+        .from("client_instances")
+        .insert({
+          client_id: Number(clientId),
+          instance_name: instanceName,
+          status: "pending",
+          is_hub: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select("*")
+        .single();
+
+      if (insertError) {
+        return res.status(500).json({ ok: false, error: insertError.message });
+      }
+
+      instanceRow = inserted;
+    }
+
+    const { error: clientUpdateError } = await supabase
+      .from("clients")
+      .update({
+        production_instance_name: instanceName,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", clientId);
+
+    if (clientUpdateError) {
+      return res.status(500).json({ ok: false, error: clientUpdateError.message });
+    }
+
+    return res.json({
+      ok: true,
+      instance: {
+        id: String(instanceRow.id),
+        client_id: String(instanceRow.client_id || clientId),
+        instance_name: instanceName,
+        status: instanceRow.status || "pending",
+        is_hub: false
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Erro ao criar instância"
+    });
+  }
+});
+
+app.get("/api/admin/instances/qrcode/:instanceName", requireAdminSession, async (req: any, res: any) => {
+  try {
+    const instanceName = String(req.params.instanceName || "").trim();
+    if (!instanceName) {
+      return res.status(400).json({ ok: false, error: "instanceName é obrigatório" });
+    }
+
+    return res.status(501).json({
+      ok: false,
+      error: "QR Code ainda não está ligado à Evolution API neste backend"
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Erro ao obter QR Code"
+    });
+  }
+});
+
 
 app.post("/api/admin/clients/:id/reactivate-trial", requireAdminSession, async (req: any, res: any) => {
   try {
