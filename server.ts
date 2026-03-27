@@ -345,9 +345,11 @@ app.post("/api/admin/auth/logout", async (req: any, res: any) => {
 
 
 function requireClientSession(req: any, res: any, next: any) {
-  const token = req.cookies?.tratatudo_client_session;
+  let token = req.cookies?.tratatudo_client_session;
+  if (!token && req.headers.authorization) {
+    token = req.headers.authorization.replace(/^Bearer /, "");
+  }
   if (!token) return res.status(401).json({ ok: false, error: "unauthorized" });
-
   try {
     const decoded: any = jwt.verify(token, JWT_SECRET);
     if (!decoded?.isClient || !decoded?.client_id) {
@@ -356,6 +358,9 @@ function requireClientSession(req: any, res: any, next: any) {
     req.clientSession = decoded;
     next();
   } catch {
+    return res.status(401).json({ ok: false, error: "invalid session" });
+  }
+}
     return res.status(401).json({ ok: false, error: "invalid session" });
   }
 }
