@@ -158,6 +158,28 @@ const Tickets: React.FC = () => {
     }
   ];
 
+  const normalizeStatus = (value: any) =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+  const normalizePriority = (value: any) =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+  const computedStats = {
+    total: tickets.length,
+    open: tickets.filter((t: any) => ['aberto', 'open', 'novo'].includes(normalizeStatus(t.status))).length,
+    in_progress: tickets.filter((t: any) => ['em tratamento', 'em analise', 'em análise', 'em execucao', 'em execução', 'in_progress', 'processing'].includes(normalizeStatus(t.status))).length,
+    completed: tickets.filter((t: any) => ['concluido', 'concluído', 'resolved', 'done', 'closed'].includes(normalizeStatus(t.status))).length,
+    urgent: tickets.filter((t: any) => ['urgente', 'urgent'].includes(normalizePriority(t.priority))).length,
+  };
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
       {/* Header */}
@@ -177,31 +199,31 @@ const Tickets: React.FC = () => {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <StatCard 
           label="Total" 
-          value={stats?.total || 0} 
+          value={computedStats.total} 
           icon={Ticket}
           color="bg-slate-600"
         />
         <StatCard 
           label="Abertos" 
-          value={stats?.open || 0} 
+          value={computedStats.open} 
           icon={AlertCircle}
           color="bg-blue-600"
         />
         <StatCard 
           label="Em Tratamento" 
-          value={stats?.in_progress || 0} 
+          value={computedStats.in_progress} 
           icon={Clock}
           color="bg-amber-600"
         />
         <StatCard 
           label="Concluídos" 
-          value={stats?.completed || 0} 
+          value={computedStats.completed} 
           icon={CheckCircle2}
           color="bg-emerald-600"
         />
         <StatCard 
           label="Urgentes" 
-          value={stats?.urgent || 0} 
+          value={computedStats.urgent} 
           icon={AlertTriangle}
           color="bg-red-600"
         />
