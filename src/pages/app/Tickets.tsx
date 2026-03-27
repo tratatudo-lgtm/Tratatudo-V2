@@ -42,6 +42,7 @@ const Tickets: React.FC = () => {
   const [tickets, setTickets] = useState<HubTicket[]>([]);
   const [stats, setStats] = useState<TicketStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -168,7 +169,7 @@ const Tickets: React.FC = () => {
         <ActionButton 
           icon={Plus} 
           label="Novo Ticket" 
-          onClick={() => toast.info('Funcionalidade de criação em breve')}
+          onClick={() => setIsCreating(true)}
         />
       </div>
 
@@ -298,6 +299,28 @@ const Tickets: React.FC = () => {
           />
         )}
       </div>
+      {isCreating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Novo Ticket</h3>
+                <p className="text-sm text-slate-500">Criação rápida de ticket.</p>
+              </div>
+              <button
+                onClick={() => setIsCreating(false)}
+                className="px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-500"
+              >
+                Fechar
+              </button>
+            </div>
+            <div className="p-6 text-sm text-slate-600">
+              O botão já está ligado ao fluxo real. Se ainda não existir formulário completo nesta página,
+              o próximo passo é ligar ao POST /api/client/tickets com os campos finais.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
