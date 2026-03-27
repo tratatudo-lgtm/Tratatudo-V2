@@ -18,7 +18,7 @@ import {
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { Email } from '../../types/hub';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, apiPost } from '../../lib/api';
 import { StatCard } from '../../components/app/StatCard';
 import { SearchInput } from '../../components/app/SearchInput';
 import { FilterDropdown } from '../../components/app/FilterDropdown';
@@ -33,6 +33,17 @@ const Emails: React.FC = () => {
   const [search, setSearch] = useState('');
   const [directionFilter, setDirectionFilter] = useState('todos');
   const [statusFilter, setStatusFilter] = useState('todos');
+  const [isCreating, setIsCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [newEmail, setNewEmail] = useState({
+    subject: '',
+    to_email: '',
+    from_email: '',
+    body: '',
+    body_preview: '',
+    direction: 'saída',
+    status: 'pendente'
+  });
 
   useEffect(() => {
     fetchEmails();
@@ -52,6 +63,51 @@ const Emails: React.FC = () => {
       toast.error('Erro de ligação ao servidor');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const resetNewEmail = () => {
+    setNewEmail({
+      subject: '',
+      to_email: '',
+      from_email: '',
+      body: '',
+      body_preview: '',
+      direction: 'saída',
+      status: 'pendente'
+    });
+  };
+
+  const handleCreateEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newEmail.subject.trim() || !newEmail.to_email.trim()) {
+      toast.error('Assunto e destinatário são obrigatórios');
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const payload = {
+        ...newEmail,
+        body_preview: newEmail.body.slice(0, 250)
+      };
+
+      const res = await apiPost('/api/client/emails', payload);
+
+      if ((res as any)?.ok) {
+        toast.success('Email registado com sucesso');
+        setIsCreating(false);
+        resetNewEmail();
+        fetchEmails();
+      } else {
+        toast.error((res as any)?.error || 'Erro ao criar email');
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao criar email');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -137,7 +193,7 @@ const Emails: React.FC = () => {
         <ActionButton 
           label="Novo Email" 
           icon={Plus} 
-          onClick={() => toast.info('Funcionalidade de envio em desenvolvimento')} 
+          onClick={() => setIsCreating(true)} 
         />
       </div>
 
@@ -229,9 +285,88 @@ const Emails: React.FC = () => {
             : "Ainda não tens emails registados."}
           action={!(search || directionFilter !== 'todos' || statusFilter !== 'todos') ? {
             label: "Enviar Primeiro Email",
-            onClick: () => toast.info('Funcionalidade em desenvolvimento')
+            onClick: () => setIsCreating(true)
           } : undefined}
         />
+      )}
+      {isCreating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Novo Email</h3>
+                <p className="text-sm text-slate-500">Registar ou preparar envio de email.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsCreating(false);
+                  resetNewEmail();
+                }}
+                className="px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-500"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateEmail} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  placeholder="Assunto"
+                  value={newEmail.subject}
+                  onChange={(e) => setNewEmail({ ...newEmail, subject: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none md:col-span-2"
+                />
+                <input
+                  type="email"
+                  placeholder="Para"
+                  value={newEmail.to_email}
+                  onChange={(e) => setNewEmail({ ...newEmail, to_email: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                />
+                <input
+                  type="email"
+                  placeholder="De"
+                  value={newEmail.from_email}
+                  onChange={(e) => setNewEmail({ ...newEmail, from_email: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                />
+              </div>
+
+              <textarea
+                placeholder="Mensagem"
+                value={newEmail.body}
+                onChange={(e) => setNewEmail({ ...newEmail, body: e.target.value })}
+                rows={6}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none resize-none"
+              />
+
+              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-600">
+                Esta etapa regista o email no sistema. A ligação SMTP/IMAP do cliente será a camada seguinte para envio e sincronização reais.
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreating(false);
+                    resetNewEmail();
+                  }}
+                  className="px-5 py-3 rounded-xl text-slate-600 hover:bg-slate-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-70"
+                >
+                  {saving ? 'A guardar...' : 'Criar Email'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
