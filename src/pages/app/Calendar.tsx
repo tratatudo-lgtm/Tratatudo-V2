@@ -19,7 +19,7 @@ import {
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { CalendarEvent } from '../../types/hub';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, apiPost } from '../../lib/api';
 import { StatCard } from '../../components/app/StatCard';
 import { StatusBadge } from '../../components/app/StatusBadge';
 import { SearchInput } from '../../components/app/SearchInput';
@@ -33,6 +33,18 @@ const Calendar: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('todos');
+  const [isCreating, setIsCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [newEvent, setNewEvent] = useState({
+    title: '',
+    description: '',
+    event_type: 'reuniao',
+    status: 'confirmado',
+    start_at: '',
+    end_at: '',
+    location: '',
+    notes: ''
+  });
 
   useEffect(() => {
     fetchEvents();
@@ -52,6 +64,52 @@ const Calendar: React.FC = () => {
       toast.error('Erro de ligação ao servidor');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const resetNewEvent = () => {
+    setNewEvent({
+      title: '',
+      description: '',
+      event_type: 'reuniao',
+      status: 'confirmado',
+      start_at: '',
+      end_at: '',
+      location: '',
+      notes: ''
+    });
+  };
+
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newEvent.title || !newEvent.start_at) {
+      toast.error('Título e data de início são obrigatórios');
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const payload = {
+        ...newEvent,
+        end_at: newEvent.end_at || newEvent.start_at
+      };
+
+      const res = await apiPost('/api/client/calendar-events', payload);
+
+      if ((res as any)?.ok) {
+        toast.success('Evento criado com sucesso');
+        setIsCreating(false);
+        resetNewEvent();
+        fetchEvents();
+      } else {
+        toast.error((res as any)?.error || 'Erro ao criar evento');
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao criar evento');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -171,7 +229,7 @@ const Calendar: React.FC = () => {
           <ActionButton 
             label="Novo Evento" 
             icon={Plus} 
-            onClick={() => toast.info('Funcionalidade em desenvolvimento')} 
+            onClick={() => setIsCreating(true)} 
           />
         </div>
       </div>
@@ -254,9 +312,105 @@ const Calendar: React.FC = () => {
             : "Ainda não tens eventos agendados. Começa por marcar o primeiro!"}
           action={!(search || typeFilter !== 'todos') ? {
             label: "Agendar Evento",
-            onClick: () => toast.info('Funcionalidade em desenvolvimento')
+            onClick: () => setIsCreating(true)
           } : undefined}
         />
+      )}
+      {isCreating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Novo Evento</h3>
+                <p className="text-sm text-slate-500">Cria um novo evento na agenda.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsCreating(false);
+                  resetNewEvent();
+                }}
+                className="px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-500"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateEvent} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  placeholder="Título do evento"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                />
+                <select
+                  value={newEvent.event_type}
+                  onChange={(e) => setNewEvent({ ...newEvent, event_type: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                >
+                  <option value="reuniao">Reunião</option>
+                  <option value="chamada">Chamada</option>
+                  <option value="visita">Visita</option>
+                  <option value="outro">Outro</option>
+                </select>
+                <input
+                  type="datetime-local"
+                  value={newEvent.start_at}
+                  onChange={(e) => setNewEvent({ ...newEvent, start_at: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                />
+                <input
+                  type="datetime-local"
+                  value={newEvent.end_at}
+                  onChange={(e) => setNewEvent({ ...newEvent, end_at: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                />
+                <input
+                  type="text"
+                  placeholder="Localização"
+                  value={newEvent.location}
+                  onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none md:col-span-2"
+                />
+                <textarea
+                  placeholder="Descrição"
+                  value={newEvent.description}
+                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                  rows={3}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none md:col-span-2"
+                />
+                <textarea
+                  placeholder="Notas"
+                  value={newEvent.notes}
+                  onChange={(e) => setNewEvent({ ...newEvent, notes: e.target.value })}
+                  rows={2}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none md:col-span-2"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreating(false);
+                    resetNewEvent();
+                  }}
+                  className="px-5 py-3 rounded-xl text-slate-600 hover:bg-slate-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-70"
+                >
+                  {saving ? 'A guardar...' : 'Criar Evento'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
