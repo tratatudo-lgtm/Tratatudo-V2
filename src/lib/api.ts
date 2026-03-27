@@ -16,6 +16,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   const defaultOptions: RequestInit = {
     credentials: 'include',
     headers: {
+    Authorization: `Bearer ${localStorage.getItem("token")}`, 
       'Content-Type': 'application/json',
       ...options.headers,
     },
