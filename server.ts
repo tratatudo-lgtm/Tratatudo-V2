@@ -345,11 +345,9 @@ app.post("/api/admin/auth/logout", async (req: any, res: any) => {
 
 
 function requireClientSession(req: any, res: any, next: any) {
-  let token = req.cookies?.tratatudo_client_session;
-  if (!token && req.headers.authorization) {
-    token = req.headers.authorization.replace(/^Bearer /, "");
-  }
+  const token = req.cookies?.tratatudo_client_session;
   if (!token) return res.status(401).json({ ok: false, error: "unauthorized" });
+
   try {
     const decoded: any = jwt.verify(token, JWT_SECRET);
     if (!decoded?.isClient || !decoded?.client_id) {
@@ -358,9 +356,6 @@ function requireClientSession(req: any, res: any, next: any) {
     req.clientSession = decoded;
     next();
   } catch {
-    return res.status(401).json({ ok: false, error: "invalid session" });
-  }
-}
     return res.status(401).json({ ok: false, error: "invalid session" });
   }
 }
@@ -660,247 +655,6 @@ app.post("/api/client/ai/summarize-chat", requireClientSession, async (req: any,
     });
   } catch (err: any) {
     return res.status(500).json({ ok: false, error: err?.message || "Erro ao resumir conversa" });
-  }
-});
-
-
-
-app.get("/api/client/tickets", requireClientSession, async (req: any, res: any) => {
-  try {
-    const clientId = String(req.clientSession.client_id);
-    const { status, priority, kind, category, search } = req.query || {};
-
-    let query = supabase
-      .from("tickets")
-      .select("*")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false });
-
-    if (status && status !== "all") query = query.eq("status", status);
-    if (priority && priority !== "all") query = query.eq("priority", priority);
-    if (kind && kind !== "all") query = query.eq("kind", kind);
-    if (category && category !== "all") query = query.eq("category", category);
-
-    const { data, error } = await query;
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    let rows = data || [];
-
-    if (search) {
-      const s = String(search).toLowerCase();
-      rows = rows.filter((t: any) =>
-        String(t.tracking_code || "").toLowerCase().includes(s) ||
-        String(t.title || t.subject || "").toLowerCase().includes(s)
-      );
-    }
-
-    const tickets = rows.map((t: any) => ({
-      id: String(t.id),
-      title: t.title || t.subject || "Sem título",
-      tracking_code: t.tracking_code || "",
-      status: t.status || "aberto",
-      priority: t.priority || "média",
-      created_at: t.created_at || new Date().toISOString(),
-      client_name: req.clientSession.company_name || "",
-      assigned_user_name: t.assigned_user_name || null,
-      kind: t.kind || "pedido",
-      category: t.category || "Geral"
-    }));
-
-    return res.json({ ok: true, tickets });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar tickets" });
-  }
-});
-
-
-
-app.get("/api/client/tickets/:id", requireClientSession, async (req: any, res: any) => {
-  try {
-    const clientId = String(req.clientSession.client_id);
-    const id = String(req.params.id || "");
-
-    const { data: ticket, error } = await supabase
-      .from("tickets")
-      .select("*")
-      .eq("id", id)
-      .eq("client_id", clientId)
-      .maybeSingle();
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    if (!ticket) return res.status(404).json({ ok: false, error: "Ticket não encontrado" });
-
-    return res.json({
-      ok: true,
-      ticket: {
-        id: String(ticket.id),
-        title: ticket.subject || "Ticket",
-        tracking_code: ticket.tracking_code || "",
-        kind: ticket.kind || "pedido",
-        category: ticket.category || "Geral",
-        description: ticket.description || "",
-        status: ticket.status || "aberto",
-        priority: ticket.priority || "média",
-        created_at: ticket.created_at,
-        updated_at: ticket.updated_at || ticket.created_at,
-        client_name: ticket.customer_name || req.clientSession.company_name || "",
-        client_phone: ticket.customer_contact || req.clientSession.phone_e164 || "",
-        assigned_user_name: ticket.assigned_user_name || "",
-        client_profile_id: ticket.client_profile_id || ""
-      }
-    });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar ticket" });
-  }
-});
-
-app.get("/api/client/tickets/:id/messages", requireClientSession, async (req: any, res: any) => {
-  try {
-    const clientId = String(req.clientSession.client_id);
-    const id = String(req.params.id || "");
-
-    const { data: ticket, error } = await supabase
-      .from("tickets")
-      .select("id, description, metadata, created_at, customer_name")
-      .eq("id", id)
-      .eq("client_id", clientId)
-      .maybeSingle();
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    if (!ticket) return res.status(404).json({ ok: false, error: "Ticket não encontrado" });
-
-    const metadata = ticket.metadata || {};
-    const supportReplies = Array.isArray(metadata.support_replies) ? metadata.support_replies : [];
-
-    const messages = [
-      {
-        id: `ticket-${ticket.id}`,
-        message: ticket.description || "Sem descrição.",
-        text: ticket.description || "Sem descrição.",
-        sender_type: "system",
-        sender_name: ticket.customer_name || "Sistema",
-        created_at: ticket.created_at
-      },
-      ...supportReplies.map((r: any, idx: number) => ({
-        id: r.id || `reply-${idx}`,
-        message: r.message || r.text || "",
-        text: r.message || r.text || "",
-        sender_type: r.sender === "client" ? "user" : "admin",
-        sender_name: r.sender_name || (r.sender === "client" ? "Cliente" : "Suporte"),
-        created_at: r.created_at || ticket.created_at
-      }))
-    ];
-
-    return res.json({ ok: true, messages });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar mensagens do ticket" });
-  }
-});
-
-app.get("/api/client/tickets/:id/history", requireClientSession, async (req: any, res: any) => {
-  try {
-    const clientId = String(req.clientSession.client_id);
-    const id = String(req.params.id || "");
-
-    const { data: ticket, error } = await supabase
-      .from("tickets")
-      .select("id, status, created_at, updated_at")
-      .eq("id", id)
-      .eq("client_id", clientId)
-      .maybeSingle();
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    if (!ticket) return res.status(404).json({ ok: false, error: "Ticket não encontrado" });
-
-    const history = [
-      {
-        id: `create-${ticket.id}`,
-        event_type: "create",
-        event_label: "Ticket criado",
-        user_name: "Sistema",
-        created_at: ticket.created_at
-      }
-    ];
-
-    if (ticket.updated_at && ticket.updated_at !== ticket.created_at) {
-      history.push({
-        id: `update-${ticket.id}`,
-        event_type: "update",
-        event_label: `Ticket atualizado (${ticket.status || "em curso"})`,
-        user_name: "Sistema",
-        created_at: ticket.updated_at
-      });
-    }
-
-    return res.json({ ok: true, history });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar histórico do ticket" });
-  }
-});
-
-app.get("/api/client/tickets/stats", requireClientSession, async (req: any, res: any) => {
-  try {
-    const clientId = String(req.clientSession.client_id);
-
-    const { data, error } = await supabase
-      .from("tickets")
-      .select("status,priority,client_id")
-      .eq("client_id", clientId);
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    const rows = data || [];
-    const stats = {
-      total: rows.length,
-      open: rows.filter((t: any) => {
-        const s = String(t.status || "").toLowerCase();
-        return ["aberto", "open", "novo"].includes(s);
-      }).length,
-      in_progress: rows.filter((t: any) => {
-        const s = String(t.status || "").toLowerCase();
-        return ["em análise", "em analise", "em execução", "in_progress", "processing"].includes(s);
-      }).length,
-      completed: rows.filter((t: any) => {
-        const s = String(t.status || "").toLowerCase();
-        return ["concluído", "concluido", "resolved", "done", "closed"].includes(s);
-      }).length,
-      urgent: rows.filter((t: any) => {
-        const p = String(t.priority || "").toLowerCase();
-        return ["urgente", "urgent"].includes(p);
-      }).length
-    };
-
-    return res.json({ ok: true, stats });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar estatísticas dos tickets" });
-  }
-});
-
-app.get("/api/client/dashboard", requireClientSession, async (req: any, res) => {
-  try {
-    const clientId = req.user.client_id;
-    const userId = req.user.id;
-    const { data: tickets, error: ticketsError } = await supabase
-      .from("tickets")
-      .select("status, priority")
-      .eq("client_id", clientId);
-    if (ticketsError) throw ticketsError;
-    const totalTickets = tickets?.length || 0;
-    const openTickets = tickets?.filter(t => t.status === "open").length || 0;
-    const inProgressTickets = tickets?.filter(t => t.status === "in_progress").length || 0;
-    const closedTickets = tickets?.filter(t => t.status === "closed").length || 0;
-    const urgentTickets = tickets?.filter(t => t.priority === "urgent").length || 0;
-    const { data: recentMessages, error: messagesError } = await supabase
-      .from("ticket_messages")
-      .select("id, message, created_at, sender_name, ticket_id")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false })
-      .limit(5);
-    if (messagesError) throw messagesError;
-    res.json({ success: true, data: { stats: { total: totalTickets, open: openTickets, in_progress: inProgressTickets, closed: closedTickets, urgent: urgentTickets }, recent_messages: recentMessages || [] } });
-  } catch (error) {
-    console.error("Error fetching dashboard data:", error);
-    res.status(500).json({ success: false, error: "Failed to fetch dashboard data" });
   }
 });
 
@@ -2307,183 +2061,49 @@ REGRAS DE CONTEXTO E ESTILO:
       }
     ];
 
-      const completion = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        temperature: 0.2,
-        messages
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.2,
+      messages
+    });
+
+    const reply = String(completion.choices?.[0]?.message?.content || "").trim();
+
+    if (!reply) {
+      return res.status(500).json({
+        ok: false,
+        error: "Resposta vazia do modelo"
       });
+    }
 
-      let rawReply = String(completion.choices?.[0]?.message?.content || "").trim();
+    const nowIso = new Date().toISOString();
+    const instanceName = String(client.instance_name || "TrataTudo bot");
 
-      if (!rawReply) {
-        return res.status(500).json({
-          ok: false,
-          error: "Resposta vazia do modelo"
-        });
-      }
-
-      if (rawReply.startsWith("```")) {
-        rawReply = rawReply.replace(/^```[a-zA-Z0-9_-]*\s*/m, "").replace(/\s*```$/, "").trim();
-      }
-
-      const nowIso = new Date().toISOString();
-      const instanceName = String(client.instance_name || "TrataTudo bot");
-
-      const normalizeKind = (value: string) => {
-        const v = String(value || "").toLowerCase();
-        if (["complaint", "reclamação", "reclamacao"].includes(v)) return "reclamação";
-        if (["request", "pedido"].includes(v)) return "pedido";
-        if (["sale", "venda"].includes(v)) return "venda";
-        if (["support", "suporte"].includes(v)) return "suporte";
-        return "pedido";
-      };
-
-      const normalizePriority = (value: string) => {
-        const v = String(value || "").toLowerCase();
-        if (["urgent", "urgente"].includes(v)) return "urgente";
-        if (["high", "alta"].includes(v)) return "alta";
-        if (["low", "baixa"].includes(v)) return "baixa";
-        return "média";
-      };
-
-      const buildTrackingCode = () => {
-        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        let out = "TT-";
-        for (let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
-        return out;
-      };
-
-      let parsed: any = null;
-      try {
-        parsed = JSON.parse(rawReply);
-      } catch {
-        parsed = null;
-      }
-
-      if (!parsed) {
-        const startJson = rawReply.indexOf("{");
-        const endJson = rawReply.lastIndexOf("}");
-        if (startJson !== -1 && endJson !== -1 && endJson > startJson) {
-          const maybeJson = rawReply.slice(startJson, endJson + 1);
-          try {
-            parsed = JSON.parse(maybeJson);
-          } catch {
-            parsed = null;
-          }
-        }
-      }
-
-      let finalReply = rawReply;
-
-      if (parsed?.__REPORT__ === true) {
-        let trackingCode = "";
-        let attempts = 0;
-
-        while (!trackingCode && attempts < 10) {
-          const candidate = buildTrackingCode();
-          const { data: existing } = await supabase
-            .from("tickets")
-            .select("id")
-            .eq("tracking_code", candidate)
-            .limit(1);
-
-          if (!existing || existing.length === 0) {
-            trackingCode = candidate;
-          }
-          attempts++;
-        }
-
-        if (!trackingCode) {
-          trackingCode = `TT-${Date.now().toString().slice(-6)}`;
-        }
-
-        const ticketKind = normalizeKind(parsed.type || "");
-        const ticketPriority = normalizePriority(parsed.urgency || "");
-        const category = String(parsed.category || "Geral").trim() || "Geral";
-        const locationText = String(parsed.location_text || "").trim();
-        const descriptionBase = String(parsed.description || "").trim() || "Sem descrição";
-        const citizenName = String(parsed.citizen_name || "").trim();
-        const citizenContact = String(parsed.citizen_contact || "").trim();
-        const language = String(parsed.language || "pt-PT").trim();
-        const channel = String(parsed.channel || "whatsapp").trim();
-
-        const subject =
-          ticketKind === "reclamação"
-            ? `Reclamação - ${category}`
-            : ticketKind === "venda"
-            ? `Pedido comercial - ${category}`
-            : ticketKind === "suporte"
-            ? `Suporte - ${category}`
-            : `Pedido - ${category}`;
-
-        const description = locationText
-          ? `${descriptionBase}\n\nLocal: ${locationText}`
-          : descriptionBase;
-
-        const ticketPayload: any = {
+    await supabase
+      .from("wa_messages")
+      .insert([
+        {
+          phone_e164,
+          instance: instanceName,
+          direction: "in",
+          text: String(text).trim(),
           client_id: Number(client.id),
-          subject,
-          description,
-          status: "aberto",
-          priority: ticketPriority,
-          tracking_code: trackingCode,
-          customer_name: citizenName || userName || "",
-          customer_contact: citizenContact || phone_e164,
-          category,
-          kind: ticketKind,
-          created_at: nowIso,
-          updated_at: nowIso,
-          metadata: {
-            source: "whatsapp_bot",
-            location_text: locationText,
-            language,
-            channel,
-            raw_report: parsed
-          }
-        };
-
-        const { error: ticketError } = await supabase
-          .from("tickets")
-          .insert([ticketPayload]);
-
-        if (ticketError) {
-          return res.status(500).json({
-            ok: false,
-            error: ticketError.message
-          });
+          created_at: nowIso
+        },
+        {
+          phone_e164,
+          instance: instanceName,
+          direction: "out",
+          text: reply,
+          client_id: Number(client.id),
+          created_at: nowIso
         }
+      ]);
 
-        finalReply =
-          ticketKind === "reclamação"
-            ? `Feito ✅ Registei a tua reclamação com o código ${trackingCode}. Podes perguntar a qualquer momento: estado ${trackingCode}.`
-            : `Feito ✅ Registei o teu pedido com o código ${trackingCode}. Podes perguntar a qualquer momento: estado ${trackingCode}.`;
-      }
-
-      await supabase
-        .from("wa_messages")
-        .insert([
-          {
-            phone_e164,
-            instance: instanceName,
-            direction: "in",
-            text: String(text).trim(),
-            client_id: Number(client.id),
-            created_at: nowIso
-          },
-          {
-            phone_e164,
-            instance: instanceName,
-            direction: "out",
-            text: finalReply,
-            client_id: Number(client.id),
-            created_at: nowIso
-          }
-        ]);
-
-      return res.json({
-        ok: true,
-        reply: finalReply
-      });
+    return res.json({
+      ok: true,
+      reply
+    });
   } catch (err: any) {
     return res.status(500).json({
       ok: false,
