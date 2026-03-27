@@ -35,6 +35,28 @@ const Emails: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('todos');
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [testingAccount, setTestingAccount] = useState(false);
+  const [savingAccount, setSavingAccount] = useState(false);
+  const [emailAccounts, setEmailAccounts] = useState<any[]>([]);
+  const [emailAccountForm, setEmailAccountForm] = useState({
+    provider_name: 'custom',
+    from_name: '',
+    email_address: '',
+    smtp_host: '',
+    smtp_port: 587,
+    smtp_secure: false,
+    smtp_username: '',
+    smtp_password: '',
+    imap_host: '',
+    imap_port: 993,
+    imap_secure: true,
+    imap_username: '',
+    imap_password: '',
+    is_active: true,
+    is_default: true
+  });
+
   const [newEmail, setNewEmail] = useState({
     subject: '',
     to_email: '',
@@ -52,17 +74,94 @@ const Emails: React.FC = () => {
   const fetchEmails = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch('/api/client/emails');
-      const data = await res.json();
-      if (data.ok) {
-        setEmails(data.emails);
+      const [emailsRes, accountsRes] = await Promise.all([
+        apiFetch('/api/client/emails'),
+        apiFetch('/api/client/email-accounts')
+      ]);
+
+      const emailsData = await emailsRes.json();
+      const accountsData = await accountsRes.json();
+
+      if (emailsData.ok) {
+        setEmails(emailsData.emails);
       } else {
         toast.error('Erro ao carregar emails');
+      }
+
+      if (accountsData.ok) {
+        setEmailAccounts(accountsData.accounts || []);
       }
     } catch (error) {
       toast.error('Erro de ligação ao servidor');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const resetEmailAccountForm = () => {
+    setEmailAccountForm({
+      provider_name: 'custom',
+      from_name: '',
+      email_address: '',
+      smtp_host: '',
+      smtp_port: 587,
+      smtp_secure: false,
+      smtp_username: '',
+      smtp_password: '',
+      imap_host: '',
+      imap_port: 993,
+      imap_secure: true,
+      imap_username: '',
+      imap_password: '',
+      is_active: true,
+      is_default: true
+    });
+  };
+
+  const handleTestEmailAccount = async () => {
+    if (!emailAccountForm.smtp_host || !emailAccountForm.smtp_username || !emailAccountForm.smtp_password) {
+      toast.error('Preencha os dados SMTP para testar');
+      return;
+    }
+
+    try {
+      setTestingAccount(true);
+      const res = await apiPost('/api/client/email-accounts/test', emailAccountForm);
+      if ((res as any)?.ok) {
+        toast.success('Ligação SMTP validada com sucesso');
+      } else {
+        toast.error((res as any)?.error || 'Falha ao testar ligação');
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Falha ao testar ligação');
+    } finally {
+      setTestingAccount(false);
+    }
+  };
+
+  const handleSaveEmailAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!emailAccountForm.email_address || !emailAccountForm.smtp_host || !emailAccountForm.smtp_username || !emailAccountForm.smtp_password) {
+      toast.error('Preencha email, SMTP host, utilizador e password');
+      return;
+    }
+
+    try {
+      setSavingAccount(true);
+      const res = await apiPost('/api/client/email-accounts', emailAccountForm);
+      if ((res as any)?.ok) {
+        toast.success('Conta de email guardada com sucesso');
+        setIsAccountModalOpen(false);
+        resetEmailAccountForm();
+        fetchEmails();
+      } else {
+        toast.error((res as any)?.error || 'Erro ao guardar conta');
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao guardar conta');
+    } finally {
+      setSavingAccount(false);
     }
   };
 
@@ -190,11 +289,19 @@ const Emails: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900">Emails</h1>
           <p className="text-slate-500">Gere as tuas comunicações por email.</p>
         </div>
-        <ActionButton 
-          label="Novo Email" 
-          icon={Plus} 
-          onClick={() => setIsCreating(true)} 
-        />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsAccountModalOpen(true)}
+            className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-medium hover:bg-slate-50"
+          >
+            Ligar Conta de Email
+          </button>
+          <ActionButton 
+            label="Novo Email" 
+            icon={Plus} 
+            onClick={() => setIsCreating(true)} 
+          />
+        </div>
       </div>
 
       {/* Stats */}
@@ -363,6 +470,164 @@ const Emails: React.FC = () => {
                 >
                   {saving ? 'A guardar...' : 'Criar Email'}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {isAccountModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-200">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Ligar Conta de Email</h3>
+                <p className="text-sm text-slate-500">Configure SMTP e IMAP para qualquer conta profissional.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsAccountModalOpen(false);
+                  resetEmailAccountForm();
+                }}
+                className="px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-500"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEmailAccount} className="p-6 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  placeholder="Nome do remetente"
+                  value={emailAccountForm.from_name}
+                  onChange={(e) => setEmailAccountForm({ ...emailAccountForm, from_name: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={emailAccountForm.email_address}
+                  onChange={(e) => setEmailAccountForm({ ...emailAccountForm, email_address: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                />
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 p-4 space-y-4">
+                <div className="font-semibold text-slate-900">SMTP (envio)</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <input
+                    type="text"
+                    placeholder="SMTP host"
+                    value={emailAccountForm.smtp_host}
+                    onChange={(e) => setEmailAccountForm({ ...emailAccountForm, smtp_host: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                  />
+                  <input
+                    type="number"
+                    placeholder="SMTP porta"
+                    value={emailAccountForm.smtp_port}
+                    onChange={(e) => setEmailAccountForm({ ...emailAccountForm, smtp_port: Number(e.target.value) })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                  />
+                  <input
+                    type="text"
+                    placeholder="SMTP utilizador"
+                    value={emailAccountForm.smtp_username}
+                    onChange={(e) => setEmailAccountForm({ ...emailAccountForm, smtp_username: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                  />
+                  <input
+                    type="password"
+                    placeholder="SMTP password"
+                    value={emailAccountForm.smtp_password}
+                    onChange={(e) => setEmailAccountForm({ ...emailAccountForm, smtp_password: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={emailAccountForm.smtp_secure}
+                    onChange={(e) => setEmailAccountForm({ ...emailAccountForm, smtp_secure: e.target.checked })}
+                  />
+                  Usar ligação segura SMTP (SSL/TLS)
+                </label>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 p-4 space-y-4">
+                <div className="font-semibold text-slate-900">IMAP (receção)</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <input
+                    type="text"
+                    placeholder="IMAP host"
+                    value={emailAccountForm.imap_host}
+                    onChange={(e) => setEmailAccountForm({ ...emailAccountForm, imap_host: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                  />
+                  <input
+                    type="number"
+                    placeholder="IMAP porta"
+                    value={emailAccountForm.imap_port}
+                    onChange={(e) => setEmailAccountForm({ ...emailAccountForm, imap_port: Number(e.target.value) })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                  />
+                  <input
+                    type="text"
+                    placeholder="IMAP utilizador"
+                    value={emailAccountForm.imap_username}
+                    onChange={(e) => setEmailAccountForm({ ...emailAccountForm, imap_username: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                  />
+                  <input
+                    type="password"
+                    placeholder="IMAP password"
+                    value={emailAccountForm.imap_password}
+                    onChange={(e) => setEmailAccountForm({ ...emailAccountForm, imap_password: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={emailAccountForm.imap_secure}
+                    onChange={(e) => setEmailAccountForm({ ...emailAccountForm, imap_secure: e.target.checked })}
+                  />
+                  Usar ligação segura IMAP (SSL/TLS)
+                </label>
+              </div>
+
+              <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                Nesta fase, os dados ficam guardados no sistema para testes e integração. A camada seguinte será envio e sincronização reais.
+              </div>
+
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleTestEmailAccount}
+                  disabled={testingAccount}
+                  className="px-5 py-3 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-70"
+                >
+                  {testingAccount ? 'A testar...' : 'Testar Ligação'}
+                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAccountModalOpen(false);
+                      resetEmailAccountForm();
+                    }}
+                    className="px-5 py-3 rounded-xl text-slate-600 hover:bg-slate-100"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingAccount}
+                    className="px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-70"
+                  >
+                    {savingAccount ? 'A guardar...' : 'Guardar Conta'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
