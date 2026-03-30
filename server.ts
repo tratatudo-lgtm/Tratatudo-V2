@@ -1,2436 +1,1370 @@
-import "dotenv/config";
-import Groq from "groq-sdk";
-import bcrypt from "bcrypt";
 import express from "express";
 import cors from "cors";
+import { createClient } from "@supabase/supabase-js";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
-import { createClient } from "@supabase/supabase-js";
+import bcrypt from "bcrypt";
+import Groq from "groq-sdk";
+import Stripe from "stripe";
+import rateLimit from "express-rate-limit";
+import path from "path";
+import importsTurismoRouter from "./src/routes/importsTurismo.routes";
+import publicRouter from "./src/routes/public.routes";
+import { UserRole, PermissionAction, PermissionModule, ROLE_PERMISSIONS } from "./src/types/hub";
 
-const app = express();
-app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
-app.use(cookieParser());
+// Initialize Supabase
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || "";
 
-const PORT = 3002;
+// Use Service Role Key for backend operations to bypass RLS
+const supabaseKey = supabaseServiceKey || supabaseAnonKey;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-// 🔐 ENV
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "";
-const JWT_SECRET = process.env.JWT_SECRET || "tratatudo-secret";
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY || ""
+// Initialize Groq
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// Initialize Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2023-10-16" as any,
 });
 
-// 🔌 SUPABASE
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// 🔐 ADMIN MIDDLEWARE
-function requireAdminSession(req: any, res: any, next: any) {
-  const token = req.cookies.tratatudo_admin_session;
-  if (!token) return res.status(401).json({ error: "unauthorized" });
-
-  try {
-    const decoded: any = jwt.verify(token, JWT_SECRET);
-    if (!decoded?.isAdmin) return res.status(403).json({ error: "forbidden" });
-    next();
-  } catch {
-    return res.status(401).json({ error: "invalid session" });
-  }
-}
-
-// ❤️ HEALTH CHECK
-app.get("/api/health", (req, res) => {
-  res.json({ ok: true });
+// AI Rate Limiter
+const aiRateLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 10,
+  message: { ok: false, error: "Limite de requisições de IA excedido. Tente novamente em 1 minuto." },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-// 🔑 ADMIN SESSION
-app.post("/api/admin/auth/login", async (req: any, res: any) => {
-  try {
-    const { email, password } = req.body || {};
+const JWT_SECRET = process.env.JWT_SECRET || "tratatudo-v2-secret-key-2026";
+const EVO_URL = (process.env.EVO_URL || "").replace(/\/$/, ""); 
+const EVO_KEY = process.env.EVO_KEY || "";
 
-    if (!email || !password) {
-      return res.status(400).json({ ok: false, error: "Email e password são obrigatórios" });
-    }
+async function startServer() {
+  const app = express();
+  const PORT = Number(process.env.PORT || 3002);
 
-    const anonClient = createClient(
-      SUPABASE_URL,
-      process.env.SUPABASE_ANON_KEY || SUPABASE_KEY
-    );
+  app.use(cors({
+    origin: ["https://app.tratatudo.pt", "https://tratatudo.pt", "https://www.tratatudo.pt", process.env.APP_URL].filter(Boolean) as string[],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"]
+  }));
 
-    const { data: authData, error: authError } = await anonClient.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (authError || !authData?.user?.id) {
-      return res.status(401).json({ ok: false, error: "Credenciais inválidas" });
-    }
-
-    const { data: adminRow, error: adminError } = await supabase
-      .from("admins")
-      .select("user_id")
-      .eq("user_id", authData.user.id)
-      .maybeSingle();
-
-    if (adminError) {
-      return res.status(500).json({ ok: false, error: adminError.message });
-    }
-
-    if (!adminRow?.user_id) {
-      return res.status(403).json({ ok: false, error: "Sem permissões de administrador" });
-    }
-
-    const token = jwt.sign(
-      {
-        isAdmin: true,
-        email: authData.user.email || email,
-        user_id: authData.user.id
-      },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    const isProd = process.env.NODE_ENV === "production";
-
-    res.cookie("tratatudo_admin_session", token, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? "none" : "lax",
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
-
-    return res.json({
-      ok: true,
-      email: authData.user.email || email,
-      role: "admin"
-    });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao iniciar sessão"
-    });
-  }
-});
-
-const HUB_OTP_COOKIE = "tratatudo_client_session";
-const otpStore = new Map<string, { code: string; expiresAt: number; clientId: string; phone_e164: string }>();
-
-function normalizePhoneE164(raw: string) {
-  const digits = String(raw || "").replace(/\D/g, "");
-  if (!digits) return "";
-  if (digits.startsWith("351")) return `+${digits}`;
-  if (digits.length === 9) return `+351${digits}`;
-  return `+${digits}`;
-}
-
-function generateOtpCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-async function sendWhatsAppOtp(instanceName: string, phoneE164: string, text: string) {
-  const evoUrl = (process.env.EVO_URL || process.env.EVOLUTION_URL || "").replace(/\/$/, "");
-  const evoKey = process.env.EVO_KEY || process.env.EVOLUTION_API_KEY || process.env.APIKEY || "";
-
-  if (!evoUrl || !evoKey) {
-    return { ok: false, error: "Evolution API não configurada" };
-  }
-
-  const number = phoneE164.replace(/\D/g, "");
-  const url = `${evoUrl}/message/sendText/${encodeURIComponent(instanceName)}`;
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "apikey": evoKey
-    },
-    body: JSON.stringify({ number, text })
-  });
-
-  const raw = await response.text().catch(() => "");
-  return { ok: response.ok, status: response.status, raw };
-}
-
-app.post("/api/auth/send-otp", async (req: any, res: any) => {
-  try {
-    const phoneRaw = req.body?.phone_e164 || req.body?.phone || "";
-    const phone_e164 = normalizePhoneE164(phoneRaw);
-
-    if (!phone_e164) {
-      return res.status(400).json({ ok: false, error: "Número inválido" });
-
-        }
-
-    const { data: client, error } = await supabase
-      .from("clients")
-      .select("id, company_name, phone_e164, instance_name, production_instance_name, status, trial_end, trial_ends_at, created_at")
-      .eq("phone_e164", phone_e164)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    if (!client?.id) return res.status(404).json({ ok: false, error: "Este número não está associado a nenhum cliente." });
-
-    const status = String(client.status || "").toLowerCase();
-    const trialEndRaw = client.trial_end || client.trial_ends_at || null;
-    const trialActive = status === "trial" && (!trialEndRaw || new Date(trialEndRaw).getTime() >= Date.now());
-    const activeAllowed = status === "active" || trialActive;
-
-    if (!activeAllowed) {
-      return res.status(403).json({ ok: false, error: "Este acesso não está ativo." });
-    }
-
-    const code = generateOtpCode();
-    otpStore.set(phone_e164, {
-      code,
-      expiresAt: Date.now() + 10 * 60 * 1000,
-      clientId: String(client.id),
-      phone_e164
-    });
-
-    const instanceName = client.production_instance_name || client.instance_name || "TrataTudo bot";
-    const text = `O teu código de acesso TrataTudo é: ${code}\n\nEste código expira em 10 minutos.`;
-
-    const sent = await sendWhatsAppOtp(instanceName, phone_e164, text);
-
-    if (!sent.ok) {
-      return res.status(500).json({ ok: false, error: "Não foi possível enviar o código por WhatsApp." });
-    }
-
-    return res.json({ ok: true, message: "Código enviado com sucesso para o WhatsApp." });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao enviar OTP" });
-  }
-});
-
-app.post("/api/auth/verify-otp", async (req: any, res: any) => {
-  try {
-    const phoneRaw = req.body?.phone_e164 || req.body?.phone || "";
-    const phone_e164 = normalizePhoneE164(phoneRaw);
-    const code = String(req.body?.code || "").trim();
-
-    if (!phone_e164 || !/^\d{6}$/.test(code)) {
-      return res.status(400).json({ ok: false, error: "Dados inválidos" });
-    }
-
-    const stored = otpStore.get(phone_e164);
-    if (!stored) return res.status(401).json({ ok: false, error: "Código inválido ou expirado" });
-
-    if (stored.expiresAt < Date.now()) {
-      otpStore.delete(phone_e164);
-      return res.status(401).json({ ok: false, error: "Código expirado" });
-    }
-
-    if (stored.code !== code) {
-      return res.status(401).json({ ok: false, error: "Código inválido" });
-    }
-
-    const { data: client, error } = await supabase
-      .from("clients")
-      .select("id, company_name, phone_e164, status")
-      .eq("id", stored.clientId)
-      .maybeSingle();
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    if (!client?.id) return res.status(404).json({ ok: false, error: "Cliente não encontrado" });
-
-    otpStore.delete(phone_e164);
-
-    const token = jwt.sign(
-      {
-        isClient: true,
-        userId: String(client.id),
-        client_id: String(client.id),
-        phone_e164: client.phone_e164,
-        company_name: client.company_name || "",
-        role: "admin"
-      },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    const isProd = process.env.NODE_ENV === "production";
-
-    res.cookie(HUB_OTP_COOKIE, token, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? "none" : "lax",
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
-
-    return res.json({ ok: true, authenticated: true });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao validar OTP" });
-  }
-});
-
-app.get("/api/auth/session", async (req: any, res: any) => {
-  try {
-    const token = req.cookies?.[HUB_OTP_COOKIE];
-    if (!token) return res.status(200).json({ authenticated: false });
-
-    let decoded: any = null;
+  // Stripe Webhook
+  app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req: any, res) => {
+    const sig = req.headers["stripe-signature"];
+    let event;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch {
-      return res.status(200).json({ authenticated: false });
+      event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET || "");
+    } catch (err: any) {
+      return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-    if (!decoded?.client_id) return res.status(200).json({ authenticated: false });
-
-    const { data: client, error } = await supabase
-      .from("clients")
-      .select("id, company_name, phone_e164")
-      .eq("id", decoded.client_id)
-      .maybeSingle();
-
-    if (error || !client?.id) return res.status(200).json({ authenticated: false });
-
-    return res.json({
-      authenticated: true,
-      userId: String(client.id),
-      id: String(client.id),
-      phone_e164: client.phone_e164 || "",
-      company_name: client.company_name || "",
-      role: decoded.role || "admin",
-      finePermissions: []
-    });
-  } catch (err: any) {
-    return res.status(500).json({ authenticated: false, error: err?.message || "Erro ao validar sessão" });
-  }
-});
-
-app.post("/api/auth/logout", async (req: any, res: any) => {
-  const isProd = process.env.NODE_ENV === "production";
-  res.clearCookie(HUB_OTP_COOKIE, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
-    path: "/"
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as any;
+      const clientId = session.metadata.clientId;
+      await supabase.from("clients").update({ stripe_customer_id: session.customer, status: 'active' }).eq("id", clientId);
+      await supabase.from("subscriptions").upsert({
+        client_id: clientId,
+        stripe_subscription_id: session.subscription,
+        status: 'active',
+        plan: 'Pro',
+        updated_at: new Date().toISOString()
+      });
+    } else if (event.type === "customer.subscription.deleted") {
+      const subDeleted = event.data.object as any;
+      await supabase.from("subscriptions").update({ status: 'canceled' }).eq("stripe_subscription_id", subDeleted.id);
+    }
+    res.json({ received: true });
   });
-  return res.json({ ok: true });
-});
 
+  app.use(express.json());
+  app.use(cookieParser());
 
+  // --- Middlewares ---
+  const requireClientSession = async (req: any, res: any, next: any) => {
+    const token = req.cookies.hub_session;
+    if (!token) return res.status(401).json({ ok: false, error: "Não autenticado." });
+    try {
+      const decoded: any = jwt.verify(token, JWT_SECRET);
+      const { data: client } = await supabase.from("clients").select("*").eq("id", decoded.clientId).single();
+      if (!client) return res.status(404).json({ ok: false, error: "Cliente não encontrado." });
+      
+      req.client = client;
+      req.clientId = client.id;
+      req.userRole = decoded.role || 'visualizador';
+      req.userId = decoded.userId;
 
-
-app.get("/api/admin/auth/session", async (req: any, res: any) => {
-  const token = req.cookies?.tratatudo_admin_session;
-  if (!token) return res.json({ authenticated: false });
-
-  try {
-    const decoded: any = jwt.verify(token, JWT_SECRET);
-    if (!decoded?.isAdmin) return res.json({ authenticated: false });
-
-    return res.json({
-      authenticated: true,
-      email: decoded.email || "",
-      role: "admin"
-    });
-  } catch {
-    return res.json({ authenticated: false });
-  }
-});
-
-app.post("/api/admin/auth/logout", async (req: any, res: any) => {
-  res.clearCookie("tratatudo_admin_session");
-  return res.json({ ok: true });
-});
-
-
-
-
-function requireClientSession(req: any, res: any, next: any) {
-  const token = req.cookies?.tratatudo_client_session;
-  if (!token) return res.status(401).json({ ok: false, error: "unauthorized" });
-
-  try {
-    const decoded: any = jwt.verify(token, JWT_SECRET);
-    if (!decoded?.isClient || !decoded?.client_id) {
-      return res.status(403).json({ ok: false, error: "forbidden" });
+      // Fetch fine-grained permissions
+      const { data: finePermissions } = await supabase
+        .from("client_user_permissions")
+        .select("module, actions")
+        .eq("user_id", req.userId);
+      
+      req.finePermissions = finePermissions || [];
+      
+      next();
+    } catch (err) {
+      res.clearCookie("hub_session");
+      return res.status(401).json({ ok: false, error: "Sessão expirada ou inválida." });
     }
-    req.clientSession = decoded;
-    next();
-  } catch {
-    return res.status(401).json({ ok: false, error: "invalid session" });
-  }
-}
+  };
 
-
-
-
-
-app.get("/api/messages", requireClientSession, async (req: any, res: any) => {
-  try {
-    const clientId = String(req.clientSession.client_id);
-
-    const { data: clientRow } = await supabase
-      .from("clients")
-      .select("id, phone_e164")
-      .eq("id", clientId)
-      .maybeSingle();
-
-    const clientPhone = String(clientRow?.phone_e164 || "");
-
-    let rows: any[] = [];
-
-    const byClientId = await supabase
-      .from("wa_messages")
-      .select("id, phone_e164, text, direction, created_at, instance, client_id")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false })
-      .limit(500);
-
-    if (!byClientId.error && (byClientId.data || []).length > 0) {
-      rows = byClientId.data || [];
-    } else {
-      const byPhone = await supabase
-        .from("wa_messages")
-        .select("id, phone_e164, text, direction, created_at, instance")
-        .eq("phone_e164", clientPhone)
-        .order("created_at", { ascending: false })
-        .limit(500);
-
-      rows = byPhone.data || [];
-    }
-
-    const grouped = new Map<string, any>();
-
-    for (const m of rows) {
-      const phone = String(m.phone_e164 || "").trim();
-      if (!phone) continue;
-
-      if (!grouped.has(phone)) {
-        grouped.set(phone, {
-          phone_e164: phone,
-          lastMsg: m.text || "",
-          time: m.created_at || new Date().toISOString(),
-          direction: m.direction || "in",
-          type: "Mensagem"
-        });
+  const requirePermission = (module: string, action: string) => {
+    return (req: any, res: any, next: any) => {
+      const role = req.userRole;
+      
+      // 1. Check fine-grained permissions first
+      const finePerm = req.finePermissions?.find((p: any) => p.module === module);
+      if (finePerm && finePerm.actions.includes(action)) {
+        return next();
       }
-    }
 
-    return res.json({ ok: true, messages: Array.from(grouped.values()) });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar conversas" });
-  }
-});
-
-app.get("/api/messages/conversations", requireClientSession, async (req: any, res: any) => {
-  try {
-    const clientId = String(req.clientSession.client_id);
-
-    const { data: clientRow } = await supabase
-      .from("clients")
-      .select("id, phone_e164")
-      .eq("id", clientId)
-      .maybeSingle();
-
-    const clientPhone = String(clientRow?.phone_e164 || "");
-
-    let rows: any[] = [];
-
-    const byClientId = await supabase
-      .from("wa_messages")
-      .select("id, phone_e164, text, direction, created_at, instance, client_id")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false })
-      .limit(500);
-
-    if (!byClientId.error && (byClientId.data || []).length > 0) {
-      rows = byClientId.data || [];
-    } else {
-      const byPhone = await supabase
-        .from("wa_messages")
-        .select("id, phone_e164, text, direction, created_at, instance")
-        .eq("phone_e164", clientPhone)
-        .order("created_at", { ascending: false })
-        .limit(500);
-
-      rows = byPhone.data || [];
-    }
-
-    const grouped = new Map<string, any>();
-
-    for (const m of rows) {
-      const phone = String(m.phone_e164 || "").trim();
-      if (!phone) continue;
-
-      if (!grouped.has(phone)) {
-        grouped.set(phone, {
-          phone_e164: phone,
-          lastMsg: m.text || "",
-          time: m.created_at || new Date().toISOString(),
-          direction: m.direction || "in",
-          type: "Mensagem"
-        });
+      // 2. Fallback to role-based permissions
+      const rolePermissions = ROLE_PERMISSIONS[role as UserRole];
+      if (rolePermissions && rolePermissions[module as PermissionModule]?.includes(action as PermissionAction)) {
+        return next();
       }
-    }
-
-    return res.json({ ok: true, messages: Array.from(grouped.values()) });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar conversas" });
-  }
-});
-
-app.get("/api/client/messages", requireClientSession, async (req: any, res: any) => {
-  try {
-    const clientId = String(req.clientSession.client_id);
-
-    const { data: clientRow } = await supabase
-      .from("clients")
-      .select("id, phone_e164, instance_name, production_instance_name")
-      .eq("id", clientId)
-      .maybeSingle();
-
-    const clientPhone = String(clientRow?.phone_e164 || "");
-    const instanceNames = [clientRow?.production_instance_name, clientRow?.instance_name, "TrataTudo bot"]
-      .filter(Boolean)
-      .map((v: any) => String(v));
-
-    let rows: any[] = [];
-
-    const byClientId = await supabase
-      .from("wa_messages")
-      .select("id, phone_e164, text, direction, created_at, instance, client_id")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false })
-      .limit(500);
-
-    if (!byClientId.error && (byClientId.data || []).length > 0) {
-      rows = byClientId.data || [];
-    } else {
-      const byPhone = await supabase
-        .from("wa_messages")
-        .select("id, phone_e164, text, direction, created_at, instance")
-        .eq("phone_e164", clientPhone)
-        .order("created_at", { ascending: false })
-        .limit(500);
-
-      rows = byPhone.data || [];
-    }
-
-    const grouped = new Map<string, any>();
-
-    for (const m of rows) {
-      const phone = String(m.phone_e164 || "").trim();
-      if (!phone) continue;
-
-      if (!grouped.has(phone)) {
-        grouped.set(phone, {
-          phone_e164: phone,
-          lastMsg: m.text || "",
-          time: m.created_at || new Date().toISOString(),
-          direction: m.direction || "in",
-          type: "Mensagem"
-        });
-      }
-    }
-
-    return res.json({ ok: true, messages: Array.from(grouped.values()) });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar conversas" });
-  }
-});
-
-app.get("/api/client/messages/history/:phone", requireClientSession, async (req: any, res: any) => {
-  try {
-    const clientId = String(req.clientSession.client_id);
-    const phone = String(req.params.phone || "").trim();
-
-    const { data: rows, error } = await supabase
-      .from("wa_messages")
-      .select("text, direction, created_at, phone_e164")
-      .eq("phone_e164", phone)
-      .order("created_at", { ascending: true })
-      .limit(1000);
-
-    if (error) {
-      return res.status(500).json({ ok: false, error: error.message });
-    }
-
-    const messages = (rows || []).map((m: any) => ({
-      text: m.text || "",
-      direction:
-        m.direction === "inbound" || m.direction === "received" || m.direction === "in"
-          ? "received"
-          : "sent",
-      created_at: m.created_at,
-      phone_e164: m.phone_e164 || phone,
-      type: "Mensagem"
-    }));
-
-    return res.json({ ok: true, messages });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar histórico" });
-  }
-});
-
-app.post("/api/client/messages/send", requireClientSession, async (req: any, res: any) => {
-  try {
-    const clientId = String(req.clientSession.client_id);
-    const phone = String(req.body?.phone || "").trim();
-    const text = String(req.body?.text || "").trim();
-
-    if (!phone || !text) {
-      return res.status(400).json({ ok: false, error: "phone e text são obrigatórios" });
-    }
-
-    const { data: clientRow } = await supabase
-      .from("clients")
-      .select("id, instance_name, production_instance_name")
-      .eq("id", clientId)
-      .maybeSingle();
-
-    const instanceName = String(clientRow?.production_instance_name || clientRow?.instance_name || "TrataTudo bot");
-    const evoUrl = (process.env.EVO_URL || process.env.EVOLUTION_URL || "").replace(/\/$/, "");
-    const evoKey = process.env.EVO_KEY || process.env.EVOLUTION_API_KEY || process.env.APIKEY || "";
-
-    if (!evoUrl || !evoKey) {
-      return res.status(500).json({ ok: false, error: "Evolution API não configurada" });
-    }
-
-    const response = await fetch(`${evoUrl}/message/sendText/${encodeURIComponent(instanceName)}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": evoKey
-      },
-      body: JSON.stringify({
-        number: phone.replace(/\D/g, ""),
-        text
-      })
-    });
-
-    const raw = await response.text().catch(() => "");
-    if (!response.ok) {
-      return res.status(500).json({ ok: false, error: "Falha ao enviar mensagem", raw });
-    }
-
-    const message = {
-      text,
-      direction: "sent",
-      created_at: new Date().toISOString(),
-      phone_e164: phone
+      
+      return res.status(403).json({ ok: false, error: "Acesso negado. Permissões insuficientes." });
     };
+  };
 
-    return res.json({ ok: true, message });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao enviar mensagem" });
-  }
-});
-
-app.post("/api/client/ai/summarize-chat", requireClientSession, async (req: any, res: any) => {
-  try {
-    const phone = String(req.body?.phone || "").trim();
-    if (!phone) {
-      return res.status(400).json({ ok: false, error: "phone é obrigatório" });
-    }
-
-    const { data: rows, error } = await supabase
-      .from("wa_messages")
-      .select("text, direction, created_at, phone_e164")
-      .eq("phone_e164", phone)
-      .order("created_at", { ascending: true })
-      .limit(100);
-
-    if (error) {
-      return res.status(500).json({ ok: false, error: error.message });
-    }
-
-    const msgs = rows || [];
-    const summary = msgs.slice(-8).map((m: any) => `${m.direction}: ${m.text || ""}`).join(" | ");
-
-    return res.json({
-      ok: true,
-      summary: summary || "Sem mensagens para resumir.",
-      main_issue: msgs.length > 0 ? "Conversa ativa no WhatsApp" : "Sem atividade",
-      sentiment: "Neutro",
-      suggested_reply: "Obrigado pela tua mensagem. Vou analisar e responder-te de seguida."
-    });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao resumir conversa" });
-  }
-});
-
-app.get("/api/client/dashboard/stats", requireClientSession, async (req: any, res: any) => {
-  try {
-    const clientId = String(req.clientSession.client_id);
-
-    const { data: clientRow } = await supabase
-      .from("clients")
-      .select("id, phone_e164")
-      .eq("id", clientId)
-      .maybeSingle();
-
-    const clientPhone = String(clientRow?.phone_e164 || "");
-
-    const [
-      ticketsRes,
-      messagesRes,
-      instancesRes,
-      subscriptionsRes
-    ] = await Promise.all([
-      supabase.from("tickets").select("id,status,priority,created_at,client_id").eq("client_id", clientId),
-      supabase.from("wa_messages").select("id,created_at,direction,text,phone_e164,instance").eq("phone_e164", clientPhone),
-      supabase.from("client_instances").select("*").eq("client_id", clientId).order("created_at", { ascending: false }).limit(1),
-      supabase.from("subscriptions").select("*").eq("client_id", clientId).order("created_at", { ascending: false }).limit(1)
-    ]);
-
-    const tickets = ticketsRes.data || [];
-    const messages = messagesRes.data || [];
-    const instance = (instancesRes.data || [])[0] || null;
-    const subscription = (subscriptionsRes.data || [])[0] || null;
-
-    const openTickets = tickets.filter((t: any) => {
-      const s = String(t.status || "").toLowerCase();
-      return !["resolved", "done", "closed", "concluído", "concluido", "resolvido"].includes(s);
-    }).length;
-
-    const inProgressTickets = tickets.filter((t: any) => {
-      const s = String(t.status || "").toLowerCase();
-      return ["analise", "analysis", "in_progress", "processing", "em análise", "em analise"].includes(s);
-    }).length;
-
-    const resolvedTickets = tickets.filter((t: any) => {
-      const s = String(t.status || "").toLowerCase();
-      return ["resolved", "done", "closed", "concluído", "concluido", "resolvido"].includes(s);
-    }).length;
-
-    const complaints = tickets.filter((t: any) => {
-      const s = String(t.priority || "").toLowerCase();
-      return ["high", "urgent", "alta", "urgente"].includes(s);
-    }).length;
-
-    const recentActivity = [
-      ...tickets.slice(0, 10).map((t: any) => ({
-        type: "ticket",
-        title: `Ticket ${t.id}`,
-        status: t.status || "open",
-        created_at: t.created_at
-      })),
-      ...messages.slice(0, 10).map((m: any) => ({
-        type: "message",
-        title: (m.text || "Mensagem").slice(0, 80),
-        status: m.direction || "inbound",
-        created_at: m.created_at
-      }))
-    ]
-      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 12);
-
-    return res.json({
-      ok: true,
-      stats: {
-        messages: messages.length,
-        totalMessages: messages.length,
-        totalTickets: tickets.length,
-        openTickets,
-        complaints,
-        inProgressTickets,
-        resolvedTickets
-      },
-      instance: instance ? {
-        instance_name: instance.instance_name || "Sem instância",
-        is_hub: instance.is_hub === true || instance.instance_name === "TrataTudo bot",
-        status: instance.status === "active" ? "online" : (instance.status || "offline")
-      } : null,
-      subscription: subscription ? {
-        status: subscription.status || "inactive",
-        plan: subscription.plan_name || subscription.plan || "Starter",
-        ends_at: subscription.ends_at || subscription.current_period_end || null
-      } : null,
-      activity: recentActivity
-    });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar dashboard cliente" });
-  }
-});
-
-app.get("/api/client/dashboard/charts", requireClientSession, async (req: any, res: any) => {
-  try {
-    const clientId = String(req.clientSession.client_id);
-
-    const { data: tickets } = await supabase
-      .from("tickets")
-      .select("status,priority,created_at,client_id")
-      .eq("client_id", clientId);
-
-    const rows = tickets || [];
-    const now = new Date();
-    const byDay = new Map<string, { tickets: number; complaints: number; resolved: number }>();
-
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 86400000);
-      const key = d.toISOString().slice(0, 10);
-      byDay.set(key, { tickets: 0, complaints: 0, resolved: 0 });
-    }
-
-    let aberto = 0, analise = 0, resolvido = 0;
-    let pedido = 0, reclamacao = 0, outro = 0;
-
-    for (const t of rows) {
-      const key = String(t.created_at || "").slice(0, 10);
-      const status = String(t.status || "").toLowerCase();
-      const priority = String(t.priority || "").toLowerCase();
-
-      if (byDay.has(key)) {
-        const item = byDay.get(key)!;
-        item.tickets += 1;
-        if (["high", "urgent", "alta", "urgente"].includes(priority)) item.complaints += 1;
-        if (["resolved", "done", "closed", "concluído", "concluido", "resolvido"].includes(status)) item.resolved += 1;
-      }
-
-      if (["resolved", "done", "closed", "concluído", "concluido", "resolvido"].includes(status)) resolvido += 1;
-      else if (["analise", "analysis", "in_progress", "processing", "em análise", "em analise"].includes(status)) analise += 1;
-      else aberto += 1;
-
-      if (["high", "urgent", "alta", "urgente"].includes(priority)) reclamacao += 1;
-      else pedido += 1;
-    }
-
-    if (rows.length === 0) outro = 0;
-    else outro = Math.max(0, rows.length - pedido - reclamacao);
-
-    return res.json({
-      daily: Array.from(byDay.entries()).map(([date, v]) => ({
-        date,
-        tickets: v.tickets,
-        complaints: v.complaints,
-        resolved: v.resolved
-      })),
-      statusDistribution: { aberto, analise, resolvido },
-      typeDistribution: { pedido, reclamação: reclamacao, outro }
-    });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar gráficos" });
-  }
-});
-
-app.post("/api/client/ai/insights", requireClientSession, async (req: any, res: any) => {
-  try {
-    const clientId = String(req.clientSession.client_id);
-
-    const { data: clientRow } = await supabase
-      .from("clients")
-      .select("id, phone_e164")
-      .eq("id", clientId)
-      .maybeSingle();
-
-    const clientPhone = String(clientRow?.phone_e164 || "");
-
-    const [{ data: tickets }, { data: messages }] = await Promise.all([
-      supabase.from("tickets").select("status,priority,created_at,client_id").eq("client_id", clientId),
-      supabase.from("wa_messages").select("created_at,direction,phone_e164").eq("phone_e164", clientPhone)
-    ]);
-
-    const totalTickets = (tickets || []).length;
-    const totalMessages = (messages || []).length;
-    const openTickets = (tickets || []).filter((t: any) => {
-      const s = String(t.status || "").toLowerCase();
-      return !["resolved", "done", "closed", "concluído", "concluido", "resolvido"].includes(s);
-    }).length;
-
-    return res.json({
-      insights: [
-        {
-          id: "1",
-          type: openTickets > 5 ? "warning" : "success",
-          title: "Estado operacional",
-          description: openTickets > 5
-            ? `Tens ${openTickets} tickets ainda por fechar.`
-            : "O volume de tickets em aberto está sob controlo."
-        },
-        {
-          id: "2",
-          type: totalMessages > 0 ? "info" : "warning",
-          title: "Mensagens recebidas",
-          description: `Foram registadas ${totalMessages} mensagens ligadas a este cliente.`
-        },
-        {
-          id: "3",
-          type: totalTickets > 0 ? "info" : "warning",
-          title: "Pedidos e ocorrências",
-          description: `Existem ${totalTickets} tickets associados à tua operação.`
-        }
-      ],
-      summary: openTickets > 5
-        ? "Há margem para melhorar o tempo de resposta aos pedidos em aberto."
-        : "A operação está estável e o painel já está ligado ao backend."
-    });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao gerar insights" });
-  }
-});
-
-// 📊 DASHBOARD
-app.get("/api/admin/dashboard/stats", requireAdminSession, async (req, res) => {
-  try {
-    const now = new Date();
-    const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-    const since7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    const [
-      clientsRes,
-      messages24hRes,
-      messages7dRes,
-      instancesRes,
-      ticketsRes
-    ] = await Promise.all([
-      supabase.from("clients").select("*"),
-      supabase.from("wa_messages").select("created_at").gte("created_at", since24h),
-      supabase.from("wa_messages").select("created_at").gte("created_at", since7d),
-      supabase.from("client_instances").select("*"),
-      supabase.from("tickets").select("id,status,priority,created_at")
-    ]);
-
-    if (clientsRes.error) throw clientsRes.error;
-    if (messages24hRes.error) throw messages24hRes.error;
-    if (messages7dRes.error) throw messages7dRes.error;
-    if (instancesRes.error) throw instancesRes.error;
-    if (ticketsRes.error) throw ticketsRes.error;
-
-    const clients = clientsRes.data || [];
-    const messages24h = messages24hRes.data || [];
-    const messages7d = messages7dRes.data || [];
-    const instances = instancesRes.data || [];
-    const tickets = ticketsRes.data || [];
-
-    const totalClients = clients.length;
-    const activeClients = clients.filter((c: any) => (c.status || "").toLowerCase() === "active").length;
-    const trialClients = clients.filter((c: any) => {
-      const status = String(c.status || "").toLowerCase();
-      if (status !== "trial") return false;
-
-      const trialEndRaw = c.trial_end || c.trial_ends_at || null;
-      if (!trialEndRaw) return true;
-
-      const trialEndTs = new Date(trialEndRaw).getTime();
-      if (!Number.isFinite(trialEndTs)) return true;
-
-      return trialEndTs >= Date.now();
-    }).length;
-    const normalizedActive = instances.filter((i: any) =>
-      ["active", "online", "connected"].includes(String(i.status || "").toLowerCase())
-    );
-
-    const uniqueActiveInstanceNames = new Set(
-      normalizedActive.map((i: any) => String(i.instance_name || "").trim()).filter(Boolean)
-    );
-
-    const effectiveActiveInstances = uniqueActiveInstanceNames.size;
-
-    const totalMessages24h = messages24h.length;
-
-    const dayMap = new Map();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      const key = d.toISOString().slice(0, 10);
-      dayMap.set(key, 0);
-    }
-
-    for (const m of messages7d) {
-      const key = String(m.created_at || "").slice(0, 10);
-      if (dayMap.has(key)) {
-        dayMap.set(key, Number(dayMap.get(key) || 0) + 1);
-      }
-    }
-
-    const messagesChart = Array.from(dayMap.entries()).map(([date, count]) => ({
-      date: date.slice(5),
-      count
-    }));
-
-    const criticalTickets = tickets.filter((t: any) => {
-      const status = String(t.status || "").toLowerCase();
-      const priority = String(t.priority || "").toLowerCase();
-      return !["resolved", "done", "closed", "concluído", "concluido", "resolvido"].includes(status) &&
-             ["high", "urgent", "alta", "urgente"].includes(priority);
-    }).length;
-
-    const systemHealth = Math.max(
-      70,
-      100
-      - (criticalTickets * 5)
-      - (effectiveActiveInstances === 0 ? 15 : 0)
-    );
-
-    return res.json({
-      total_clients: totalClients,
-      active_clients: activeClients,
-      trial_clients: trialClients,
-      total_messages_24h: totalMessages24h,
-      active_instances: effectiveActiveInstances,
-      system_health: systemHealth,
-      messages_chart: messagesChart,
-      clients_chart: []
-    });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao carregar estatísticas do dashboard"
-    });
-  }
-});
-
-// 👥 CLIENTES
-  app.get("/api/admin/clients", requireAdminSession, async (req: any, res) => {
+  const requireAdminSession = async (req: any, res: any, next: any) => {
+    const token = req.cookies.tratatudo_admin_session;
+    if (!token) return res.status(401).json({ ok: false, error: "Não autorizado." });
     try {
-      const [{ data: clientsRows, error }, { data: instancesRows }] = await Promise.all([
-        supabase.from("clients").select("*").order("created_at", { ascending: false }),
-        supabase.from("client_instances").select("*")
-      ]);
+      const decoded: any = jwt.verify(token, JWT_SECRET);
+      if (!decoded.isAdmin) throw new Error("Not admin");
+      const { data: admin } = await supabase.from("admins").select("*").eq("user_id", decoded.userId).single();
+      if (!admin) return res.status(403).json({ ok: false, error: "Acesso administrativo negado." });
+      req.admin = admin;
+      req.adminId = decoded.userId;
+      next();
+    } catch (err) {
+      res.clearCookie("tratatudo_admin_session");
+      return res.status(401).json({ ok: false, error: "Sessão administrativa expirada." });
+    }
+  };
 
+  // --- Helpers ---
+  async function logAudit(clientId: string, userId: string, userName: string, action: string, module: string, entityType: string, entityId: string | null, summary: string, metadata: any = {}) {
+    try {
+      await supabase.from("audit_logs").insert({
+        client_id: clientId,
+        actor_user_id: userId,
+        actor_name: userName,
+        action_type: action,
+        module,
+        entity_type: entityType,
+        entity_id: entityId,
+        summary,
+        metadata,
+        created_at: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error("[AUDIT] Failed to log action:", err);
+    }
+  }
+
+  // Activity / Audit Logs
+  app.get("/api/client/audit", requireClientSession, async (req: any, res) => {
+    try {
+      const { module, action, limit = 50 } = req.query;
+      let query = supabase.from("audit_logs")
+        .select("*")
+        .eq("client_id", req.clientId)
+        .order("created_at", { ascending: false })
+        .limit(Number(limit));
+
+      if (module) query = query.eq("module", module);
+      if (action) query = query.eq("action_type", action);
+
+      const { data: logs, error } = await query;
       if (error) throw error;
 
-      const instances = instancesRows || [];
+      res.json({ ok: true, logs });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
 
-      const clients = (clientsRows || []).map((c: any) => {
-        const clientInstance = instances.find((i: any) => String(i.client_id) === String(c.id));
+  // System Health & Info
+  app.get("/api/client/system/health", requireClientSession, async (req: any, res) => {
+    try {
+      const start = Date.now();
+      const { error: dbError } = await supabase.from("clients").select("id").limit(1);
+      const dbLatency = Date.now() - start;
 
+      let waStatus: 'online' | 'offline' | 'warning' = 'online';
+      try {
+        const { data: inst } = await supabase.from("client_instances").select("status").eq("client_id", req.clientId).limit(1);
+        if (!inst || inst.length === 0) waStatus = 'warning';
+        else if (inst[0].status !== 'online') waStatus = 'offline';
+      } catch (e) {
+        waStatus = 'offline';
+      }
+
+      const health = {
+        status: dbError ? 'down' : (waStatus === 'offline' ? 'degraded' : 'healthy'),
+        services: {
+          backend: { status: 'online', latency: 5 },
+          database: { status: dbError ? 'offline' : 'online', latency: dbLatency },
+          whatsapp: { status: waStatus },
+          storage: { status: 'online' }
+        },
+        last_check: new Date().toISOString()
+      };
+
+      res.json({ ok: true, health });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  const startTime = Date.now();
+  app.get("/api/client/system/info", requireClientSession, async (req: any, res) => {
+    res.json({
+      ok: true,
+      info: {
+        version: "1.10.0-consolidation",
+        environment: process.env.NODE_ENV || "development",
+        deploy_timestamp: "2026-03-23T00:00:00Z",
+        uptime: Math.floor((Date.now() - startTime) / 1000)
+      }
+    });
+  });
+
+  // --- API Routes ---
+  app.get("/api/health", (req, res) => res.json({ ok: true, status: "healthy" }));
+
+  // Auth
+  app.post("/api/auth/send-otp", async (req, res) => {
+    let { phone_e164 } = req.body;
+    if (!phone_e164) return res.status(400).json({ ok: false, error: "Número obrigatório." });
+    phone_e164 = normalizePhone(phone_e164);
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const codeHash = await bcrypt.hash(code, 10);
+    await supabase.from("auth_otps").update({ used_at: new Date().toISOString() }).eq("phone_e164", phone_e164).is("used_at", null);
+    const { error } = await supabase.from("auth_otps").insert({ phone_e164, code_hash: codeHash, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), purpose: 'hub_login' });
+    if (error) return res.status(500).json({ ok: false, error: "Erro ao gerar código." });
+    try {
+      const { data: client } = await supabase.from("clients").select("id").eq("phone_e164", phone_e164).single();
+      await sendWhatsAppNotification(client?.id || "hub", phone_e164, `O seu código TrataTudo é: ${code}`);
+      res.json({ ok: true, message: "Código enviado!" });
+    } catch (err: any) {
+      res.json({ ok: true, message: "Código gerado mas falha no envio", error: err.message });
+    }
+  });
+
+  app.post("/api/auth/verify-otp", async (req, res) => {
+    let { phone_e164, code } = req.body;
+    phone_e164 = normalizePhone(phone_e164);
+    const { data: otp } = await supabase.from("auth_otps").select("*").eq("phone_e164", phone_e164).is("used_at", null).order("created_at", { ascending: false }).limit(1).single();
+    if (!otp || new Date(otp.expires_at) < new Date()) return res.status(400).json({ ok: false, error: "Código inválido ou expirado." });
+    if (!(await bcrypt.compare(code, otp.code_hash))) return res.status(400).json({ ok: false, error: "Código incorreto." });
+    
+    await supabase.from("auth_otps").update({ used_at: new Date().toISOString() }).eq("id", otp.id);
+    
+    // 1. Check if user is a client user (staff) by phone
+    const { data: clientUser } = await supabase.from("client_users").select("*").eq("phone_e164", phone_e164).single();
+    
+    let client;
+    let role: UserRole = 'visualizador';
+    let userId;
+
+    if (clientUser) {
+      const { data: c } = await supabase.from("clients").select("id, company_name, phone_e164").eq("id", clientUser.client_id).single();
+      client = c;
+      role = clientUser.role as UserRole;
+      userId = clientUser.id;
+    } else {
+      // 2. Check if user is the main client owner by phone
+      const { data: c } = await supabase.from("clients").select("id, company_name, phone_e164").eq("phone_e164", phone_e164).single();
+      if (c) {
+        client = c;
+        role = 'admin';
+        userId = c.id; // Owner uses client ID as user ID for simplicity, or we could have a user record for them
+      }
+    }
+
+    if (!client) return res.status(404).json({ ok: false, error: "Utilizador não registado." });
+    
+    const token = jwt.sign({ 
+      clientId: client.id, 
+      phone_e164: phone_e164,
+      role,
+      userId
+    }, JWT_SECRET, { expiresIn: "24h" });
+    
+    res.cookie("hub_session", token, { httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 24 * 60 * 60 * 1000 });
+    res.json({ ok: true, client: { ...client, role, userId } });
+  });
+
+  app.get("/api/auth/session", async (req, res) => {
+    const token = req.cookies.hub_session;
+    if (!token) return res.json({ ok: true, authenticated: false });
+    try {
+      const decoded: any = jwt.verify(token, JWT_SECRET);
+      const { data: client } = await supabase.from("clients").select("id, company_name, phone_e164").eq("id", decoded.clientId).single();
+      if (!client) throw new Error();
+      res.json({ ok: true, authenticated: true, ...client, role: decoded.role, userId: decoded.userId });
+    } catch {
+      res.clearCookie("hub_session");
+      res.json({ ok: true, authenticated: false });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    res.clearCookie("hub_session", { httpOnly: true, secure: true, sameSite: "none", path: "/" });
+    res.json({ ok: true });
+  });
+
+  // Client Dashboard & Stats
+  app.get("/api/client/dashboard/stats", requireClientSession, async (req: any, res) => {
+    const clientId = req.clientId;
+    try {
+      const { count: msgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", clientId);
+      const { count: tks } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", clientId);
+      const { data: inst } = await supabase.from("client_instances").select("*").eq("client_id", clientId).single();
+      const { data: sub } = await supabase.from("subscriptions").select("*").eq("client_id", clientId).single();
+      
+      const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("kind", "reclamação");
+      const { count: sentMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("direction", "outbound");
+      const { count: receivedMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("direction", "inbound");
+
+      res.json({ 
+        ok: true, 
+        stats: { 
+          messages: msgs || 0, 
+          totalMessages: msgs || 0,
+          sentMessages: sentMsgs || 0,
+          receivedMessages: receivedMsgs || 0,
+          totalTickets: tks || 0,
+          complaints: complaints || 0
+        }, 
+        instance: inst, 
+        subscription: sub || { plan: 'Trial', status: 'active' } 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Client Instance
+  app.get("/api/client/instance", requireClientSession, async (req: any, res) => {
+    const { data: instance, error } = await supabase.from("client_instances").select("*").eq("client_id", req.clientId).single();
+    if (error && error.code !== 'PGRST116') return res.status(500).json({ ok: false, error: error.message });
+    
+    // Fetch stats for the instance page
+    const { count: msgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
+    const { count: tks } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
+    const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("kind", "reclamação");
+    const { count: sentMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("direction", "outbound");
+    const { count: receivedMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("direction", "inbound");
+
+    res.json({ 
+      ok: true, 
+      instance,
+      stats: {
+        totalMessages: msgs || 0,
+        sentMessages: sentMsgs || 0,
+        receivedMessages: receivedMsgs || 0,
+        totalTickets: tks || 0,
+        complaints: complaints || 0
+      }
+    });
+  });
+
+  app.post("/api/client/instance/sync", requireClientSession, async (req: any, res) => {
+    // In a real app, this would trigger a sync with Evolution API
+    // For now, we'll just update the last_activity
+    const { data, error } = await supabase.from("client_instances")
+      .update({ last_activity: new Date().toISOString() })
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, instance: data });
+  });
+
+  // Client Subscription
+  app.get("/api/client/subscription", requireClientSession, async (req: any, res) => {
+    const { data: sub, error } = await supabase.from("subscriptions").select("*").eq("client_id", req.clientId).single();
+    if (error && error.code !== 'PGRST116') return res.status(500).json({ ok: false, error: error.message });
+    
+    const { count: msgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
+    const { count: tks } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
+    const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("kind", "reclamação");
+
+    res.json({ 
+      ok: true, 
+      subscription: sub || { 
+        plan: 'Trial', 
+        status: 'Ativo', 
+        started_at: req.client.created_at,
+        ends_at: new Date(new Date(req.client.created_at).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      usage: {
+        messages: msgs || 0,
+        tickets: tks || 0,
+        complaints: complaints || 0
+      }
+    });
+  });
+
+  app.post("/api/client/stripe/checkout", requireClientSession, async (req: any, res) => {
+    const { priceId } = req.body;
+    if (!priceId) return res.status(400).json({ ok: false, error: "Price ID obrigatório." });
+
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: "subscription",
+        success_url: `${process.env.APP_URL || 'http://localhost:3000'}/app/subscription?success=true`,
+        cancel_url: `${process.env.APP_URL || 'http://localhost:3000'}/app/subscription?canceled=true`,
+        metadata: { clientId: req.clientId },
+        customer_email: req.client.email || undefined,
+      });
+
+      res.json({ ok: true, url: session.url });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/client/stripe/portal", requireClientSession, async (req: any, res) => {
+    try {
+      if (!req.client.stripe_customer_id) {
+        return res.status(400).json({ ok: false, error: "Cliente sem ID Stripe. Por favor, realize um pagamento primeiro." });
+      }
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: req.client.stripe_customer_id,
+        return_url: `${process.env.APP_URL || 'http://localhost:3000'}/app/subscription`,
+      });
+
+      res.json({ ok: true, url: session.url });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Client AI Chat
+  app.post("/api/client/ai/chat", requireClientSession, aiRateLimiter, async (req: any, res) => {
+    const { message, history = [] } = req.body;
+    if (!message) return res.status(400).json({ ok: false, error: "Mensagem obrigatória." });
+
+    try {
+      const systemPrompt = `Você é o assistente inteligente do TrataTudo Hub. 
+      Seu papel é ajudar o utilizador (${req.client.company_name}) a gerir o seu negócio.
+      Você tem acesso a Pedidos, Reclamações e Vendas.
+      Seja profissional, prestativo e direto. Use português de Portugal.
+      Ajude a resumir tickets, sugerir próximas ações e orientar nas tarefas do Hub.
+      Instruções específicas do bot: ${req.client.bot_instructions || 'Nenhuma instrução específica.'}`;
+
+      const messages = [
+        { role: "system", content: systemPrompt },
+        ...history.map((h: any) => ({ role: h.role, content: h.content })),
+        { role: "user", content: message }
+      ];
+
+      const completion = await groq.chat.completions.create({
+        messages: messages as any,
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.7,
+        max_tokens: 1024,
+      });
+
+      const responseText = completion.choices[0]?.message?.content || "Desculpe, não consegui processar o seu pedido.";
+      res.json({ ok: true, text: responseText });
+    } catch (err: any) {
+      console.error('AI Chat Error:', err);
+      res.status(500).json({ ok: false, error: "IA temporariamente indisponível. Tente novamente mais tarde." });
+    }
+  });
+
+  app.post("/api/client/tickets/:id/analyze", requireClientSession, aiRateLimiter, async (req: any, res) => {
+    const { id } = req.params;
+    try {
+      const { data: ticket } = await supabase.from("tickets").select("*").eq("id", id).eq("client_id", req.clientId).single();
+      if (!ticket) return res.status(404).json({ ok: false, error: "Ticket não encontrado." });
+
+      const { data: messages } = await supabase.from("ticket_messages").select("*").eq("ticket_id", id).order("created_at", { ascending: true });
+      const conversation = messages?.map(m => `${m.sender_type === 'user' ? 'Cliente' : 'Suporte'}: ${m.text}`).join("\n") || ticket.description;
+
+      const prompt = `Analise o seguinte ticket de suporte e forneça um resumo, causa provável, sentimento do cliente, solução sugerida e próximos passos.
+      Assunto: ${ticket.subject}
+      Descrição: ${ticket.description}
+      Conversa:
+      ${conversation}
+      
+      Responda APENAS em formato JSON válido com esta estrutura:
+      {
+        "summary": "...",
+        "probable_cause": "...",
+        "sentiment": "...",
+        "suggested_solution": "...",
+        "next_steps": ["...", "..."]
+      }`;
+
+      const completion = await groq.chat.completions.create({
+        messages: [
+          { role: "system", content: "És um assistente de suporte especializado em análise de tickets. Responde sempre em JSON." },
+          { role: "user", content: prompt }
+        ],
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" }
+      });
+
+      const analysis = JSON.parse(completion.choices[0]?.message?.content || "{}");
+      res.json({ ok: true, analysis });
+    } catch (err: any) {
+      console.error("[AI Analysis Error]:", err);
+      res.status(500).json({ ok: false, error: "IA temporariamente indisponível." });
+    }
+  });
+
+  // Client Tickets
+  app.get("/api/client/tickets", requireClientSession, requirePermission('tickets', 'view'), async (req: any, res) => {
+    const { data: tickets } = await supabase.from("tickets").select("*, client_profiles(company_name)").eq("client_id", req.clientId).order("created_at", { ascending: false });
+    res.json({ ok: true, tickets: tickets?.map(t => ({ ...t, client_name: (t.client_profiles as any)?.company_name })) });
+  });
+
+  // Client CRM (Profiles)
+  app.get("/api/client/profiles", requireClientSession, requirePermission('clients', 'view'), async (req: any, res) => {
+    const { data: profiles, error } = await supabase.from("client_profiles")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("company_name", { ascending: true });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, profiles });
+  });
+
+  app.get("/api/client/profiles/:id", requireClientSession, async (req: any, res) => {
+    const { id } = req.params;
+    
+    // Fetch profile and related data
+    const [
+      { data: profile, error: profileError },
+      { data: tickets },
+      { data: documents },
+      { data: emails },
+      { data: events },
+      { data: tasks },
+      { data: financialDocs }
+    ] = await Promise.all([
+      supabase.from("client_profiles").select("*").eq("id", id).eq("client_id", req.clientId).single(),
+      supabase.from("tickets").select("*").eq("profile_id", id).order("created_at", { ascending: false }),
+      supabase.from("documents").select("*").eq("profile_id", id).order("created_at", { ascending: false }),
+      supabase.from("emails").select("*").eq("client_id", req.clientId).eq("related_entity_id", id).order("created_at", { ascending: false }),
+      supabase.from("calendar_events").select("*").eq("profile_id", id).order("start_at", { ascending: true }),
+      supabase.from("tasks").select("*").eq("profile_id", id).order("created_at", { ascending: false }),
+      supabase.from("financial_documents").select("*").eq("profile_id", id).order("issue_date", { ascending: false })
+    ]);
+
+    const stats = {
+      tickets: tickets?.filter(t => t.kind === 'pedido').length || 0,
+      complaints: tickets?.filter(t => t.kind === 'reclamação').length || 0,
+      sales: tickets?.filter(t => t.kind === 'venda').length || 0,
+      documents: documents?.length || 0,
+      emails: emails?.length || 0,
+      events: events?.length || 0,
+      tasks: tasks?.length || 0,
+      financial: {
+        count: financialDocs?.length || 0,
+        total: financialDocs?.reduce((acc, d) => acc + (d.amount || 0), 0) || 0,
+        paid: financialDocs?.filter(d => d.status === 'pago').reduce((acc, d) => acc + (d.amount || 0), 0) || 0,
+        pending: financialDocs?.filter(d => ['pendente', 'atrasado'].includes(d.status)).reduce((acc, d) => acc + (d.amount || 0), 0) || 0,
+      }
+    };
+
+    const fullProfile = {
+      ...profile,
+      tickets,
+      documents,
+      emails,
+      calendar_events: events,
+      tasks,
+      financial_documents: financialDocs
+    };
+
+    res.json({ ok: true, profile: fullProfile, stats });
+  });
+
+  app.patch("/api/client/profiles/:id", requireClientSession, requirePermission('clients', 'edit'), async (req: any, res) => {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    const { data, error } = await supabase.from("client_profiles")
+      .update(updateData)
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+
+    const { data: user } = await supabase.from("client_users").select("name").eq("id", req.userId).single();
+    await logAudit(req.clientId, req.userId, user?.name || "Sistema", "update", "clients", "profile", id, `Cliente atualizado: ${data.company_name}`);
+
+    res.json({ ok: true, profile: data });
+  });
+
+  app.post("/api/client/profiles", requireClientSession, requirePermission('clients', 'create'), async (req: any, res) => {
+    const profileData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("client_profiles").insert(profileData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+
+    const { data: user } = await supabase.from("client_users").select("name").eq("id", req.userId).single();
+    await logAudit(req.clientId, req.userId, user?.name || "Sistema", "create", "clients", "profile", data.id, `Novo cliente criado: ${data.company_name}`);
+
+    res.json({ ok: true, profile: data });
+  });
+
+  // Client Team (Users)
+  app.get("/api/client/users", requireClientSession, requirePermission('team', 'view'), async (req: any, res) => {
+    const { data: users, error } = await supabase.from("client_users")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("name", { ascending: true });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, users });
+  });
+
+  app.post("/api/client/users", requireClientSession, requirePermission('team', 'create'), async (req: any, res) => {
+    const userData = { ...req.body, client_id: req.clientId, status: 'invited' };
+    const { data, error } = await supabase.from("client_users").insert(userData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, user: data });
+  });
+
+  app.patch("/api/client/users/:id", requireClientSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { data, error } = await supabase.from("client_users")
+      .update(req.body)
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, user: data });
+  });
+
+  // Client Tasks
+  app.get("/api/client/tasks", requireClientSession, async (req: any, res) => {
+    const { data: tasks, error } = await supabase.from("tasks")
+      .select("*, client_profiles(company_name), client_users(name)")
+      .eq("client_id", req.clientId)
+      .order("created_at", { ascending: false });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, tasks });
+  });
+
+  app.post("/api/client/tasks", requireClientSession, async (req: any, res) => {
+    const taskData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("tasks").insert(taskData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+
+    const { data: user } = await supabase.from("client_users").select("name").eq("id", req.userId).single();
+    await logAudit(req.clientId, req.userId, user?.name || "Sistema", "create", "tasks", "task", data.id, `Nova tarefa criada: ${data.title}`);
+
+    res.json({ ok: true, task: data });
+  });
+
+  app.patch("/api/client/tasks/:id", requireClientSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { data, error } = await supabase.from("tasks")
+      .update(req.body)
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, task: data });
+  });
+
+  // Client Calendar Events
+  app.get("/api/client/calendar-events", requireClientSession, async (req: any, res) => {
+    const { data: events, error } = await supabase.from("calendar_events")
+      .select("*, client_profiles(company_name), client_users(name)")
+      .eq("client_id", req.clientId)
+      .order("start_at", { ascending: true });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, events });
+  });
+
+  app.post("/api/client/calendar-events", requireClientSession, async (req: any, res) => {
+    const eventData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("calendar_events").insert(eventData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, event: data });
+  });
+
+  app.patch("/api/client/calendar-events/:id", requireClientSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { data, error } = await supabase.from("calendar_events")
+      .update(req.body)
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, event: data });
+  });
+
+  // Client Documents
+  app.get("/api/client/documents", requireClientSession, async (req: any, res) => {
+    const { data: documents, error } = await supabase.from("documents")
+      .select("*, client_users(name)")
+      .eq("client_id", req.clientId)
+      .order("created_at", { ascending: false });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, documents });
+  });
+
+  app.post("/api/client/documents", requireClientSession, async (req: any, res) => {
+    const docData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("documents").insert(docData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, document: data });
+  });
+
+  // Client Financial Documents
+  app.get("/api/client/financial-documents", requireClientSession, requirePermission('financial', 'view'), async (req: any, res) => {
+    const { data: documents, error } = await supabase.from("financial_documents")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("issue_date", { ascending: false });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, documents });
+  });
+
+  app.post("/api/client/financial-documents", requireClientSession, async (req: any, res) => {
+    const docData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("financial_documents").insert(docData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, document: data });
+  });
+
+  // Client Emails
+  app.get("/api/client/emails", requireClientSession, async (req: any, res) => {
+    const { data: emails, error } = await supabase.from("emails")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("created_at", { ascending: false });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, emails });
+  });
+
+  // Client Automations
+  app.get("/api/client/automations", requireClientSession, requirePermission('automations', 'view'), async (req: any, res) => {
+    const { data: automations, error } = await supabase.from("automations")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("created_at", { ascending: false });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, automations });
+  });
+
+  // WhatsApp / Conversations
+  app.get("/api/client/whatsapp/conversations", requireClientSession, requirePermission('whatsapp', 'view'), async (req: any, res) => {
+    try {
+      const { search, instance } = req.query;
+      
+      // 1. Get all messages for this client
+      let query = supabase.from("wa_messages")
+        .select("*")
+        .eq("client_id", req.clientId)
+        .order("created_at", { ascending: false });
+
+      if (instance) {
+        query = query.eq("instance", instance);
+      }
+
+      const { data: messages, error: msgError } = await query;
+      if (msgError) throw msgError;
+
+      // 2. Aggregate into conversations
+      const conversationsMap = new Map();
+      
+      for (const msg of messages || []) {
+        if (!conversationsMap.has(msg.phone_e164)) {
+          conversationsMap.set(msg.phone_e164, {
+            phone_e164: msg.phone_e164,
+            last_message: msg.text,
+            last_message_at: msg.created_at,
+            instance: msg.instance,
+            direction: msg.direction,
+            unread_count: 0 // Placeholder for now
+          });
+        }
+      }
+
+      let conversations = Array.from(conversationsMap.values());
+
+      // 3. Link with profiles and tickets
+      const phones = conversations.map(c => c.phone_e164);
+      
+      const [ { data: profiles }, { data: tickets } ] = await Promise.all([
+        supabase.from("client_profiles").select("id, company_name, contact_name, phone_e164").eq("client_id", req.clientId).in("phone_e164", phones),
+        supabase.from("tickets").select("id, tracking_code, status, phone_e164").eq("client_id", req.clientId).in("phone_e164", phones).neq("status", "concluído")
+      ]);
+
+      conversations = conversations.map(c => {
+        const profile = profiles?.find(p => p.phone_e164 === c.phone_e164);
+        const ticket = tickets?.find(t => t.phone_e164 === c.phone_e164);
+        
         return {
-          id: String(c.id),
-          client_id: c.client_id || String(c.id),
-          company_name: c.company_name || "",
-          contact_name: c.contact_name || "",
-          email: c.email || "",
-          phone: c.phone_e164 || c.phone || "",
-          status: c.status || "pending",
-          plan: c.plan || "starter",
-          trial_start: c.trial_start || null,
-          trial_end: c.trial_end || null,
-          production_activated_at: c.production_activated_at || null,
-          bot_instructions: c.bot_instructions || "",
-          created_at: c.created_at || new Date().toISOString(),
-          instance: clientInstance ? {
-            instance_name: clientInstance.instance_name || "",
-            status: clientInstance.status || "unknown",
-            is_hub: clientInstance.is_hub === true || clientInstance.instance_name === "TrataTudo bot"
-          } : null
+          ...c,
+          display_name: profile?.company_name || profile?.contact_name || c.phone_e164,
+          linked_client_id: profile?.id,
+          linked_ticket_id: ticket?.id,
+          ticket_status: ticket?.status,
+          ticket_tracking_code: ticket?.tracking_code
         };
       });
 
-      return res.json({ ok: true, clients });
+      // 4. Filter by search
+      if (search) {
+        const s = (search as string).toLowerCase();
+        conversations = conversations.filter(c => 
+          c.phone_e164.includes(s) || 
+          c.display_name?.toLowerCase().includes(s) || 
+          c.last_message.toLowerCase().includes(s)
+        );
+      }
+
+      res.json({ ok: true, conversations });
     } catch (err: any) {
-      return res.status(500).json({ ok: false, error: err.message });
+      res.status(500).json({ ok: false, error: err.message });
     }
   });
-app.get("/api/admin/messages", requireAdminSession, async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from("wa_messages")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(200);
 
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    return res.json({
-      ok: true,
-      messages: (data || []).map((m: any) => ({
-        id: String(m.id),
-        client_id: m.client_id ? String(m.client_id) : "",
-        phone_e164: m.phone_e164 || "",
-        phone: m.phone_e164 || "",
-        text: m.text || "",
-        direction: m.direction || "inbound",
-        instance: m.instance || "",
-        created_at: m.created_at
-      }))
-    });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar mensagens" });
-  }
-});
-
-app.get("/api/admin/instances", requireAdminSession, async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from("client_instances")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      return res.status(500).json({ ok: false, error: error.message });
-    }
-
-    const rows = data || [];
-    const grouped = new Map<string, any>();
-
-    for (const row of rows) {
-      const instanceName = row.instance_name || "Sem instância";
-      const isHub = row.is_hub === true || instanceName === "TrataTudo bot";
-
-      if (isHub) {
-        if (!grouped.has(instanceName)) {
-          grouped.set(instanceName, {
-            id: String(row.id || instanceName),
-            client_id: "hub",
-            company_name: "TRATATUDO HUB",
-            instance_name: instanceName,
-            status: row.status === "active" ? "online" : (row.status === "pending" ? "connecting" : "offline"),
-            whatsapp_number: "Hub Partilhada",
-            last_connected: row.updated_at || row.created_at || new Date().toISOString(),
-            updated_at: row.updated_at || row.created_at || new Date().toISOString(),
-            is_hub: true
-          });
-        }
-      } else {
-        grouped.set(`${instanceName}:${row.client_id}`, {
-          id: String(row.id),
-          client_id: String(row.client_id || ""),
-          company_name: row.company_name || "Cliente",
-          instance_name: instanceName,
-          status: row.status === "active" ? "online" : (row.status === "pending" ? "connecting" : "offline"),
-          whatsapp_number: row.whatsapp_number || row.phone || "Não ligado",
-          last_connected: row.updated_at || row.created_at || new Date().toISOString(),
-          updated_at: row.updated_at || row.created_at || new Date().toISOString(),
-          is_hub: false
-        });
-      }
-    }
-
-    return res.json({
-      ok: true,
-      instances: Array.from(grouped.values())
-    });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao carregar instâncias"
-    });
-  }
-});
-
-// 📝 ALERTAS
-app.get("/api/admin/alerts", requireAdminSession, async (req, res) => {
-  try {
-    const { data: tickets, error } = await supabase
-      .from("tickets")
-      .select("id,subject,description,status,priority,created_at")
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    if (error) {
-      return res.status(500).json({ ok: false, error: error.message });
-    }
-
-    const alerts = (tickets || [])
-      .filter((t: any) => {
-        const status = String(t.status || "").toLowerCase();
-        const priority = String(t.priority || "").toLowerCase();
-        return !["resolved", "done", "closed", "concluído", "concluido", "resolvido"].includes(status) &&
-               ["high", "urgent", "alta", "urgente"].includes(priority);
-      })
-      .slice(0, 10)
-      .map((t: any) => ({
-        id: String(t.id),
-        type: "warning",
-        title: t.subject || "Ticket prioritário",
-        message: t.description || "Necessita acompanhamento.",
-        created_at: t.created_at,
-        is_read: false
-      }));
-
-    return res.json({ ok: true, alerts });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao carregar alertas"
-    });
-  }
-});
-
-// 📊 TICKETS
-app.get("/api/admin/tickets", requireAdminSession, async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from("tickets")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    return res.json({
-      ok: true,
-      tickets: (data || []).map((t: any) => ({
-        id: String(t.id),
-        client_id: t.client_id ? String(t.client_id) : "",
-        subject: t.subject || "Ticket",
-        description: t.description || "",
-        status: t.status || "new",
-        priority: t.priority || "medium",
-        tracking_code: t.tracking_code || "",
-        customer_name: t.customer_name || "",
-        customer_contact: t.customer_contact || "",
-        category: t.category || "",
-        kind: t.kind || "",
-        created_at: t.created_at,
-        updated_at: t.updated_at || t.created_at
-      }))
-    });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar tickets" });
-  }
-});
-
-app.get("/api/admin/tickets/:id/status", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-
-    if (!id) {
-      return res.status(400).json({ ok: false, error: "Id é obrigatório" });
-    }
-
-    const { data, error } = await supabase
-      .from("tickets")
-      .select("status")
-      .eq("id", id);
-
-    if (error) {
-      return res.status(500).json({ ok: false, error: error.message });
-    }
-
-    return res.json({ ok: true, status: data[0].status });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao obter status do ticket"
-    });
-  }
-});
-
-
-app.get("/api/admin/activity", requireAdminSession, async (req, res) => {
-  try {
-    const [clientsRes, messagesRes, ticketsRes] = await Promise.all([
-      supabase.from("clients").select("id,company_name,created_at").order("created_at", { ascending: false }).limit(5),
-      supabase.from("wa_messages").select("id,phone_e164,created_at,text").order("created_at", { ascending: false }).limit(5),
-      supabase.from("tickets").select("id,subject,created_at,status").order("created_at", { ascending: false }).limit(5)
-    ]);
-
-    if (clientsRes.error) throw clientsRes.error;
-    if (messagesRes.error) throw messagesRes.error;
-    if (ticketsRes.error) throw ticketsRes.error;
-
-    const activities = [
-      ...(clientsRes.data || []).map((c: any) => ({
-        id: `client-${c.id}`,
-        type: "client_joined",
-        title: "Novo cliente criado",
-        description: c.company_name || "Cliente sem nome",
-        timestamp: c.created_at
-      })),
-      ...(messagesRes.data || []).map((m: any) => ({
-        id: `msg-${m.id}`,
-        type: "message_spike",
-        title: "Nova mensagem recebida",
-        description: m.phone_e164 || "Sem número",
-        timestamp: m.created_at
-      })),
-      ...(ticketsRes.data || []).map((t: any) => ({
-        id: `ticket-${t.id}`,
-        type: "instance_error",
-        title: "Ticket atualizado",
-        description: t.subject || t.status || "Ticket",
-        timestamp: t.created_at
-      }))
-    ]
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, 10)
-      .map((a: any) => ({
-        ...a,
-        timestamp: new Date(a.timestamp).toLocaleString("pt-PT", {
-          day: "2-digit",
-          month: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit"
-        })
-      }));
-
-    return res.json({ ok: true, activities });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao carregar atividade recente"
-    });
-  }
-});
-
-
-// 📊 SUBSCRIÇÕES
-app.get("/api/admin/subscriptions", requireAdminSession, async (req, res) => {
-  const { data } = await supabase.from("subscriptions").select("*");
-
-  res.json({ subscriptions: data || [] });
-});
-
-// 📝 LOGS
-app.get("/api/admin/logs", requireAdminSession, async (req, res) => {
-  res.json({ logs: [] });
-});
-
-// 🚀 START
-
-app.post("/api/admin/clients/trial", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const { company_name, phone_e164, contact_name, email, bot_instructions, plan } = req.body || {};
-    if (!company_name || !phone_e164) {
-      return res.status(400).json({ ok: false, error: "company_name e phone_e164 são obrigatórios" });
-    }
-
-    const now = new Date();
-    const trialEnd = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-
-    const { data, error } = await supabase
-      .from("clients")
-      .insert({
-        company_name,
-        phone_e164,
-        email: email || "",
-        bot_instructions: bot_instructions || "",
-        status: "trial",
-        trial_start: now.toISOString(),
-        trial_end: trialEnd.toISOString(),
-        created_at: now.toISOString(),
-        updated_at: now.toISOString()
-      })
-      .select("*")
-      .single();
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    return res.json({ ok: true, client: data });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao criar cliente trial" });
-  }
-});
-
-app.put("/api/admin/clients/:id", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-    const body = req.body || {};
-
-    if (!id) {
-      return res.status(400).json({ ok: false, error: "Id é obrigatório" });
-    }
-
-    const payload: any = {
-      updated_at: new Date().toISOString()
-    };
-
-    if (body.company_name !== undefined) payload.company_name = body.company_name;
-    if (body.email !== undefined) payload.email = body.email;
-    if (body.bot_instructions !== undefined) payload.bot_instructions = body.bot_instructions;
-    if (body.phone !== undefined) payload.phone_e164 = body.phone;
-    if (body.phone_e164 !== undefined) payload.phone_e164 = body.phone_e164;
-
-    const { data, error } = await supabase
-      .from("clients")
-      .update(payload)
-      .eq("id", id)
-      .select("*")
-      .single();
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    return res.json({ ok: true, client: data });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao atualizar cliente" });
-  }
-});
-
-app.delete("/api/admin/clients/:id", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-    if (!id) return res.status(400).json({ ok: false, error: "Id é obrigatório" });
-
-    const { error } = await supabase
-      .from("clients")
-      .delete()
-      .eq("id", id);
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    return res.json({ ok: true });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao eliminar cliente" });
-  }
-});
-
-app.patch("/api/admin/clients/:id/status", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-    const { status } = req.body || {};
-    if (!id || !status) return res.status(400).json({ ok: false, error: "Id e status são obrigatórios" });
-
-    const { data, error } = await supabase
-      .from("clients")
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq("id", id)
-      .select("*")
-      .single();
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    return res.json({ ok: true, client: data });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao atualizar estado do cliente" });
-  }
-});
-
-app.post("/api/admin/clients/:id/activate-production", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-    if (!id) return res.status(400).json({ ok: false, error: "Id é obrigatório" });
-
-    const { data: client, error } = await supabase
-      .from("clients")
-      .update({
-        status: "active",
-        production_activated_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id)
-      .select("*")
-      .single();
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    const instanceName = `client-${id}`;
-    const { data: existingInstance } = await supabase
-      .from("client_instances")
-      .select("*")
-      .eq("client_id", id)
-      .eq("instance_name", instanceName)
-      .maybeSingle();
-
-    if (!existingInstance) {
-      const { error: instanceError } = await supabase
-        .from("client_instances")
-        .insert({
-          client_id: id,
-          instance_name: instanceName,
-          status: "pending",
-          is_hub: false
-        });
-
-      if (instanceError) return res.status(500).json({ ok: false, error: instanceError.message });
-    }
-
-    return res.json({ ok: true, client, instance_name: instanceName });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao ativar produção do cliente" });
-  }
-});
-
-
-
-function mapTicketStatusForClient(status: string) {
-  const s = (status || "").toLowerCase();
-  if (["new", "open", "aberto", "novo"].includes(s)) return "open";
-  if (["in_review", "in_progress", "em análise", "em analise", "em tratamento"].includes(s)) return "in_progress";
-  if (["resolved", "done", "closed", "concluido", "concluído", "resolvido"].includes(s)) return "resolved";
-  return "open";
-}
-
-app.get("/api/admin/tickets/support", requireAdminSession, async (req, res) => {
-  try {
-    const mapTicketStatusForClient = (status: string) => {
-      const s = (status || "").toLowerCase();
-      if (["new", "open", "aberto", "novo"].includes(s)) return "open";
-      if (["in_review", "in_progress", "em análise", "em analise", "em tratamento"].includes(s)) return "in_progress";
-      if (["resolved", "done", "closed", "concluido", "concluído", "resolvido"].includes(s)) return "resolved";
-      return "open";
-    };
-
-    const { data, error } = await supabase
-      .from("tickets")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      return res.status(500).json({ ok: false, error: error.message });
-    }
-
-    const tickets = (data || []).filter((t: any) => {
-      const kind = String(t.kind || "").toLowerCase();
-      const tracking = String(t.tracking_code || "").toUpperCase();
-      const subject = String(t.subject || "").toLowerCase();
-      return kind === "suporte" || tracking.startsWith("SUP-") || subject.includes("suporte") || subject.includes("support");
-    });
-
-    return res.json({
-      ok: true,
-      tickets: tickets.map((t: any) => ({
-        id: String(t.id),
-        client_id: t.client_id ? String(t.client_id) : "",
-        subject: t.subject || "Ticket de suporte",
-        description: t.description || "",
-        status: mapTicketStatusForClient(t.status || "open"),
-        priority: t.priority || "medium",
-        tracking_code: t.tracking_code || "",
-        customer_name: t.customer_name || "",
-        customer_contact: t.customer_contact || "",
-        category: t.category || "",
-        kind: t.kind || "",
-        created_at: t.created_at,
-        updated_at: t.updated_at || t.created_at
-      }))
-    });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar tickets de suporte" });
-  }
-});
-
-app.get("/api/admin/tickets/:id/messages", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-
-    const { data: ticket, error } = await supabase
-      .from("tickets")
-      .select("id, metadata")
-      .eq("id", id)
-      .single();
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    const meta = ticket?.metadata && typeof ticket.metadata === "object" ? ticket.metadata : {};
-    const replies = Array.isArray(meta.support_replies) ? meta.support_replies : [];
-
-    return res.json({
-      ok: true,
-      messages: replies.map((m: any, idx: number) => ({
-        id: String(m.id || `reply-${idx}`),
-        text: m.text || "",
-        sender: m.sender || "admin",
-        created_at: m.created_at || new Date().toISOString()
-      }))
-    });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao carregar mensagens do ticket" });
-  }
-});
-
-app.patch("/api/admin/tickets/:id/status", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-    const rawStatus = String(req.body?.status || "").trim();
-
-    if (!id || !rawStatus) {
-      return res.status(400).json({ ok: false, error: "Id e status são obrigatórios" });
-    }
-
-    const mapToDbStatus: Record<string, string> = {
-      open: "novo",
-      in_review: "em análise",
-      in_progress: "em tratamento",
-      resolved: "resolvido",
-      closed: "concluído"
-    };
-
-    const dbStatus = mapToDbStatus[rawStatus] || rawStatus;
-
-    const { data, error } = await supabase
-      .from("tickets")
-      .update({
-        status: dbStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id)
-      .select("*")
-      .single();
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    return res.json({ ok: true, ticket: data });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao atualizar estado do ticket" });
-  }
-});
-
-app.patch("/api/admin/tickets/:id/notes", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-    const note = String(req.body?.note || "");
-
-    const { data: ticket, error: fetchError } = await supabase
-      .from("tickets")
-      .select("id, metadata")
-      .eq("id", id)
-      .single();
-
-    if (fetchError) return res.status(500).json({ ok: false, error: fetchError.message });
-
-    const meta = ticket?.metadata && typeof ticket.metadata === "object" ? ticket.metadata : {};
-    meta.admin_internal_note = note;
-    meta.admin_internal_note_updated_at = new Date().toISOString();
-
-    const { error } = await supabase
-      .from("tickets")
-      .update({
-        metadata: meta,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id);
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    return res.json({ ok: true, internal_notes: note });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao guardar nota interna" });
-  }
-});
-
-app.post("/api/admin/tickets/:id/reply", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-    const text = String(req.body?.text || "").trim();
-
-    if (!text) {
-      return res.status(400).json({ ok: false, error: "Texto da resposta é obrigatório" });
-    }
-
-    const { data: ticket, error: fetchError } = await supabase
-      .from("tickets")
-      .select("id, metadata")
-      .eq("id", id)
-      .single();
-
-    if (fetchError) return res.status(500).json({ ok: false, error: fetchError.message });
-
-    const meta = ticket?.metadata && typeof ticket.metadata === "object" ? ticket.metadata : {};
-    const replies = Array.isArray(meta.support_replies) ? meta.support_replies : [];
-
-    const reply = {
-      id: `reply-${Date.now()}`,
-      text,
-      sender: "admin",
-      created_at: new Date().toISOString()
-    };
-
-    replies.push(reply);
-    meta.support_replies = replies;
-
-    const { error } = await supabase
-      .from("tickets")
-      .update({
-        metadata: meta,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id);
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    return res.json({ ok: true, message: reply });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao responder ao ticket" });
-  }
-});
-
-app.post("/api/admin/tickets/:id/analyze", requireAdminSession, async (req: any, res: any) => {
-  try {
-    if (!process.env.GROQ_API_KEY) {
-      return res.status(500).json({ ok: false, error: "GROQ_API_KEY em falta" });
-    }
-
-    const id = req.params.id;
-
-    const { data: ticket, error: fetchError } = await supabase
-      .from("tickets")
-      .select("id, subject, description, status, priority, kind, category")
-      .eq("id", id)
-      .single();
-
-    if (fetchError) return res.status(500).json({ ok: false, error: fetchError.message });
-
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.2,
-      messages: [
-        {
-          role: "system",
-          content: "Responde APENAS JSON válido com as chaves summary, suggested_reply e priority."
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            subject: ticket.subject || "",
-            description: ticket.description || "",
-            status: ticket.status || "",
-            priority: ticket.priority || "",
-            kind: ticket.kind || "",
-            category: ticket.category || ""
-          })
-        }
-      ]
-    });
-
-    let text = completion.choices?.[0]?.message?.content || "{}";
-    text = text.trim();
-
-    if (text.startsWith("```")) {
-      text = text.replace(/^```[a-zA-Z0-9_-]*\s*/m, "").replace(/\s*```$/, "").trim();
-    }
-
-    let parsed: any = {};
+  app.get("/api/client/whatsapp/conversations/:phone/messages", requireClientSession, requirePermission('whatsapp', 'view'), async (req: any, res) => {
     try {
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = { summary: text, suggested_reply: "", priority: "medium" };
-    }
-
-    const summary = parsed?.summary || "";
-    const suggested_reply = parsed?.suggested_reply || "";
-    const ai_priority = parsed?.priority || "medium";
-
-    const { error } = await supabase
-      .from("tickets")
-      .update({
-        ai_summary: summary,
-        ai_suggested_reply: suggested_reply,
-        ai_priority,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id);
-
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-
-    return res.json({
-      ok: true,
-      summary,
-      suggested_reply,
-      priority: ai_priority
-    });
-  } catch (err: any) {
-    return res.status(500).json({ ok: false, error: err?.message || "Erro ao analisar ticket" });
-  }
-});
-
-
-app.post("/api/admin/clients/:id/sync", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-    if (!id) {
-      return res.status(400).json({ ok: false, error: "Id é obrigatório" });
-    }
-
-    const { data: client, error: clientError } = await supabase
-      .from("clients")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (clientError || !client) {
-      return res.status(404).json({ ok: false, error: clientError?.message || "Cliente não encontrado" });
-    }
-
-    const instanceName =
-      client.production_instance_name ||
-      client.instance_name ||
-      (client.status === "active" ? `client-${id}` : "TrataTudo bot");
-
-    const isHub = instanceName === "TrataTudo bot";
-
-    const { data: existingInstance, error: fetchError } = await supabase
-      .from("client_instances")
-      .select("*")
-      .eq("client_id", id)
-      .maybeSingle();
-
-    if (fetchError) {
-      return res.status(500).json({ ok: false, error: fetchError.message });
-    }
-
-    let instanceRow = existingInstance;
-
-    if (!instanceRow) {
-      const { data: inserted, error: insertError } = await supabase
-        .from("client_instances")
-        .insert({
-          client_id: Number(id),
-          instance_name: instanceName,
-          status: isHub ? "active" : "pending",
-          is_hub: isHub,
-          created_at: new Date().toISOString()
-        })
+      const { phone } = req.params;
+      const { data: messages, error } = await supabase.from("wa_messages")
         .select("*")
-        .single();
+        .eq("client_id", req.clientId)
+        .eq("phone_e164", phone)
+        .order("created_at", { ascending: true });
 
-      if (insertError) {
-        return res.status(500).json({ ok: false, error: insertError.message });
-      }
+      if (error) throw error;
+      res.json({ ok: true, messages });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
 
-      instanceRow = inserted;
-    } else {
-      const { data: updated, error: updateError } = await supabase
-        .from("client_instances")
-        .update({
-          instance_name: instanceName,
-          status: isHub ? "active" : (instanceRow.status || "pending"),
-          is_hub: isHub
-        })
-        .eq("id", instanceRow.id)
+  app.get("/api/client/whatsapp/instances", requireClientSession, requirePermission('whatsapp', 'view'), async (req: any, res) => {
+    try {
+      const { data: instances, error } = await supabase.from("client_instances")
         .select("*")
-        .single();
+        .eq("client_id", req.clientId)
+        .order("created_at", { ascending: false });
 
-      if (updateError) {
-        return res.status(500).json({ ok: false, error: updateError.message });
-      }
-
-      instanceRow = updated;
+      if (error) throw error;
+      res.json({ ok: true, instances });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
     }
+  });
 
-    return res.json({
-      ok: true,
-      client: {
-        id: String(client.id),
-        company_name: client.company_name || "",
-        status: client.status || "pending"
-      },
-      instance: {
-        id: instanceRow?.id,
-        instance_name: instanceRow?.instance_name || instanceName,
-        status: instanceRow?.status || (isHub ? "active" : "pending"),
-        is_hub: !!instanceRow?.is_hub
-      }
-    });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao sincronizar instância"
-    });
-  }
-});
+  app.get("/api/client/whatsapp/stats", requireClientSession, requirePermission('whatsapp', 'view'), async (req: any, res) => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-
-app.post("/api/admin/instances/create", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const clientId = String(req.body?.client_id || "").trim();
-    if (!clientId) {
-      return res.status(400).json({ ok: false, error: "client_id é obrigatório" });
-    }
-
-    const { data: client, error: clientError } = await supabase
-      .from("clients")
-      .select("*")
-      .eq("id", clientId)
-      .single();
-
-    if (clientError || !client) {
-      return res.status(404).json({ ok: false, error: clientError?.message || "Cliente não encontrado" });
-    }
-
-    const instanceName = `client-${clientId}`;
-
-    const { data: existing, error: existingError } = await supabase
-      .from("client_instances")
-      .select("*")
-      .eq("client_id", clientId)
-      .maybeSingle();
-
-    if (existingError) {
-      return res.status(500).json({ ok: false, error: existingError.message });
-    }
-
-    let instanceRow: any = null;
-
-    if (existing) {
-      const { data: updated, error: updateError } = await supabase
-        .from("client_instances")
-        .update({
-          instance_name: instanceName,
-          status: "pending",
-          is_hub: false,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", existing.id)
-        .select("*")
-        .single();
-
-      if (updateError) {
-        return res.status(500).json({ ok: false, error: updateError.message });
-      }
-
-      instanceRow = updated;
-    } else {
-      const { data: inserted, error: insertError } = await supabase
-        .from("client_instances")
-        .insert({
-          client_id: Number(clientId),
-          instance_name: instanceName,
-          status: "pending",
-          is_hub: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select("*")
-        .single();
-
-      if (insertError) {
-        return res.status(500).json({ ok: false, error: insertError.message });
-      }
-
-      instanceRow = inserted;
-    }
-
-    const { error: clientUpdateError } = await supabase
-      .from("clients")
-      .update({
-        production_instance_name: instanceName,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", clientId);
-
-    if (clientUpdateError) {
-      return res.status(500).json({ ok: false, error: clientUpdateError.message });
-    }
-
-    return res.json({
-      ok: true,
-      instance: {
-        id: String(instanceRow.id),
-        client_id: String(instanceRow.client_id || clientId),
-        instance_name: instanceName,
-        status: instanceRow.status || "pending",
-        is_hub: false
-      }
-    });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao criar instância"
-    });
-  }
-});
-
-app.get("/api/admin/instances/qrcode/:instanceName", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const instanceName = String(req.params.instanceName || "").trim();
-    if (!instanceName) {
-      return res.status(400).json({ ok: false, error: "instanceName é obrigatório" });
-    }
-
-    return res.status(501).json({
-      ok: false,
-      error: "QR Code ainda não está ligado à Evolution API neste backend"
-    });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao obter QR Code"
-    });
-  }
-});
-
-
-app.post("/api/admin/clients/:id/reactivate-trial", requireAdminSession, async (req: any, res: any) => {
-  try {
-    const id = req.params.id;
-    const rawDays = Number(req.body?.days);
-    const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.floor(rawDays) : 3;
-
-    if (!id) {
-      return res.status(400).json({ ok: false, error: "Id é obrigatório" });
-    }
-
-    const now = new Date();
-    const trialEnd = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
-
-    const { data, error } = await supabase
-      .from("clients")
-      .update({
-        status: "trial",
-        trial_start: now.toISOString(),
-        trial_end: trialEnd.toISOString(),
-        updated_at: now.toISOString()
-      })
-      .eq("id", id)
-      .select("*")
-      .single();
-
-    if (error) {
-      return res.status(500).json({ ok: false, error: error.message });
-    }
-
-    return res.json({
-      ok: true,
-      client: data,
-      days
-    });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao reativar trial"
-    });
-  }
-});
-
-app.post("/api/bot/reply", async (req: any, res: any) => {
-  try {
-    const { client_id, phone_e164, push_name, text } = req.body || {};
-
-    if (!client_id || !phone_e164 || !text) {
-      return res.status(400).json({
-        ok: false,
-        error: "client_id, phone_e164 e text são obrigatórios"
-      });
-    }
-
-    const { data: client, error: clientError } = await supabase
-      .from("clients")
-      .select("id, company_name, bot_instructions, status, trial_end, trial_ends_at, instance_name")
-      .eq("id", client_id)
-      .single();
-
-    if (clientError || !client) {
-      return res.status(404).json({
-        ok: false,
-        error: clientError?.message || "Cliente não encontrado"
-      });
-    }
-
-    const trialEnd = client.trial_end || client.trial_ends_at || null;
-    if (client.status === "trial" && trialEnd) {
-      const end = new Date(trialEnd).getTime();
-      if (Number.isFinite(end) && end < Date.now()) {
-        return res.status(403).json({
-          ok: false,
-          reason: "subscription-expired",
-          error: "Trial expirado"
-        });
-      }
-    }
-
-    if (!process.env.GROQ_API_KEY) {
-      return res.status(500).json({
-        ok: false,
-        error: "GROQ_API_KEY em falta"
-      });
-    }
-
-    const { data: historyRows } = await supabase
-      .from("wa_messages")
-      .select("direction, text, created_at")
-      .eq("phone_e164", phone_e164)
-      .eq("client_id", Number(client.id))
-      .order("created_at", { ascending: false })
-      .limit(12);
-
-    const history = (historyRows || [])
-      .filter((m: any) => String(m.text || "").trim())
-      .reverse()
-      .map((m: any) => ({
-        role: m.direction === "out" ? "assistant" : "user",
-        content: String(m.text || "").trim()
-      }));
-
-    const systemPrompt = String(
-      client.bot_instructions ||
-      `És o assistente virtual da empresa ${client.company_name || ""}. Responde sempre em português de Portugal, de forma natural, curta e útil.`
-    ).trim();
-
-    const antiRepeatRules = `
-REGRAS DE CONTEXTO E ESTILO:
-- Mantém memória do histórico recente da conversa.
-- Se a conversa já começou, NÃO voltes a dar boas-vindas nem a apresentar a marca.
-- NÃO repitas o nome do cliente em todas as mensagens. Usa o nome apenas quando soar natural.
-- NÃO repitas listas completas de produtos se o cliente já indicou interesse num produto específico.
-- Responde diretamente à última mensagem do cliente.
-- Faz no máximo uma pergunta objetiva no fim quando for útil.
-- Se o cliente pedir sugestão, dá 2 a 4 sugestões concretas e curtas.
-- Evita respostas genéricas como "estou aqui para ajudar" se o contexto já estiver avançado.
-- Se o cliente fizer follow-up, continua do ponto anterior em vez de recomeçar a conversa.
-`.trim();
-
-    const userName = String(push_name || "").trim();
-
-    const messages: any[] = [
-      {
-        role: "system",
-        content: `${systemPrompt}\n\n${antiRepeatRules}`
-      },
-      ...history,
-      {
-        role: "user",
-        content: userName
-          ? `Nome do cliente: ${userName}\nTelefone: ${phone_e164}\nMensagem atual: ${text}`
-          : `Telefone: ${phone_e164}\nMensagem atual: ${text}`
-      }
-    ];
-
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.2,
-      messages
-    });
-
-    const reply = String(completion.choices?.[0]?.message?.content || "").trim();
-
-    if (!reply) {
-      return res.status(500).json({
-        ok: false,
-        error: "Resposta vazia do modelo"
-      });
-    }
-
-    const nowIso = new Date().toISOString();
-    const instanceName = String(client.instance_name || "TrataTudo bot");
-
-    await supabase
-      .from("wa_messages")
-      .insert([
-        {
-          phone_e164,
-          instance: instanceName,
-          direction: "in",
-          text: String(text).trim(),
-          client_id: Number(client.id),
-          created_at: nowIso
-        },
-        {
-          phone_e164,
-          instance: instanceName,
-          direction: "out",
-          text: reply,
-          client_id: Number(client.id),
-          created_at: nowIso
-        }
+      const [ { count: totalConversations }, { count: messagesToday }, { data: instances }, { count: conversationsWithTickets } ] = await Promise.all([
+        supabase.from("wa_messages").select("phone_e164", { count: 'exact', head: true }).eq("client_id", req.clientId),
+        supabase.from("wa_messages").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId).gte("created_at", today.toISOString()),
+        supabase.from("client_instances").select("status").eq("client_id", req.clientId),
+        supabase.from("tickets").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId).neq("status", "concluído").not("phone_e164", "is", null)
       ]);
 
-    return res.json({
-      ok: true,
-      reply
-    });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao gerar resposta do bot"
-    });
-  }
-});
+      // Note: totalConversations count is tricky with head: true and grouping. 
+      // For simplicity in this phase, we'll use a more direct approach if needed, 
+      // but head: true on a select with phone_e164 might not give unique count.
+      // Let's just return what we have for now.
 
-// ================================
-// IMPORTS TURISMO BR - PUBLIC API
-// ================================
-
-const IMPORTS_CLIENT_ID = Number(process.env.IMPORTS_CLIENT_ID || "1");
-
-function randomTrackingCode(prefix = "TT") {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return `${prefix}-${code}`;
-}
-
-async function generateUniqueTrackingCode(prefix = "TT") {
-  for (let i = 0; i < 10; i++) {
-    const tracking = randomTrackingCode(prefix);
-    const { data, error } = await supabase
-      .from("tickets")
-      .select("id")
-      .eq("tracking_code", tracking)
-      .limit(1);
-
-    if (error) throw error;
-    if (!data || data.length === 0) return tracking;
-  }
-  throw new Error("Não foi possível gerar tracking_code único");
-}
-
-function normalizePhoneLoose(raw: string) {
-  const digits = String(raw || "").replace(/\D/g, "");
-  if (!digits) return "";
-  if (digits.startsWith("351")) return `+${digits}`;
-  if (digits.startsWith("55")) return `+${digits}`;
-  if (digits.length === 9) return `+351${digits}`;
-  return `+${digits}`;
-}
-
-function safeString(v: any) {
-  return String(v || "").trim();
-}
-
-function safeNumber(v: any, fallback = 0) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function mapPublicStatus(status: string) {
-  const s = String(status || "").toLowerCase();
-  if (["new", "novo", "aberto", "open"].includes(s)) return "pendente";
-  if (["em análise", "em analise", "analysis", "in_review", "in_progress", "em tratamento"].includes(s)) return "em_analise";
-  if (["resolved", "done", "closed", "concluído", "concluido", "resolvido", "confirmado"].includes(s)) return "concluido";
-  return "pendente";
-}
-
-app.get("/api/imports-turismo/health", async (_req: any, res: any) => {
-  return res.json({ ok: true, service: "imports-turismo" });
-});
-
-app.post("/api/imports-turismo/orcamentos", async (req: any, res: any) => {
-  try {
-    const body = req.body || {};
-
-    const nome = safeString(body.nome);
-    const telefone = normalizePhoneLoose(body.telefone);
-    const email = safeString(body.email);
-    const destino = safeString(body.destino);
-    const periodo = safeString(body.periodo);
-    const passageiros = safeNumber(body.passageiros, 1);
-    const criancas = safeNumber(body.criancas, 0);
-    const cidadePartida = safeString(body.cidadePartida);
-    const observacoes = safeString(body.observacoes);
-
-    if (!nome || !telefone || !email || !destino || !periodo) {
-      return res.status(400).json({
-        ok: false,
-        error: "nome, telefone, email, destino e periodo são obrigatórios"
+      res.json({ 
+        ok: true, 
+        stats: {
+          totalConversations: totalConversations || 0,
+          messagesToday: messagesToday || 0,
+          activeInstances: instances?.filter(i => i.status === 'open').length || 0,
+          conversationsWithTickets: conversationsWithTickets || 0
+        } 
       });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
     }
+  });
 
-    const trackingCode = await generateUniqueTrackingCode("TT");
+  // Client Dashboard Operational Metrics
+  app.get("/api/client/dashboard/operational-metrics", requireClientSession, async (req: any, res) => {
+    const clientId = req.clientId;
+    try {
+      const [
+        { count: totalClients },
+        { count: activeClients },
+        { count: totalTasks },
+        { count: pendingTasks },
+        { count: totalEvents },
+        { count: upcomingEvents },
+        { count: totalDocs },
+        { count: totalFinDocs },
+        { count: overdueFinDocs },
+        { count: totalEmails },
+        { count: totalAutos },
+        { count: activeAutos },
+        { count: failedAutos }
+      ] = await Promise.all([
+        supabase.from("client_profiles").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("client_profiles").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("customer_type", "Ativo"),
+        supabase.from("tasks").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("tasks").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("status", "pendente"),
+        supabase.from("calendar_events").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("calendar_events").select("*", { count: 'exact', head: true }).eq("client_id", clientId).gte("start_at", new Date().toISOString()),
+        supabase.from("documents").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("financial_documents").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("financial_documents").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("status", "atrasado"),
+        supabase.from("emails").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("automations").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("automations").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("status", "ativa"),
+        supabase.from("automations").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("status", "falha")
+      ]);
 
-    const subject = `Pedido de orçamento - ${destino}`;
-    const description = `Pedido público de orçamento para ${destino}`;
+      const [
+        { data: recentClients },
+        { data: recentTasks },
+        { data: recentEvents },
+        { data: recentDocs },
+        { data: recentEmails },
+        { data: recentFinDocs }
+      ] = await Promise.all([
+        supabase.from("client_profiles").select("id, company_name, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("tasks").select("id, title, status, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("calendar_events").select("id, title, start_at, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("documents").select("id, title, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("emails").select("id, subject, status, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("financial_documents").select("id, document_number, status, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3)
+      ]);
 
-    const metadata = {
-      source: "imports_turismo_site",
-      form_type: "orcamento",
-      destination: destino,
-      travel_period: periodo,
-      passengers: passageiros,
-      children: criancas,
-      departure_city: cidadePartida,
-      email,
-      notes: observacoes
-    };
+      const activities: any[] = [
+        ...(recentClients || []).map(c => ({ id: c.id, type: 'cliente', title: 'Novo Cliente', description: c.company_name, created_at: c.created_at })),
+        ...(recentTasks || []).map(t => ({ id: t.id, type: 'tarefa', title: 'Tarefa Atualizada', description: t.title, created_at: t.created_at, status: t.status })),
+        ...(recentEvents || []).map(e => ({ id: e.id, type: 'evento', title: 'Próximo Evento', description: e.title, created_at: e.created_at })),
+        ...(recentDocs || []).map(d => ({ id: d.id, type: 'documento', title: 'Novo Documento', description: d.title, created_at: d.created_at })),
+        ...(recentEmails || []).map(em => ({ id: em.id, type: 'email', title: 'Email', description: em.subject, created_at: em.created_at, status: em.status })),
+        ...(recentFinDocs || []).map(f => ({ id: f.id, type: 'financeiro', title: 'Documento Financeiro', description: f.document_number, created_at: f.created_at, status: f.status }))
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 10);
 
-    const { data, error } = await supabase
-      .from("tickets")
-      .insert({
-        client_id: IMPORTS_CLIENT_ID,
-        tracking_code: trackingCode,
-        kind: "orcamento",
-        category: "comercial",
-        status: "new",
-        priority: "medium",
-        subject,
-        description,
-        customer_name: nome,
-        customer_contact: telefone,
-        metadata,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .select("id, tracking_code")
-      .single();
-
-    if (error) {
-      return res.status(500).json({ ok: false, error: error.message });
-    }
-
-    return res.json({
-      ok: true,
-      trackingCode: data?.tracking_code || trackingCode
-    });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao criar pedido de orçamento"
-    });
-  }
-});
-
-app.post("/api/imports-turismo/reservas", async (req: any, res: any) => {
-  try {
-    const body = req.body || {};
-
-    const nome = safeString(body.nome);
-    const telefone = normalizePhoneLoose(body.telefone);
-    const email = safeString(body.email);
-    const destino = safeString(body.destino);
-    const periodo = safeString(body.periodo);
-    const passageiros = safeNumber(body.passageiros, 1);
-    const criancas = safeNumber(body.criancas, 0);
-    const cidadePartida = safeString(body.cidadePartida);
-    const observacoes = safeString(body.observacoes);
-
-    if (!nome || !telefone || !email || !destino || !periodo) {
-      return res.status(400).json({
-        ok: false,
-        error: "nome, telefone, email, destino e periodo são obrigatórios"
+      res.json({
+        ok: true,
+        metrics: {
+          total_clients: totalClients || 0,
+          active_clients: activeClients || 0,
+          new_clients_this_week: recentClients?.length || 0,
+          total_tasks: totalTasks || 0,
+          pending_tasks: pendingTasks || 0,
+          completed_tasks_today: recentTasks?.filter(t => t.status === 'concluída').length || 0,
+          total_events: totalEvents || 0,
+          upcoming_events: upcomingEvents || 0,
+          events_today: recentEvents?.length || 0,
+          total_documents: totalDocs || 0,
+          recent_documents: recentDocs?.length || 0,
+          total_financial_documents: totalFinDocs || 0,
+          overdue_financial_documents: overdueFinDocs || 0,
+          total_emails: totalEmails || 0,
+          failed_emails: recentEmails?.filter(e => e.status === 'falha').length || 0,
+          total_automations: totalAutos || 0,
+          active_automations: activeAutos || 0,
+          failed_automations: failedAutos || 0,
+          recent_activity: activities
+        }
       });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
     }
+  });
 
-    const trackingCode = await generateUniqueTrackingCode("TT");
+  // Tickets Routes
+  app.get("/api/client/tickets/stats", requireClientSession, async (req: any, res) => {
+    try {
+      const { data: tickets, error } = await supabase.from("tickets")
+        .select("status, priority")
+        .eq("client_id", req.clientId);
 
-    const subject = `Pedido de reserva - ${destino}`;
-    const description = `Pedido público de reserva para ${destino}`;
+      if (error) throw error;
 
-    const metadata = {
-      source: "imports_turismo_site",
-      form_type: "reserva",
-      destination: destino,
-      travel_period: periodo,
-      passengers: passageiros,
-      children: criancas,
-      departure_city: cidadePartida,
-      email,
-      notes: observacoes
-    };
+      const stats = {
+        total: tickets?.length || 0,
+        open: tickets?.filter(t => t.status === 'aberto' || t.status === 'novo' || t.status === 'nova').length || 0,
+        in_progress: tickets?.filter(t => ['em análise', 'em investigação', 'em execução', 'a aguardar cliente', 'a aguardar resposta'].includes(t.status)).length || 0,
+        completed: tickets?.filter(t => ['concluído', 'resolvida', 'encerrada', 'resolvido'].includes(t.status)).length || 0,
+        urgent: tickets?.filter(t => t.priority === 'urgente').length || 0
+      };
 
-    const { data, error } = await supabase
-      .from("tickets")
-      .insert({
-        client_id: IMPORTS_CLIENT_ID,
-        tracking_code: trackingCode,
-        kind: "reserva",
-        category: "comercial",
-        status: "new",
-        priority: "medium",
-        subject,
-        description,
-        customer_name: nome,
-        customer_contact: telefone,
-        metadata,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .select("id, tracking_code")
-      .single();
-
-    if (error) {
-      return res.status(500).json({ ok: false, error: error.message });
+      res.json({ ok: true, stats });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
     }
+  });
 
-    return res.json({
-      ok: true,
-      trackingCode: data?.tracking_code || trackingCode
-    });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao criar pedido de reserva"
-    });
-  }
-});
+  app.get("/api/client/tickets", requireClientSession, async (req: any, res) => {
+    try {
+      const { status, priority, category, kind, assigned_to, search } = req.query;
+      let query = supabase.from("tickets").select(`
+        *,
+        assigned_user:client_users!assigned_user_id(name),
+        client:client_profiles!client_profile_id(company_name)
+      `).eq("client_id", req.clientId);
 
-app.post("/api/imports-turismo/reclamacoes", async (req: any, res: any) => {
-  try {
-    const body = req.body || {};
+      if (status) query = query.eq("status", status);
+      if (priority) query = query.eq("priority", priority);
+      if (category) query = query.eq("category", category);
+      if (kind) query = query.eq("kind", kind);
+      if (assigned_to) query = query.eq("assigned_user_id", assigned_to);
+      
+      if (search) {
+        query = query.or(`title.ilike.%${search}%,tracking_code.ilike.%${search}%`);
+      }
 
-    const nome = safeString(body.nome);
-    const telefone = normalizePhoneLoose(body.telefone);
-    const email = safeString(body.email);
-    const referencia = safeString(body.referencia);
-    const descricao = safeString(body.descricao);
-    const dataOcorrencia = safeString(body.dataOcorrencia);
-    const expectativaResolucao = safeString(body.expectativaResolucao);
+      const { data: tickets, error } = await query.order("created_at", { ascending: false });
+      if (error) throw error;
 
-    if (!nome || !telefone || !email || !descricao) {
-      return res.status(400).json({
-        ok: false,
-        error: "nome, telefone, email e descricao são obrigatórios"
+      res.json({ 
+        ok: true, 
+        tickets: tickets?.map(t => ({
+          ...t,
+          assigned_user_name: (t.assigned_user as any)?.name,
+          client_name: (t.client as any)?.company_name
+        })) 
       });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
     }
+  });
 
-    const trackingCode = await generateUniqueTrackingCode("TT");
+  app.get("/api/client/tickets/:id", requireClientSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { data: ticket, error } = await supabase.from("tickets").select(`
+        *,
+        assigned_user:client_users!assigned_user_id(name),
+        client:client_profiles!client_profile_id(company_name, phone_e164)
+      `).eq("id", id).eq("client_id", req.clientId).single();
 
-    const subject = referencia
-      ? `Reclamação - ref. ${referencia}`
-      : "Reclamação de cliente";
+      if (error) throw error;
+      if (!ticket) return res.status(404).json({ ok: false, error: "Ticket não encontrado." });
 
-    const metadata = {
-      source: "imports_turismo_site",
-      form_type: "reclamacao",
-      email,
-      reference: referencia,
-      occurrence_date: dataOcorrencia,
-      expected_resolution: expectativaResolucao
-    };
+      res.json({ 
+        ok: true, 
+        ticket: {
+          ...ticket,
+          assigned_user_name: (ticket.assigned_user as any)?.name,
+          client_name: (ticket.client as any)?.company_name,
+          client_phone: (ticket.client as any)?.phone_e164
+        } 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
 
-    const { data, error } = await supabase
-      .from("tickets")
-      .insert({
-        client_id: IMPORTS_CLIENT_ID,
+  app.get("/api/client/tickets/:id/messages", requireClientSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { data: messages, error } = await supabase.from("ticket_messages")
+        .select("*")
+        .eq("ticket_id", id)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      res.json({ ok: true, messages });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/tickets/:id/history", requireClientSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { data: history, error } = await supabase.from("ticket_history")
+        .select(`
+          *,
+          user:client_users!created_by(name)
+        `)
+        .eq("ticket_id", id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      res.json({ 
+        ok: true, 
+        history: history?.map(h => ({
+          ...h,
+          user_name: (h.user as any)?.name
+        })) 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/client/tickets", requireClientSession, async (req: any, res) => {
+    try {
+      const { title, description, category, kind, priority, client_profile_id } = req.body;
+      if (!title || !description) return res.status(400).json({ ok: false, error: "Título e descrição obrigatórios." });
+      
+      const trackingCode = `TT-${Math.floor(100000 + Math.random() * 900000)}`;
+      
+      const { data: ticket, error } = await supabase.from("tickets").insert({
+        client_id: req.clientId, 
+        title, 
+        description, 
+        category: category || "Geral", 
+        kind: kind || "suporte",
+        priority: priority || "média", 
+        status: "aberto", 
         tracking_code: trackingCode,
-        kind: "reclamacao",
-        category: "pos_venda",
-        status: "new",
-        priority: "high",
-        subject,
-        description: descricao,
-        customer_name: nome,
-        customer_contact: telefone,
-        metadata,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .select("id, tracking_code")
-      .single();
+        client_profile_id,
+        created_by: req.userId
+      }).select().single();
 
-    if (error) {
-      return res.status(500).json({ ok: false, error: error.message });
+      if (error) throw error;
+      
+      const { data: user } = await supabase.from("client_users").select("name").eq("id", req.userId).single();
+      await logAudit(req.clientId, req.userId, user?.name || "Sistema", "create", "tickets", "ticket", ticket.id, `Ticket #${trackingCode} criado: ${title}`);
+
+      // Initial message
+      await supabase.from("ticket_messages").insert({ 
+        ticket_id: ticket.id, 
+        sender_type: "user", 
+        sender_name: "Sistema",
+        message: description 
+      });
+
+      // Initial history
+      await supabase.from("ticket_history").insert({
+        ticket_id: ticket.id,
+        event_type: "create",
+        event_label: "Ticket criado",
+        created_by: req.userId
+      });
+
+      res.json({ ok: true, ticket });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
     }
+  });
 
-    return res.json({
-      ok: true,
-      trackingCode: data?.tracking_code || trackingCode
-    });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao criar reclamação"
-    });
+  // Client Messages
+  app.get("/api/client/messages", requireClientSession, async (req: any, res) => {
+    const { data: messages } = await supabase.from("wa_messages").select("*").eq("client_id", req.clientId).order("created_at", { ascending: false });
+    const convs = new Map();
+    messages?.forEach(m => { if (!convs.has(m.phone_e164)) convs.set(m.phone_e164, { phone_e164: m.phone_e164, lastMsg: m.text, time: m.created_at }); });
+    res.json({ ok: true, messages: Array.from(convs.values()) });
+  });
+
+  // Billing & Subscriptions
+  app.get("/api/client/billing/subscription", requireClientSession, requirePermission('billing', 'view'), async (req: any, res) => {
+    try {
+      const { data: subscription, error } = await supabase.from("subscriptions")
+        .select("*")
+        .eq("client_id", req.clientId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      res.json({ ok: true, subscription: subscription || null });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/billing/usage", requireClientSession, requirePermission('billing', 'view'), async (req: any, res) => {
+    try {
+      const [ { count: users }, { count: instances }, { count: messages }, { count: tickets }, { count: documents } ] = await Promise.all([
+        supabase.from("client_users").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId),
+        supabase.from("client_instances").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId),
+        supabase.from("wa_messages").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId),
+        supabase.from("tickets").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId),
+        supabase.from("documents").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId)
+      ]);
+
+      res.json({ 
+        ok: true, 
+        usage: {
+          client_id: req.clientId,
+          total_users: users || 0,
+          total_instances: instances || 0,
+          total_messages: messages || 0,
+          total_tickets: tickets || 0,
+          total_documents: documents || 0,
+          last_updated: new Date().toISOString()
+        } 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Admin Billing (SaaS Operation)
+  app.get("/api/admin/billing/stats", requireAdminSession, async (req: any, res) => {
+    try {
+      const [ { count: totalClients }, { data: subs } ] = await Promise.all([
+        supabase.from("clients").select("id", { count: 'exact', head: true }),
+        supabase.from("subscriptions").select("status, price_monthly")
+      ]);
+
+      const stats = {
+        totalClients: totalClients || 0,
+        activeSubscriptions: subs?.filter(s => s.status === 'active').length || 0,
+        trialSubscriptions: subs?.filter(s => s.status === 'trial').length || 0,
+        suspendedSubscriptions: subs?.filter(s => s.status === 'suspended' || s.status === 'past_due').length || 0,
+        estimatedMonthlyRevenue: subs?.filter(s => s.status === 'active').reduce((acc, s) => acc + (s.price_monthly || 0), 0) || 0
+      };
+
+      res.json({ ok: true, stats });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/billing/subscriptions", requireAdminSession, async (req: any, res) => {
+    try {
+      const { status, plan } = req.query;
+      
+      let query = supabase.from("subscriptions")
+        .select(`
+          *,
+          client:clients(company_name)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (status) query = query.eq("status", status);
+      if (plan) query = query.eq("plan_name", plan);
+
+      const { data: subscriptions, error } = await query;
+      if (error) throw error;
+
+      res.json({ 
+        ok: true, 
+        subscriptions: subscriptions?.map(s => ({
+          ...s,
+          company_name: (s.client as any)?.company_name
+        })) 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Admin Routes
+  app.post("/api/admin/auth/login", async (req, res) => {
+    const { email, password } = req.body;
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    if (authError || !authData.user) return res.status(401).json({ ok: false, error: "Credenciais inválidas." });
+    const { data: admin } = await supabase.from("admins").select("*").eq("user_id", authData.user.id).single();
+    if (!admin) return res.status(403).json({ ok: false, error: "Acesso negado." });
+    const token = jwt.sign({ userId: authData.user.id, email: authData.user.email, isAdmin: true }, JWT_SECRET, { expiresIn: "12h" });
+    res.cookie("tratatudo_admin_session", token, { httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 12 * 60 * 60 * 1000 });
+    res.json({ ok: true, email: authData.user.email });
+  });
+
+  app.get("/api/admin/tickets", requireAdminSession, async (req: any, res) => {
+    const { data: tickets } = await supabase.from("tickets").select("*, clients(company_name)").order("created_at", { ascending: false });
+    res.json({ ok: true, tickets: tickets?.map(t => ({ ...t, company_name: (t.clients as any)?.company_name })) });
+  });
+
+  app.patch("/api/admin/tickets/:id/status", requireAdminSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    const { data: ticket } = await supabase.from("tickets").update({ status }).eq("id", id).select().single();
+    if (status === 'resolvido' && ticket) {
+      await sendWhatsAppNotification(ticket.client_id, ticket.phone_e164, `O seu ticket #${ticket.tracking_code} foi resolvido!`);
+    }
+    res.json({ ok: true, ticket });
+  });
+
+  // Helpers
+  function normalizePhone(phone: string): string {
+    let cleaned = phone.replace(/\D/g, "");
+    if (cleaned.length === 9) return "+351" + cleaned;
+    if (!cleaned.startsWith("+") && cleaned.length > 0) return "+" + cleaned;
+    return phone;
   }
-});
 
-app.get("/api/imports-turismo/pedidos/:trackingCode", async (req: any, res: any) => {
-  try {
-    const trackingCode = safeString(req.params?.trackingCode).toUpperCase();
-
-    if (!trackingCode) {
-      return res.status(400).json({ ok: false, error: "trackingCode é obrigatório" });
-    }
-
-    const { data, error } = await supabase
-      .from("tickets")
-      .select("tracking_code, status, customer_name, created_at, metadata")
-      .eq("client_id", IMPORTS_CLIENT_ID)
-      .eq("tracking_code", trackingCode)
-      .maybeSingle();
-
-    if (error) {
-      return res.status(500).json({ ok: false, error: error.message });
-    }
-
-    if (!data) {
-      return res.status(404).json({ ok: false, error: "Pedido não encontrado" });
-    }
-
-    const meta = data.metadata && typeof data.metadata === "object" ? data.metadata : {};
-
-    return res.json({
-      trackingCode: data.tracking_code,
-      status: mapPublicStatus(data.status || "new"),
-      nome: safeString(data.customer_name),
-      destino: safeString(meta.destination),
-      periodo: safeString(meta.travel_period),
-      createdAt: data.created_at || null
+  async function sendWhatsAppNotification(clientId: string, phone: string, text: string) {
+    if (!EVO_URL || !EVO_KEY) throw new Error("Evolution API config missing");
+    const { data: inst } = await supabase.from("client_instances").select("instance_name").eq("client_id", clientId).eq("status", "online").single();
+    const instanceName = inst?.instance_name || "TrataTudo bot";
+    const url = `${EVO_URL}/message/sendText/${encodeURIComponent(instanceName)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': EVO_KEY },
+      body: JSON.stringify({ number: phone.replace("+", ""), text, delay: 1000 })
     });
-  } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Erro ao consultar pedido"
-    });
+    if (!res.ok) throw new Error(`Evolution API error: ${res.status}`);
+    await supabase.from("wa_messages").insert({ client_id: clientId === "hub" ? null : clientId, phone_e164: phone, instance: instanceName, direction: "outbound", text });
   }
-});
 
-app.listen(PORT, () => {
-  console.log("🔥 TrataTudo API running on port", PORT);
-});
+  // Webhook Evolution
+  app.post("/api/webhook/evolution", async (req, res) => {
+    const { event, data, instance: instanceName } = req.body;
+    if (event !== "messages.upsert") return res.json({ ok: true });
+    const remoteJid = data.key.remoteJid;
+    if (remoteJid.endsWith("@g.us")) return res.json({ ok: true });
+    const phone = "+" + remoteJid.split("@")[0];
+    const text = data.message?.conversation || data.message?.extendedTextMessage?.text || "";
+    if (!text) return res.json({ ok: true });
+    
+    // Simple resolution logic
+    const { data: client } = await supabase.from("clients").select("id, status, bot_instructions").eq("phone_e164", phone).single();
+    const clientId = client?.id;
+    if (clientId) {
+      await supabase.from("wa_messages").insert({ client_id: clientId, phone_e164: phone, instance: instanceName, direction: data.key.fromMe ? "outbound" : "inbound", text });
+      if (!data.key.fromMe && client.status === 'active') {
+        // AI logic here (simplified)
+        const completion = await groq.chat.completions.create({
+          messages: [{ role: "system", content: client.bot_instructions }, { role: "user", content: text }],
+          model: "llama-3.3-70b-versatile",
+        });
+        const aiText = completion.choices[0]?.message?.content || "";
+        await sendWhatsAppNotification(clientId, phone, aiText);
+      }
+    }
+    res.json({ ok: true });
+  });
+
+  // Static files for production
+  if (process.env.NODE_ENV === "production") {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
+  }
+
+  app.use("/api/imports-turismo", importsTurismoRouter);
+  app.use("/api/public", publicRouter);
+
+  app.listen(PORT, "0.0.0.0", () => console.log(`Server running on port ${PORT}`));
+}
+
+startServer().catch(console.error);

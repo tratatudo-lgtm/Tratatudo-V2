@@ -17,7 +17,7 @@ import {
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { Task } from '../../types/hub';
-import { apiFetch, apiPost } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 import { StatCard } from '../../components/app/StatCard';
 import { StatusBadge } from '../../components/app/StatusBadge';
 import { PriorityBadge } from '../../components/app/PriorityBadge';
@@ -33,15 +33,6 @@ const Tasks: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
   const [priorityFilter, setPriorityFilter] = useState('todos');
-  const [isCreating, setIsCreating] = useState(false);
-  const [savingTask, setSavingTask] = useState(false);
-  const [newTask, setNewTask] = useState({
-    title: '',
-    description: '',
-    priority: 'média',
-    status: 'pendente',
-    due_at: ''
-  });
 
   useEffect(() => {
     fetchTasks();
@@ -61,52 +52,6 @@ const Tasks: React.FC = () => {
       toast.error('Erro de ligação ao servidor');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const resetNewTask = () => {
-    setNewTask({
-      title: '',
-      description: '',
-      priority: 'média',
-      status: 'pendente',
-      due_at: ''
-    });
-  };
-
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newTask.title.trim()) {
-      toast.error('O título da tarefa é obrigatório');
-      return;
-    }
-
-    try {
-      setSavingTask(true);
-
-      const payload = {
-        title: newTask.title,
-        description: newTask.description,
-        priority: newTask.priority,
-        status: newTask.status,
-        due_at: newTask.due_at || null
-      };
-
-      const res = await apiPost('/api/client/tasks', payload);
-
-      if ((res as any)?.ok) {
-        toast.success('Tarefa criada com sucesso');
-        setIsCreating(false);
-        resetNewTask();
-        fetchTasks();
-      } else {
-        toast.error((res as any)?.error || 'Erro ao criar tarefa');
-      }
-    } catch (error: any) {
-      toast.error(error?.message || 'Erro ao criar tarefa');
-    } finally {
-      setSavingTask(false);
     }
   };
 
@@ -190,7 +135,7 @@ const Tasks: React.FC = () => {
         <ActionButton 
           label="Nova Tarefa" 
           icon={Plus} 
-          onClick={() => setIsCreating(true)} 
+          onClick={() => toast.info('Funcionalidade em desenvolvimento')} 
         />
       </div>
 
@@ -284,114 +229,9 @@ const Tasks: React.FC = () => {
             : "Ainda não tens tarefas criadas. Começa por criar a primeira!"}
           action={!(search || statusFilter !== 'todos' || priorityFilter !== 'todos') ? {
             label: "Criar Tarefa",
-            onClick: () => setIsCreating(true)
+            onClick: () => toast.info('Funcionalidade em desenvolvimento')
           } : undefined}
         />
-      )}
-      {isCreating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">Nova Tarefa</h3>
-                <p className="text-sm text-slate-500">Crie uma nova tarefa para a equipa.</p>
-              </div>
-              <button
-                onClick={() => {
-                  setIsCreating(false);
-                  resetNewTask();
-                }}
-                className="px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-500"
-              >
-                Fechar
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateTask} className="p-6 space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Título</label>
-                <input
-                  type="text"
-                  value={newTask.title}
-                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                  placeholder="Ex: Verificar iluminação da Rua da Estação"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700">Descrição</label>
-                <textarea
-                  value={newTask.description}
-                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                  rows={4}
-                  placeholder="Detalhes da tarefa"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700">Prioridade</label>
-                  <select
-                    value={newTask.priority}
-                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
-                  >
-                    <option value="baixa">Baixa</option>
-                    <option value="média">Média</option>
-                    <option value="alta">Alta</option>
-                    <option value="urgente">Urgente</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700">Estado</label>
-                  <select
-                    value={newTask.status}
-                    onChange={(e) => setNewTask({ ...newTask, status: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
-                  >
-                    <option value="pendente">Pendente</option>
-                    <option value="em_progresso">Em Progresso</option>
-                    <option value="concluída">Concluída</option>
-                    <option value="cancelada">Cancelada</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700">Prazo</label>
-                  <input
-                    type="date"
-                    value={newTask.due_at}
-                    onChange={(e) => setNewTask({ ...newTask, due_at: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCreating(false);
-                    resetNewTask();
-                  }}
-                  className="px-5 py-3 rounded-xl text-slate-600 hover:bg-slate-100"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingTask}
-                  className="px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-70"
-                >
-                  {savingTask ? 'A guardar...' : 'Criar Tarefa'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
     </div>
   );

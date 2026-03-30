@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   MessageSquare, 
@@ -49,7 +49,7 @@ interface DashboardData {
     complaints?: number;
     inProgressTickets?: number;
     resolvedTickets?: number;
-  }, []);
+  };
   instance: {
     instance_name: string;
     is_hub: boolean;
@@ -81,14 +81,14 @@ const shortcuts = [
 ];
 
 export function Dashboard() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [aiInsights, setAiInsights] = useState<{ insights: any[], summary: string } | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
 
-  const fetchAIInsights = useCallback(async () => {
+  const fetchAIInsights = async () => {
     try {
       setLoadingAI(true);
       const data = await apiPost('/api/client/ai/insights', { context: 'dashboard' });
@@ -113,8 +113,8 @@ export function Dashboard() {
     }
   };
 
-  const fetchData = useCallback(async () => {
-    if (authLoading || !user) return;
+  useEffect(() => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
@@ -152,7 +152,7 @@ export function Dashboard() {
         
       } catch (err: any) {
         console.error('[APP] Dashboard fetch failed:', err);
-        setError(`DASHBOARD: ${err?.message || 'Não foi possível carregar os dados do painel.'}`);
+        setError(err.message || 'Não foi possível carregar os dados do painel.');
         
         // Professional fallback for demo/development
         if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
@@ -196,7 +196,7 @@ export function Dashboard() {
     };
 
     fetchData();
-  }, [authLoading, user?.client_id]);
+  }, []);
 
   if (loading) {
     return <LoadingState message="A carregar o seu painel..." className="h-[60vh]" />;
@@ -631,13 +631,13 @@ export function Dashboard() {
                   <span className="text-slate-500">Estado da Ligação</span>
                   <span className={cn(
                     "flex items-center gap-1.5 font-bold",
-                    data?.instance?.status === 'online' ? "text-green-600" : "text-red-600"
+                    data?.instance?.status === 'conectado' ? "text-green-600" : "text-red-600"
                   )}>
                     <div className={cn(
                       "w-1.5 h-1.5 rounded-full",
-                      data?.instance?.status === 'online' ? "bg-green-500 animate-pulse" : "bg-red-500"
+                      data?.instance?.status === 'conectado' ? "bg-green-500 animate-pulse" : "bg-red-500"
                     )}></div>
-                    {data?.instance?.status === 'online' ? 'Conectado' : 'Desconectado'}
+                    {data?.instance?.status === 'conectado' ? 'Conectado' : 'Desconectado'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
@@ -697,7 +697,7 @@ export function Dashboard() {
               </div>
 
               <Link 
-                to="/app/subscription"
+                to="/app/subscricao"
                 className="block w-full py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-center text-xs font-bold transition-all"
               >
                 Gerir Faturação

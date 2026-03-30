@@ -74,7 +74,6 @@ export function AdminClients() {
     plan: 'starter' as const
   });
   const [processing, setProcessing] = useState(false);
-  const [trialDays, setTrialDays] = useState(3);
 
   const { logout } = useAdminAuth();
   const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
@@ -188,39 +187,10 @@ export function AdminClients() {
   };
 
   const handleProlongTrial = async () => {
-    if (!prolongingClient) return;
-
-    const days = Number(trialDays);
-    if (!Number.isFinite(days) || days <= 0) {
-      toast.error('Número de dias inválido.');
-      return;
-    }
-
-    try {
-      setProcessing(true);
-
-      const response = await fetch(`${baseUrl}/api/admin/clients/${prolongingClient.id}/reactivate-trial`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ days }),
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || 'Falha ao reativar trial');
-      }
-
-      toast.success(`Trial atribuído por ${days} dias.`);
-      setIsProlongModalOpen(false);
-      setProlongingClient(null);
-      setTrialDays(3);
-      await fetchClients();
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao reativar trial');
-    } finally {
-      setProcessing(false);
-    }
+    // TODO: Backend endpoint /api/admin/clients/:id/prolong does not exist yet.
+    toast.info('Funcionalidade de prolongar trial aguarda implementação no backend.');
+    setIsProlongModalOpen(false);
+    setProlongingClient(null);
   };
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
@@ -261,26 +231,8 @@ export function AdminClients() {
   };
 
   const handleSyncInstance = async (id: string) => {
-    try {
-      setProcessing(true);
-
-      const response = await fetch(`${baseUrl}/api/admin/clients/${id}/sync`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || 'Falha ao sincronizar instância');
-      }
-
-      toast.success('Instância sincronizada com sucesso.');
-      await fetchClients();
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao sincronizar instância');
-    } finally {
-      setProcessing(false);
-    }
+    // TODO: Backend endpoint /api/admin/clients/:id/sync not confirmed.
+    toast.info('Funcionalidade de sincronizar instância aguarda confirmação do backend.');
   };
 
   const copyToClipboard = (text: string) => {
@@ -456,41 +408,15 @@ export function AdminClients() {
                 <p className="text-sm text-slate-600 text-center">
                   Adicionar dias de teste para <span className="font-bold text-slate-900">{prolongingClient.company_name}</span>
                 </p>
-
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Dias de Trial</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={trialDays}
-                    onChange={(e) => setTrialDays(Number(e.target.value || 0))}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm font-bold"
-                  />
+                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
+                  <AlertCircle className="w-5 h-5 text-blue-500 shrink-0" />
+                  <p className="text-xs text-blue-700 font-medium">Esta funcionalidade aguarda suporte no backend.</p>
                 </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  {[3, 7, 14].map((days) => (
-                    <button
-                      key={days}
-                      type="button"
-                      onClick={() => setTrialDays(days)}
-                      className={`py-3 rounded-xl text-sm font-bold border transition-all ${
-                        trialDays === days
-                          ? 'bg-primary text-white border-primary'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      {days} dias
-                    </button>
-                  ))}
-                </div>
-
                 <button 
                   onClick={handleProlongTrial}
-                  disabled={processing}
-                  className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
                 >
-                  {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Aplicar Trial'}
+                  Fechar
                 </button>
               </div>
             </motion.div>

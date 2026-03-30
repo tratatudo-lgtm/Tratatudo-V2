@@ -23,7 +23,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { AREA_CONFIG, ClientUser } from '../../types/hub';
 import { toast } from 'sonner';
-import { apiFetch, apiPost } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 const Team: React.FC = () => {
   const [users, setUsers] = useState<ClientUser[]>([]);
@@ -31,14 +31,6 @@ const Team: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<string>('all');
   const [isAddingMember, setIsAddingMember] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [newMember, setNewMember] = useState({
-    name: '',
-    email: '',
-    phone_e164: '',
-    role: 'operador',
-    status: 'invited'
-  });
 
   const config = AREA_CONFIG.equipa;
 
@@ -61,40 +53,6 @@ const Team: React.FC = () => {
       toast.error('Erro de ligação ao servidor');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCreateMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newMember.name || !newMember.email) {
-      toast.error('Nome e email são obrigatórios');
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      const res = await apiPost('/api/client/users', newMember);
-
-      if ((res as any)?.ok) {
-        toast.success('Membro convidado com sucesso');
-        setIsAddingMember(false);
-        setNewMember({
-          name: '',
-          email: '',
-          phone_e164: '',
-          role: 'operador',
-          status: 'invited'
-        });
-        fetchUsers();
-      } else {
-        toast.error((res as any)?.error || 'Erro ao convidar membro');
-      }
-    } catch (error: any) {
-      toast.error(error?.message || 'Erro ao convidar membro');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -310,87 +268,6 @@ const Team: React.FC = () => {
           </div>
         )}
       </div>
-      <AnimatePresence>
-        {isAddingMember && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200"
-            >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">Convidar Membro</h3>
-                  <p className="text-sm text-slate-500">Adicione um novo membro à equipa.</p>
-                </div>
-                <button
-                  onClick={() => setIsAddingMember(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
-                >
-                  <XCircle size={20} />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateMember} className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <input
-                    type="text"
-                    placeholder="Nome"
-                    value={newMember.name}
-                    onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
-                  />
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    value={newMember.email}
-                    onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Telefone"
-                    value={newMember.phone_e164}
-                    onChange={(e) => setNewMember({ ...newMember, phone_e164: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
-                  />
-                  <select
-                    value={newMember.role}
-                    onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
-                  >
-                    <option value="admin">Administrador</option>
-                    <option value="gestor">Gestor</option>
-                    <option value="operador">Operador</option>
-                    <option value="comercial">Comercial</option>
-                    <option value="técnico">Técnico</option>
-                    <option value="financeiro">Financeiro</option>
-                    <option value="visualizador">Visualizador</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingMember(false)}
-                    className="px-5 py-3 rounded-xl text-slate-600 hover:bg-slate-100"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 disabled:opacity-70"
-                  >
-                    {saving ? 'A guardar...' : 'Convidar Membro'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

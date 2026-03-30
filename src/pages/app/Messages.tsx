@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   Filter, 
@@ -51,10 +51,10 @@ export function Messages() {
   const [sending, setSending] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const [chatSummary, setChatSummary] = useState<any>(null);
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const clientId = user?.client_id;
 
-  const fetchConversations = useCallback(async () => {
+  const fetchConversations = async () => {
     const endpoints = [
       `${import.meta.env.VITE_API_URL}/api/client/messages`,
       `${import.meta.env.VITE_API_URL}/api/messages`,
@@ -90,13 +90,13 @@ export function Messages() {
       throw lastError || new Error('Falha ao carregar conversas');
     } catch (err: any) {
       console.error('[APP] Fetch conversations failed:', err);
-      setError(`MESSAGES: ${err?.message || 'Erro desconhecido'}`);
+      setError(err.message || 'Erro desconhecido');
     } finally {
       setLoading(false);
     }
-  }, [selectedPhone]);
+  };
 
-  const fetchHistory = useCallback(async (phone: string) => {
+  const fetchHistory = async (phone: string) => {
     const url = `${import.meta.env.VITE_API_URL}/api/client/messages/history/${encodeURIComponent(phone)}`;
     console.log(`[APP] Fetching history for ${phone}: ${url}`);
     try {
@@ -116,7 +116,7 @@ export function Messages() {
     } finally {
       setLoadingHistory(false);
     }
-  }, []);
+  };
 
   const summarizeChat = async () => {
     if (!selectedPhone || summarizing) return;
@@ -169,29 +169,14 @@ export function Messages() {
   };
 
   useEffect(() => {
-    if (authLoading || !user) return;
-    setError(null);
     fetchConversations();
-
-    const interval = window.setInterval(() => {
-      fetchConversations();
-    }, 8000);
-
-    return () => window.clearInterval(interval);
-  }, [authLoading, user?.client_id, fetchConversations]);
+  }, []);
 
   useEffect(() => {
-    if (authLoading || !user) return;
-    if (!selectedPhone) return;
-
-    fetchHistory(selectedPhone);
-
-    const interval = window.setInterval(() => {
+    if (selectedPhone) {
       fetchHistory(selectedPhone);
-    }, 5000);
-
-    return () => window.clearInterval(interval);
-  }, [authLoading, user?.client_id, selectedPhone, fetchHistory]);
+    }
+  }, [selectedPhone]);
 
   useEffect(() => {
     if (!clientId) return;

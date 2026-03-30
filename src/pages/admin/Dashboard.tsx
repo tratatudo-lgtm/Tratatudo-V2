@@ -110,15 +110,9 @@ export function AdminDashboard() {
       }
 
       // Fetch Recent Activity
-      const activityRes = await fetch(`${baseUrl}/api/admin/activity`, {
-        credentials: 'include'
-      });
-      if (activityRes.ok) {
-        const activityData = await activityRes.json();
-        setActivities(extractArrayResponse<RecentActivity>(activityData, 'activities'));
-      } else {
-        setActivities([]);
-      }
+      // TODO: Backend endpoint /api/admin/activity missing. 
+      // This is prepared in UI but requires backend implementation.
+      setActivities([]);
 
     } catch (err: any) {
       console.error('[ADMIN] Dashboard fetch failed:', err);
