@@ -2112,6 +2112,324 @@ REGRAS DE CONTEXTO E ESTILO:
   }
 });
 
+// ================================
+// IMPORTS TURISMO BR - PUBLIC API
+// ================================
+
+const IMPORTS_CLIENT_ID = Number(process.env.IMPORTS_CLIENT_ID || "1");
+
+function randomTrackingCode(prefix = "TT") {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return `${prefix}-${code}`;
+}
+
+async function generateUniqueTrackingCode(prefix = "TT") {
+  for (let i = 0; i < 10; i++) {
+    const tracking = randomTrackingCode(prefix);
+    const { data, error } = await supabase
+      .from("tickets")
+      .select("id")
+      .eq("tracking_code", tracking)
+      .limit(1);
+
+    if (error) throw error;
+    if (!data || data.length === 0) return tracking;
+  }
+  throw new Error("Não foi possível gerar tracking_code único");
+}
+
+function normalizePhoneLoose(raw: string) {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("351")) return `+${digits}`;
+  if (digits.startsWith("55")) return `+${digits}`;
+  if (digits.length === 9) return `+351${digits}`;
+  return `+${digits}`;
+}
+
+function safeString(v: any) {
+  return String(v || "").trim();
+}
+
+function safeNumber(v: any, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function mapPublicStatus(status: string) {
+  const s = String(status || "").toLowerCase();
+  if (["new", "novo", "aberto", "open"].includes(s)) return "pendente";
+  if (["em análise", "em analise", "analysis", "in_review", "in_progress", "em tratamento"].includes(s)) return "em_analise";
+  if (["resolved", "done", "closed", "concluído", "concluido", "resolvido", "confirmado"].includes(s)) return "concluido";
+  return "pendente";
+}
+
+app.get("/api/imports-turismo/health", async (_req: any, res: any) => {
+  return res.json({ ok: true, service: "imports-turismo" });
+});
+
+app.post("/api/imports-turismo/orcamentos", async (req: any, res: any) => {
+  try {
+    const body = req.body || {};
+
+    const nome = safeString(body.nome);
+    const telefone = normalizePhoneLoose(body.telefone);
+    const email = safeString(body.email);
+    const destino = safeString(body.destino);
+    const periodo = safeString(body.periodo);
+    const passageiros = safeNumber(body.passageiros, 1);
+    const criancas = safeNumber(body.criancas, 0);
+    const cidadePartida = safeString(body.cidadePartida);
+    const observacoes = safeString(body.observacoes);
+
+    if (!nome || !telefone || !email || !destino || !periodo) {
+      return res.status(400).json({
+        ok: false,
+        error: "nome, telefone, email, destino e periodo são obrigatórios"
+      });
+    }
+
+    const trackingCode = await generateUniqueTrackingCode("TT");
+
+    const subject = `Pedido de orçamento - ${destino}`;
+    const description = `Pedido público de orçamento para ${destino}`;
+
+    const metadata = {
+      source: "imports_turismo_site",
+      form_type: "orcamento",
+      destination: destino,
+      travel_period: periodo,
+      passengers: passageiros,
+      children: criancas,
+      departure_city: cidadePartida,
+      email,
+      notes: observacoes
+    };
+
+    const { data, error } = await supabase
+      .from("tickets")
+      .insert({
+        client_id: IMPORTS_CLIENT_ID,
+        tracking_code: trackingCode,
+        kind: "orcamento",
+        category: "comercial",
+        status: "new",
+        priority: "medium",
+        subject,
+        description,
+        customer_name: nome,
+        customer_contact: telefone,
+        metadata,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select("id, tracking_code")
+      .single();
+
+    if (error) {
+      return res.status(500).json({ ok: false, error: error.message });
+    }
+
+    return res.json({
+      ok: true,
+      trackingCode: data?.tracking_code || trackingCode
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Erro ao criar pedido de orçamento"
+    });
+  }
+});
+
+app.post("/api/imports-turismo/reservas", async (req: any, res: any) => {
+  try {
+    const body = req.body || {};
+
+    const nome = safeString(body.nome);
+    const telefone = normalizePhoneLoose(body.telefone);
+    const email = safeString(body.email);
+    const destino = safeString(body.destino);
+    const periodo = safeString(body.periodo);
+    const passageiros = safeNumber(body.passageiros, 1);
+    const criancas = safeNumber(body.criancas, 0);
+    const cidadePartida = safeString(body.cidadePartida);
+    const observacoes = safeString(body.observacoes);
+
+    if (!nome || !telefone || !email || !destino || !periodo) {
+      return res.status(400).json({
+        ok: false,
+        error: "nome, telefone, email, destino e periodo são obrigatórios"
+      });
+    }
+
+    const trackingCode = await generateUniqueTrackingCode("TT");
+
+    const subject = `Pedido de reserva - ${destino}`;
+    const description = `Pedido público de reserva para ${destino}`;
+
+    const metadata = {
+      source: "imports_turismo_site",
+      form_type: "reserva",
+      destination: destino,
+      travel_period: periodo,
+      passengers: passageiros,
+      children: criancas,
+      departure_city: cidadePartida,
+      email,
+      notes: observacoes
+    };
+
+    const { data, error } = await supabase
+      .from("tickets")
+      .insert({
+        client_id: IMPORTS_CLIENT_ID,
+        tracking_code: trackingCode,
+        kind: "reserva",
+        category: "comercial",
+        status: "new",
+        priority: "medium",
+        subject,
+        description,
+        customer_name: nome,
+        customer_contact: telefone,
+        metadata,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select("id, tracking_code")
+      .single();
+
+    if (error) {
+      return res.status(500).json({ ok: false, error: error.message });
+    }
+
+    return res.json({
+      ok: true,
+      trackingCode: data?.tracking_code || trackingCode
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Erro ao criar pedido de reserva"
+    });
+  }
+});
+
+app.post("/api/imports-turismo/reclamacoes", async (req: any, res: any) => {
+  try {
+    const body = req.body || {};
+
+    const nome = safeString(body.nome);
+    const telefone = normalizePhoneLoose(body.telefone);
+    const email = safeString(body.email);
+    const referencia = safeString(body.referencia);
+    const descricao = safeString(body.descricao);
+    const dataOcorrencia = safeString(body.dataOcorrencia);
+    const expectativaResolucao = safeString(body.expectativaResolucao);
+
+    if (!nome || !telefone || !email || !descricao) {
+      return res.status(400).json({
+        ok: false,
+        error: "nome, telefone, email e descricao são obrigatórios"
+      });
+    }
+
+    const trackingCode = await generateUniqueTrackingCode("TT");
+
+    const subject = referencia
+      ? `Reclamação - ref. ${referencia}`
+      : "Reclamação de cliente";
+
+    const metadata = {
+      source: "imports_turismo_site",
+      form_type: "reclamacao",
+      email,
+      reference: referencia,
+      occurrence_date: dataOcorrencia,
+      expected_resolution: expectativaResolucao
+    };
+
+    const { data, error } = await supabase
+      .from("tickets")
+      .insert({
+        client_id: IMPORTS_CLIENT_ID,
+        tracking_code: trackingCode,
+        kind: "reclamacao",
+        category: "pos_venda",
+        status: "new",
+        priority: "high",
+        subject,
+        description: descricao,
+        customer_name: nome,
+        customer_contact: telefone,
+        metadata,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select("id, tracking_code")
+      .single();
+
+    if (error) {
+      return res.status(500).json({ ok: false, error: error.message });
+    }
+
+    return res.json({
+      ok: true,
+      trackingCode: data?.tracking_code || trackingCode
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Erro ao criar reclamação"
+    });
+  }
+});
+
+app.get("/api/imports-turismo/pedidos/:trackingCode", async (req: any, res: any) => {
+  try {
+    const trackingCode = safeString(req.params?.trackingCode).toUpperCase();
+
+    if (!trackingCode) {
+      return res.status(400).json({ ok: false, error: "trackingCode é obrigatório" });
+    }
+
+    const { data, error } = await supabase
+      .from("tickets")
+      .select("tracking_code, status, customer_name, created_at, metadata")
+      .eq("client_id", IMPORTS_CLIENT_ID)
+      .eq("tracking_code", trackingCode)
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({ ok: false, error: error.message });
+    }
+
+    if (!data) {
+      return res.status(404).json({ ok: false, error: "Pedido não encontrado" });
+    }
+
+    const meta = data.metadata && typeof data.metadata === "object" ? data.metadata : {};
+
+    return res.json({
+      trackingCode: data.tracking_code,
+      status: mapPublicStatus(data.status || "new"),
+      nome: safeString(data.customer_name),
+      destino: safeString(meta.destination),
+      periodo: safeString(meta.travel_period),
+      createdAt: data.created_at || null
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Erro ao consultar pedido"
+    });
+  }
+});
 
 app.listen(PORT, () => {
   console.log("🔥 TrataTudo API running on port", PORT);
