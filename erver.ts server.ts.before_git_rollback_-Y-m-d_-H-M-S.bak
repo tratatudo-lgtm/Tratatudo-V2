@@ -1,0 +1,20 @@
+31eada8 Tue Mar 31 00:46:29 2026 feat(admin): enable prolong trial action in clients modal
+84de906 Mon Mar 30 23:12:45 2026 fix(admin): normalize API base URL for auth requests
+acf3eca Mon Mar 30 23:06:36 2026 fix(admin): add stable API base fallback for auth fetches
+3b2ac3e Mon Mar 30 19:40:03 2026 feat(admin): Add admin scope and client ID to requests
+b886d03 Mon Mar 30 12:13:17 2026 fix: load env variables in server startup
+89ba346 Mon Mar 30 11:33:28 2026 feat(imports): Refactor helpers for consistent data normalization
+5528139 Mon Mar 30 11:19:40 2026 feat: Register imports and public API routers
+e48bf3b Mon Mar 30 11:12:48 2026 feat: Refactor admin routes and remove logs page
+eaf119c Mon Mar 30 03:08:44 2026 Atualizar o server.ts
+31c5a6d Fri Mar 27 18:16:54 2026 feat: enable document create modal
+fc29a6f Fri Mar 27 18:06:45 2026 feat: enable task create modal
+5424e53 Fri Mar 27 18:02:47 2026 feat: add smtp imap account modal
+f107682 Fri Mar 27 17:56:59 2026 feat: enable email create modal
+3dcd490 Fri Mar 27 17:54:18 2026 feat: enable ticket create form
+4a62c7b Fri Mar 27 17:49:47 2026 fix: compute ticket stats from tickets list
+8f9b7ca Fri Mar 27 17:23:54 2026 fix: tickets stats and new ticket button
+a0b9c03 Fri Mar 27 17:15:57 2026 feat: enable team members page and invite modal
+ae1cd2c Fri Mar 27 16:51:24 2026 feat: enable create automation modal
+adeddeb Fri Mar 27 16:03:20 2026 feat: enable create event modal in calendar
+2e84dc8 Fri Mar 27 15:46:36 2026 fix: usar /api/client/dashboard/stats no dashboard operacional

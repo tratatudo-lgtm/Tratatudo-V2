@@ -1,0 +1,2655 @@
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import { createClient } from "@supabase/supabase-js";
+import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+import Groq from "groq-sdk";
+import Stripe from "stripe";
+import rateLimit from "express-rate-limit";
+import path from "path";
+import importsTurismoRouter from "./src/routes/importsTurismo.routes";
+import publicRouter from "./src/routes/public.routes";
+import { UserRole, PermissionAction, PermissionModule, ROLE_PERMISSIONS } from "./src/types/hub";
+
+// Initialize Supabase
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || "";
+
+// Use Service Role Key for backend operations to bypass RLS
+const supabaseKey = supabaseServiceKey || supabaseAnonKey;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Initialize Groq
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// Initialize Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2023-10-16" as any,
+});
+
+// AI Rate Limiter
+const aiRateLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 10,
+  message: { ok: false, error: "Limite de requisições de IA excedido. Tente novamente em 1 minuto." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const JWT_SECRET = process.env.JWT_SECRET || "tratatudo-v2-secret-key-2026";
+const EVO_URL = (process.env.EVO_URL || "").replace(/\/$/, ""); 
+const EVO_KEY = process.env.EVO_KEY || "";
+
+async function startServer() {
+  const app = express();
+  const PORT = Number(process.env.PORT || 3002);
+
+  app.use(cors({
+    origin: ["https://app.tratatudo.pt", "https://tratatudo.pt", "https://www.tratatudo.pt", process.env.APP_URL].filter(Boolean) as string[],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"]
+  }));
+
+  // Stripe Webhook
+  app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req: any, res) => {
+    const sig = req.headers["stripe-signature"];
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET || "");
+    } catch (err: any) {
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as any;
+      const clientId = session.metadata.clientId;
+      await supabase.from("clients").update({ stripe_customer_id: session.customer, status: 'active' }).eq("id", clientId);
+      await supabase.from("subscriptions").upsert({
+        client_id: clientId,
+        stripe_subscription_id: session.subscription,
+        status: 'active',
+        plan: 'Pro',
+        updated_at: new Date().toISOString()
+      });
+    } else if (event.type === "customer.subscription.deleted") {
+      const subDeleted = event.data.object as any;
+      await supabase.from("subscriptions").update({ status: 'canceled' }).eq("stripe_subscription_id", subDeleted.id);
+    }
+    res.json({ received: true });
+  });
+
+  app.use(express.json());
+  app.use(cookieParser());
+
+  // --- Middlewares ---
+  const requireClientSession = async (req: any, res: any, next: any) => {
+    const token = req.cookies.hub_session;
+    if (!token) return res.status(401).json({ ok: false, error: "Não autenticado." });
+    try {
+      const decoded: any = jwt.verify(token, JWT_SECRET);
+      const { data: client } = await supabase.from("clients").select("*").eq("id", decoded.clientId).single();
+      if (!client) return res.status(404).json({ ok: false, error: "Cliente não encontrado." });
+      
+      req.client = client;
+      req.clientId = client.id;
+      req.userRole = decoded.role || 'visualizador';
+      req.userId = decoded.userId;
+
+      // Fetch fine-grained permissions
+      const { data: finePermissions } = await supabase
+        .from("client_user_permissions")
+        .select("module, actions")
+        .eq("user_id", req.userId);
+      
+      req.finePermissions = finePermissions || [];
+      
+      next();
+    } catch (err) {
+      res.clearCookie("hub_session");
+      return res.status(401).json({ ok: false, error: "Sessão expirada ou inválida." });
+    }
+  };
+
+  const requirePermission = (module: string, action: string) => {
+    return (req: any, res: any, next: any) => {
+      const role = req.userRole;
+      
+      // 1. Check fine-grained permissions first
+      const finePerm = req.finePermissions?.find((p: any) => p.module === module);
+      if (finePerm && finePerm.actions.includes(action)) {
+        return next();
+      }
+
+      // 2. Fallback to role-based permissions
+      const rolePermissions = ROLE_PERMISSIONS[role as UserRole];
+      if (rolePermissions && rolePermissions[module as PermissionModule]?.includes(action as PermissionAction)) {
+        return next();
+      }
+      
+      return res.status(403).json({ ok: false, error: "Acesso negado. Permissões insuficientes." });
+    };
+  };
+
+  const requireAdminSession = async (req: any, res: any, next: any) => {
+    const token = req.cookies.tratatudo_admin_session;
+    if (!token) return res.status(401).json({ ok: false, error: "Não autorizado." });
+    try {
+      const decoded: any = jwt.verify(token, JWT_SECRET);
+      if (!decoded.isAdmin) throw new Error("Not admin");
+
+      req.adminId = decoded.userId;
+      req.adminScope = decoded.scope || "global";
+      req.adminClientId = decoded.clientId || null;
+      req.adminPhone = decoded.phone_e164 || null;
+
+      if (req.adminScope === "global") {
+        const { data: admin } = await supabase.from("admins").select("*").eq("user_id", decoded.userId).single();
+        if (!admin) return res.status(403).json({ ok: false, error: "Acesso administrativo negado." });
+        req.admin = admin;
+        return next();
+      }
+
+      if (req.adminScope === "client") {
+        const { data: clientUser } = await supabase
+          .from("client_users")
+          .select("*")
+          .eq("id", decoded.userId)
+          .eq("client_id", decoded.clientId)
+          .single();
+
+        if (!clientUser) return res.status(403).json({ ok: false, error: "Acesso administrativo do cliente negado." });
+        if (!["admin", "manager"].includes(String(clientUser.role || "").toLowerCase())) {
+          return res.status(403).json({ ok: false, error: "Permissões insuficientes." });
+        }
+
+        req.admin = clientUser;
+        return next();
+      }
+
+      throw new Error("Invalid admin scope");
+    } catch (err) {
+      res.clearCookie("tratatudo_admin_session");
+      return res.status(401).json({ ok: false, error: "Sessão administrativa expirada." });
+    }
+  };
+
+  // --- Helpers ---
+  async function logAudit(clientId: string, userId: string, userName: string, action: string, module: string, entityType: string, entityId: string | null, summary: string, metadata: any = {}) {
+    try {
+      await supabase.from("audit_logs").insert({
+        client_id: clientId,
+        actor_user_id: userId,
+        actor_name: userName,
+        action_type: action,
+        module,
+        entity_type: entityType,
+        entity_id: entityId,
+        summary,
+        metadata,
+        created_at: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error("[AUDIT] Failed to log action:", err);
+    }
+  }
+
+  async function resolveTenantClientId(req: any) {
+    const siteKey =
+      (typeof req.query?.site_key === "string" && req.query.site_key.trim()) ||
+      (typeof req.headers["x-site-key"] === "string" && req.headers["x-site-key"].trim()) ||
+      (typeof req.headers["x-client-site-key"] === "string" && req.headers["x-client-site-key"].trim()) ||
+      null;
+
+    if (!siteKey) return null;
+
+    const { data: client, error } = await supabase
+      .from("clients")
+      .select("id, site_key")
+      .eq("site_key", siteKey)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[TENANT RESOLVE ERROR]", error);
+      return null;
+    }
+
+    return client?.id || null;
+  }
+
+  async function getEffectiveAdminClientId(req: any) {
+    if (req.adminScope === "client" && req.adminClientId) {
+      return req.adminClientId;
+    }
+
+    if (req.adminScope === "global") {
+      const tenantClientId = await resolveTenantClientId(req);
+      if (tenantClientId) return tenantClientId;
+    }
+
+    return null;
+  }
+
+  async function applyAdminScope(query: any, req: any) {
+    const effectiveClientId = await getEffectiveAdminClientId(req);
+    if (effectiveClientId) {
+      return query.eq("client_id", effectiveClientId);
+    }
+    return query;
+  }
+
+  // Activity / Audit Logs
+  app.get("/api/client/audit", requireClientSession, async (req: any, res) => {
+    try {
+      const { module, action, limit = 50 } = req.query;
+      let query = supabase.from("audit_logs")
+        .select("*")
+        .eq("client_id", req.clientId)
+        .order("created_at", { ascending: false })
+        .limit(Number(limit));
+
+      if (module) query = query.eq("module", module);
+      if (action) query = query.eq("action_type", action);
+
+      const { data: logs, error } = await query;
+      if (error) throw error;
+
+      res.json({ ok: true, logs });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // System Health & Info
+  app.get("/api/client/system/health", requireClientSession, async (req: any, res) => {
+    try {
+      const start = Date.now();
+      const { error: dbError } = await supabase.from("clients").select("id").limit(1);
+      const dbLatency = Date.now() - start;
+
+      let waStatus: 'online' | 'offline' | 'warning' = 'online';
+      try {
+        const { data: inst } = await supabase.from("client_instances").select("status").eq("client_id", req.clientId).limit(1);
+        if (!inst || inst.length === 0) waStatus = 'warning';
+        else if (inst[0].status !== 'online') waStatus = 'offline';
+      } catch (e) {
+        waStatus = 'offline';
+      }
+
+      const health = {
+        status: dbError ? 'down' : (waStatus === 'offline' ? 'degraded' : 'healthy'),
+        services: {
+          backend: { status: 'online', latency: 5 },
+          database: { status: dbError ? 'offline' : 'online', latency: dbLatency },
+          whatsapp: { status: waStatus },
+          storage: { status: 'online' }
+        },
+        last_check: new Date().toISOString()
+      };
+
+      res.json({ ok: true, health });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  const startTime = Date.now();
+  app.get("/api/client/system/info", requireClientSession, async (req: any, res) => {
+    res.json({
+      ok: true,
+      info: {
+        version: "1.10.0-consolidation",
+        environment: process.env.NODE_ENV || "development",
+        deploy_timestamp: "2026-03-23T00:00:00Z",
+        uptime: Math.floor((Date.now() - startTime) / 1000)
+      }
+    });
+  });
+
+  // --- API Routes ---
+  app.get("/api/health", (req, res) => res.json({ ok: true, status: "healthy" }));
+
+  // Auth
+  app.post("/api/auth/send-otp", async (req, res) => {
+    let { phone_e164 } = req.body;
+    if (!phone_e164) return res.status(400).json({ ok: false, error: "Número obrigatório." });
+    phone_e164 = normalizePhone(phone_e164);
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const codeHash = await bcrypt.hash(code, 10);
+    await supabase.from("auth_otps").update({ used_at: new Date().toISOString() }).eq("phone_e164", phone_e164).is("used_at", null);
+    const { error } = await supabase.from("auth_otps").insert({ phone_e164, code_hash: codeHash, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), purpose: 'hub_login' });
+    if (error) return res.status(500).json({ ok: false, error: "Erro ao gerar código." });
+    try {
+      const { data: client } = await supabase.from("clients").select("id").eq("phone_e164", phone_e164).single();
+      await sendWhatsAppNotification(client?.id || "hub", phone_e164, `O seu código TrataTudo é: ${code}`);
+      res.json({ ok: true, message: "Código enviado!" });
+    } catch (err: any) {
+      res.json({ ok: true, message: "Código gerado mas falha no envio", error: err.message });
+    }
+  });
+
+  app.post("/api/auth/verify-otp", async (req, res) => {
+    let { phone_e164, code } = req.body;
+    phone_e164 = normalizePhone(phone_e164);
+    const { data: otp } = await supabase.from("auth_otps").select("*").eq("phone_e164", phone_e164).is("used_at", null).order("created_at", { ascending: false }).limit(1).single();
+    if (!otp || new Date(otp.expires_at) < new Date()) return res.status(400).json({ ok: false, error: "Código inválido ou expirado." });
+    if (!(await bcrypt.compare(code, otp.code_hash))) return res.status(400).json({ ok: false, error: "Código incorreto." });
+    
+    await supabase.from("auth_otps").update({ used_at: new Date().toISOString() }).eq("id", otp.id);
+    
+    // 1. Check if user is a client user (staff) by phone
+    const { data: clientUser } = await supabase.from("client_users").select("*").eq("phone_e164", phone_e164).single();
+    
+    let client;
+    let role: UserRole = 'visualizador';
+    let userId;
+
+    if (clientUser) {
+      const { data: c } = await supabase.from("clients").select("id, company_name, phone_e164").eq("id", clientUser.client_id).single();
+      client = c;
+      role = clientUser.role as UserRole;
+      userId = clientUser.id;
+    } else {
+      // 2. Check if user is the main client owner by phone
+      const { data: c } = await supabase.from("clients").select("id, company_name, phone_e164").eq("phone_e164", phone_e164).single();
+      if (c) {
+        client = c;
+        role = 'admin';
+        userId = c.id; // Owner uses client ID as user ID for simplicity, or we could have a user record for them
+      }
+    }
+
+    if (!client) return res.status(404).json({ ok: false, error: "Utilizador não registado." });
+    
+    const token = jwt.sign({ 
+      clientId: client.id, 
+      phone_e164: phone_e164,
+      role,
+      userId
+    }, JWT_SECRET, { expiresIn: "24h" });
+    
+    res.cookie("hub_session", token, { httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 24 * 60 * 60 * 1000 });
+    res.json({ ok: true, client: { ...client, role, userId } });
+  });
+
+  app.get("/api/auth/session", async (req, res) => {
+    const token = req.cookies.hub_session;
+    if (!token) return res.json({ ok: true, authenticated: false });
+    try {
+      const decoded: any = jwt.verify(token, JWT_SECRET);
+      const { data: client } = await supabase.from("clients").select("id, company_name, phone_e164").eq("id", decoded.clientId).single();
+      if (!client) throw new Error();
+      res.json({ ok: true, authenticated: true, ...client, role: decoded.role, userId: decoded.userId });
+    } catch {
+      res.clearCookie("hub_session");
+      res.json({ ok: true, authenticated: false });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    res.clearCookie("hub_session", { httpOnly: true, secure: true, sameSite: "none", path: "/" });
+    res.json({ ok: true });
+  });
+
+  // Client Dashboard & Stats
+  app.get("/api/client/dashboard/stats", requireClientSession, async (req: any, res) => {
+    const clientId = req.clientId;
+    try {
+      const { count: msgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", clientId);
+      const { count: tks } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", clientId);
+      const { data: inst } = await supabase.from("client_instances").select("*").eq("client_id", clientId).single();
+      const { data: sub } = await supabase.from("subscriptions").select("*").eq("client_id", clientId).single();
+      
+      const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("kind", "reclamação");
+      const { count: sentMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("direction", "outbound");
+      const { count: receivedMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("direction", "inbound");
+
+      res.json({ 
+        ok: true, 
+        stats: { 
+          messages: msgs || 0, 
+          totalMessages: msgs || 0,
+          sentMessages: sentMsgs || 0,
+          receivedMessages: receivedMsgs || 0,
+          totalTickets: tks || 0,
+          complaints: complaints || 0
+        }, 
+        instance: inst, 
+        subscription: sub || { plan: 'Trial', status: 'active' } 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Client Instance
+  app.get("/api/client/instance", requireClientSession, async (req: any, res) => {
+    const { data: instance, error } = await supabase.from("client_instances").select("*").eq("client_id", req.clientId).single();
+    if (error && error.code !== 'PGRST116') return res.status(500).json({ ok: false, error: error.message });
+    
+    // Fetch stats for the instance page
+    const { count: msgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
+    const { count: tks } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
+    const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("kind", "reclamação");
+    const { count: sentMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("direction", "outbound");
+    const { count: receivedMsgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("direction", "inbound");
+
+    res.json({ 
+      ok: true, 
+      instance,
+      stats: {
+        totalMessages: msgs || 0,
+        sentMessages: sentMsgs || 0,
+        receivedMessages: receivedMsgs || 0,
+        totalTickets: tks || 0,
+        complaints: complaints || 0
+      }
+    });
+  });
+
+  app.post("/api/client/instance/sync", requireClientSession, async (req: any, res) => {
+    // In a real app, this would trigger a sync with Evolution API
+    // For now, we'll just update the last_activity
+    const { data, error } = await supabase.from("client_instances")
+      .update({ last_activity: new Date().toISOString() })
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, instance: data });
+  });
+
+  // Client Subscription
+  app.get("/api/client/subscription", requireClientSession, async (req: any, res) => {
+    const { data: sub, error } = await supabase.from("subscriptions").select("*").eq("client_id", req.clientId).single();
+    if (error && error.code !== 'PGRST116') return res.status(500).json({ ok: false, error: error.message });
+    
+    const { count: msgs } = await supabase.from("wa_messages").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
+    const { count: tks } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId);
+    const { count: complaints } = await supabase.from("tickets").select("*", { count: 'exact', head: true }).eq("client_id", req.clientId).eq("kind", "reclamação");
+
+    res.json({ 
+      ok: true, 
+      subscription: sub || { 
+        plan: 'Trial', 
+        status: 'Ativo', 
+        started_at: req.client.created_at,
+        ends_at: new Date(new Date(req.client.created_at).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      usage: {
+        messages: msgs || 0,
+        tickets: tks || 0,
+        complaints: complaints || 0
+      }
+    });
+  });
+
+  app.post("/api/client/stripe/checkout", requireClientSession, async (req: any, res) => {
+    const { priceId } = req.body;
+    if (!priceId) return res.status(400).json({ ok: false, error: "Price ID obrigatório." });
+
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: "subscription",
+        success_url: `${process.env.APP_URL || 'http://localhost:3000'}/app/subscription?success=true`,
+        cancel_url: `${process.env.APP_URL || 'http://localhost:3000'}/app/subscription?canceled=true`,
+        metadata: { clientId: req.clientId },
+        customer_email: req.client.email || undefined,
+      });
+
+      res.json({ ok: true, url: session.url });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/client/stripe/portal", requireClientSession, async (req: any, res) => {
+    try {
+      if (!req.client.stripe_customer_id) {
+        return res.status(400).json({ ok: false, error: "Cliente sem ID Stripe. Por favor, realize um pagamento primeiro." });
+      }
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: req.client.stripe_customer_id,
+        return_url: `${process.env.APP_URL || 'http://localhost:3000'}/app/subscription`,
+      });
+
+      res.json({ ok: true, url: session.url });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Client AI Chat
+  app.post("/api/client/ai/chat", requireClientSession, aiRateLimiter, async (req: any, res) => {
+    const { message, history = [] } = req.body;
+    if (!message) return res.status(400).json({ ok: false, error: "Mensagem obrigatória." });
+
+    try {
+      const systemPrompt = `Você é o assistente inteligente do TrataTudo Hub. 
+      Seu papel é ajudar o utilizador (${req.client.company_name}) a gerir o seu negócio.
+      Você tem acesso a Pedidos, Reclamações e Vendas.
+      Seja profissional, prestativo e direto. Use português de Portugal.
+      Ajude a resumir tickets, sugerir próximas ações e orientar nas tarefas do Hub.
+      Instruções específicas do bot: ${req.client.bot_instructions || 'Nenhuma instrução específica.'}`;
+
+      const messages = [
+        { role: "system", content: systemPrompt },
+        ...history.map((h: any) => ({ role: h.role, content: h.content })),
+        { role: "user", content: message }
+      ];
+
+      const completion = await groq.chat.completions.create({
+        messages: messages as any,
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.7,
+        max_tokens: 1024,
+      });
+
+      const responseText = completion.choices[0]?.message?.content || "Desculpe, não consegui processar o seu pedido.";
+      res.json({ ok: true, text: responseText });
+    } catch (err: any) {
+      console.error('AI Chat Error:', err);
+      res.status(500).json({ ok: false, error: "IA temporariamente indisponível. Tente novamente mais tarde." });
+    }
+  });
+
+  app.post("/api/client/tickets/:id/analyze", requireClientSession, aiRateLimiter, async (req: any, res) => {
+    const { id } = req.params;
+    try {
+      const { data: ticket } = await supabase.from("tickets").select("*").eq("id", id).eq("client_id", req.clientId).single();
+      if (!ticket) return res.status(404).json({ ok: false, error: "Ticket não encontrado." });
+
+      const { data: messages } = await supabase.from("ticket_messages").select("*").eq("ticket_id", id).order("created_at", { ascending: true });
+      const conversation = messages?.map(m => `${m.sender_type === 'user' ? 'Cliente' : 'Suporte'}: ${m.text}`).join("\n") || ticket.description;
+
+      const prompt = `Analise o seguinte ticket de suporte e forneça um resumo, causa provável, sentimento do cliente, solução sugerida e próximos passos.
+      Assunto: ${ticket.subject}
+      Descrição: ${ticket.description}
+      Conversa:
+      ${conversation}
+      
+      Responda APENAS em formato JSON válido com esta estrutura:
+      {
+        "summary": "...",
+        "probable_cause": "...",
+        "sentiment": "...",
+        "suggested_solution": "...",
+        "next_steps": ["...", "..."]
+      }`;
+
+      const completion = await groq.chat.completions.create({
+        messages: [
+          { role: "system", content: "És um assistente de suporte especializado em análise de tickets. Responde sempre em JSON." },
+          { role: "user", content: prompt }
+        ],
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" }
+      });
+
+      const analysis = JSON.parse(completion.choices[0]?.message?.content || "{}");
+      res.json({ ok: true, analysis });
+    } catch (err: any) {
+      console.error("[AI Analysis Error]:", err);
+      res.status(500).json({ ok: false, error: "IA temporariamente indisponível." });
+    }
+  });
+
+  // Client Tickets
+  app.get("/api/client/tickets", requireClientSession, requirePermission('tickets', 'view'), async (req: any, res) => {
+    const { data: tickets } = await supabase.from("tickets").select("*, client_profiles(company_name)").eq("client_id", req.clientId).order("created_at", { ascending: false });
+    res.json({ ok: true, tickets: tickets?.map(t => ({ ...t, client_name: (t.client_profiles as any)?.company_name })) });
+  });
+
+  // Client CRM (Profiles)
+  app.get("/api/client/profiles", requireClientSession, requirePermission('clients', 'view'), async (req: any, res) => {
+    const { data: profiles, error } = await supabase.from("client_profiles")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("company_name", { ascending: true });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, profiles });
+  });
+
+  app.get("/api/client/profiles/:id", requireClientSession, async (req: any, res) => {
+    const { id } = req.params;
+    
+    // Fetch profile and related data
+    const [
+      { data: profile, error: profileError },
+      { data: tickets },
+      { data: documents },
+      { data: emails },
+      { data: events },
+      { data: tasks },
+      { data: financialDocs }
+    ] = await Promise.all([
+      supabase.from("client_profiles").select("*").eq("id", id).eq("client_id", req.clientId).single(),
+      supabase.from("tickets").select("*").eq("profile_id", id).order("created_at", { ascending: false }),
+      supabase.from("documents").select("*").eq("profile_id", id).order("created_at", { ascending: false }),
+      supabase.from("emails").select("*").eq("client_id", req.clientId).eq("related_entity_id", id).order("created_at", { ascending: false }),
+      supabase.from("calendar_events").select("*").eq("profile_id", id).order("start_at", { ascending: true }),
+      supabase.from("tasks").select("*").eq("profile_id", id).order("created_at", { ascending: false }),
+      supabase.from("financial_documents").select("*").eq("profile_id", id).order("issue_date", { ascending: false })
+    ]);
+
+    const stats = {
+      tickets: tickets?.filter(t => t.kind === 'pedido').length || 0,
+      complaints: tickets?.filter(t => t.kind === 'reclamação').length || 0,
+      sales: tickets?.filter(t => t.kind === 'venda').length || 0,
+      documents: documents?.length || 0,
+      emails: emails?.length || 0,
+      events: events?.length || 0,
+      tasks: tasks?.length || 0,
+      financial: {
+        count: financialDocs?.length || 0,
+        total: financialDocs?.reduce((acc, d) => acc + (d.amount || 0), 0) || 0,
+        paid: financialDocs?.filter(d => d.status === 'pago').reduce((acc, d) => acc + (d.amount || 0), 0) || 0,
+        pending: financialDocs?.filter(d => ['pendente', 'atrasado'].includes(d.status)).reduce((acc, d) => acc + (d.amount || 0), 0) || 0,
+      }
+    };
+
+    const fullProfile = {
+      ...profile,
+      tickets,
+      documents,
+      emails,
+      calendar_events: events,
+      tasks,
+      financial_documents: financialDocs
+    };
+
+    res.json({ ok: true, profile: fullProfile, stats });
+  });
+
+  app.patch("/api/client/profiles/:id", requireClientSession, requirePermission('clients', 'edit'), async (req: any, res) => {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    const { data, error } = await supabase.from("client_profiles")
+      .update(updateData)
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+
+    const { data: user } = await supabase.from("client_users").select("name").eq("id", req.userId).single();
+    await logAudit(req.clientId, req.userId, user?.name || "Sistema", "update", "clients", "profile", id, `Cliente atualizado: ${data.company_name}`);
+
+    res.json({ ok: true, profile: data });
+  });
+
+  app.post("/api/client/profiles", requireClientSession, requirePermission('clients', 'create'), async (req: any, res) => {
+    const profileData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("client_profiles").insert(profileData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+
+    const { data: user } = await supabase.from("client_users").select("name").eq("id", req.userId).single();
+    await logAudit(req.clientId, req.userId, user?.name || "Sistema", "create", "clients", "profile", data.id, `Novo cliente criado: ${data.company_name}`);
+
+    res.json({ ok: true, profile: data });
+  });
+
+  // Client Team (Users)
+  app.get("/api/client/users", requireClientSession, requirePermission('team', 'view'), async (req: any, res) => {
+    const { data: users, error } = await supabase.from("client_users")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("name", { ascending: true });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, users });
+  });
+
+  app.post("/api/client/users", requireClientSession, requirePermission('team', 'create'), async (req: any, res) => {
+    const userData = { ...req.body, client_id: req.clientId, status: 'invited' };
+    const { data, error } = await supabase.from("client_users").insert(userData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, user: data });
+  });
+
+  app.patch("/api/client/users/:id", requireClientSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { data, error } = await supabase.from("client_users")
+      .update(req.body)
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, user: data });
+  });
+
+  // Client Tasks
+  app.get("/api/client/tasks", requireClientSession, async (req: any, res) => {
+    const { data: tasks, error } = await supabase.from("tasks")
+      .select("*, client_profiles(company_name), client_users(name)")
+      .eq("client_id", req.clientId)
+      .order("created_at", { ascending: false });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, tasks });
+  });
+
+  app.post("/api/client/tasks", requireClientSession, async (req: any, res) => {
+    const taskData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("tasks").insert(taskData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+
+    const { data: user } = await supabase.from("client_users").select("name").eq("id", req.userId).single();
+    await logAudit(req.clientId, req.userId, user?.name || "Sistema", "create", "tasks", "task", data.id, `Nova tarefa criada: ${data.title}`);
+
+    res.json({ ok: true, task: data });
+  });
+
+  app.patch("/api/client/tasks/:id", requireClientSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { data, error } = await supabase.from("tasks")
+      .update(req.body)
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, task: data });
+  });
+
+  // Client Calendar Events
+  app.get("/api/client/calendar-events", requireClientSession, async (req: any, res) => {
+    const { data: events, error } = await supabase.from("calendar_events")
+      .select("*, client_profiles(company_name), client_users(name)")
+      .eq("client_id", req.clientId)
+      .order("start_at", { ascending: true });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, events });
+  });
+
+  app.post("/api/client/calendar-events", requireClientSession, async (req: any, res) => {
+    const eventData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("calendar_events").insert(eventData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, event: data });
+  });
+
+  app.patch("/api/client/calendar-events/:id", requireClientSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { data, error } = await supabase.from("calendar_events")
+      .update(req.body)
+      .eq("id", id)
+      .eq("client_id", req.clientId)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, event: data });
+  });
+
+  // Client Documents
+  app.get("/api/client/documents", requireClientSession, async (req: any, res) => {
+    const { data: documents, error } = await supabase.from("documents")
+      .select("*, client_users(name)")
+      .eq("client_id", req.clientId)
+      .order("created_at", { ascending: false });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, documents });
+  });
+
+  app.post("/api/client/documents", requireClientSession, async (req: any, res) => {
+    const docData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("documents").insert(docData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, document: data });
+  });
+
+  // Client Financial Documents
+  app.get("/api/client/financial-documents", requireClientSession, requirePermission('financial', 'view'), async (req: any, res) => {
+    const { data: documents, error } = await supabase.from("financial_documents")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("issue_date", { ascending: false });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, documents });
+  });
+
+  app.post("/api/client/financial-documents", requireClientSession, async (req: any, res) => {
+    const docData = { ...req.body, client_id: req.clientId };
+    const { data, error } = await supabase.from("financial_documents").insert(docData).select().single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, document: data });
+  });
+
+  // Client Emails
+  app.get("/api/client/emails", requireClientSession, async (req: any, res) => {
+    const { data: emails, error } = await supabase.from("emails")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("created_at", { ascending: false });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, emails });
+  });
+
+  // Client Automations
+  app.get("/api/client/automations", requireClientSession, requirePermission('automations', 'view'), async (req: any, res) => {
+    const { data: automations, error } = await supabase.from("automations")
+      .select("*")
+      .eq("client_id", req.clientId)
+      .order("created_at", { ascending: false });
+    
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true, automations });
+  });
+
+  // WhatsApp / Conversations
+  app.get("/api/client/whatsapp/conversations", requireClientSession, requirePermission('whatsapp', 'view'), async (req: any, res) => {
+    try {
+      const { search, instance } = req.query;
+      
+      // 1. Get all messages for this client
+      let query = supabase.from("wa_messages")
+        .select("*")
+        .eq("client_id", req.clientId)
+        .order("created_at", { ascending: false });
+
+      if (instance) {
+        query = query.eq("instance", instance);
+      }
+
+      const { data: messages, error: msgError } = await query;
+      if (msgError) throw msgError;
+
+      // 2. Aggregate into conversations
+      const conversationsMap = new Map();
+      
+      for (const msg of messages || []) {
+        if (!conversationsMap.has(msg.phone_e164)) {
+          conversationsMap.set(msg.phone_e164, {
+            phone_e164: msg.phone_e164,
+            last_message: msg.text,
+            last_message_at: msg.created_at,
+            instance: msg.instance,
+            direction: msg.direction,
+            unread_count: 0 // Placeholder for now
+          });
+        }
+      }
+
+      let conversations = Array.from(conversationsMap.values());
+
+      // 3. Link with profiles and tickets
+      const phones = conversations.map(c => c.phone_e164);
+      
+      const [ { data: profiles }, { data: tickets } ] = await Promise.all([
+        supabase.from("client_profiles").select("id, company_name, contact_name, phone_e164").eq("client_id", req.clientId).in("phone_e164", phones),
+        supabase.from("tickets").select("id, tracking_code, status, phone_e164").eq("client_id", req.clientId).in("phone_e164", phones).neq("status", "concluído")
+      ]);
+
+      conversations = conversations.map(c => {
+        const profile = profiles?.find(p => p.phone_e164 === c.phone_e164);
+        const ticket = tickets?.find(t => t.phone_e164 === c.phone_e164);
+        
+        return {
+          ...c,
+          display_name: profile?.company_name || profile?.contact_name || c.phone_e164,
+          linked_client_id: profile?.id,
+          linked_ticket_id: ticket?.id,
+          ticket_status: ticket?.status,
+          ticket_tracking_code: ticket?.tracking_code
+        };
+      });
+
+      // 4. Filter by search
+      if (search) {
+        const s = (search as string).toLowerCase();
+        conversations = conversations.filter(c => 
+          c.phone_e164.includes(s) || 
+          c.display_name?.toLowerCase().includes(s) || 
+          c.last_message.toLowerCase().includes(s)
+        );
+      }
+
+      res.json({ ok: true, conversations });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/whatsapp/conversations/:phone/messages", requireClientSession, requirePermission('whatsapp', 'view'), async (req: any, res) => {
+    try {
+      const { phone } = req.params;
+      const { data: messages, error } = await supabase.from("wa_messages")
+        .select("*")
+        .eq("client_id", req.clientId)
+        .eq("phone_e164", phone)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      res.json({ ok: true, messages });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/whatsapp/instances", requireClientSession, requirePermission('whatsapp', 'view'), async (req: any, res) => {
+    try {
+      const { data: instances, error } = await supabase.from("client_instances")
+        .select("*")
+        .eq("client_id", req.clientId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      res.json({ ok: true, instances });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/whatsapp/stats", requireClientSession, requirePermission('whatsapp', 'view'), async (req: any, res) => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const [ { count: totalConversations }, { count: messagesToday }, { data: instances }, { count: conversationsWithTickets } ] = await Promise.all([
+        supabase.from("wa_messages").select("phone_e164", { count: 'exact', head: true }).eq("client_id", req.clientId),
+        supabase.from("wa_messages").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId).gte("created_at", today.toISOString()),
+        supabase.from("client_instances").select("status").eq("client_id", req.clientId),
+        supabase.from("tickets").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId).neq("status", "concluído").not("phone_e164", "is", null)
+      ]);
+
+      // Note: totalConversations count is tricky with head: true and grouping. 
+      // For simplicity in this phase, we'll use a more direct approach if needed, 
+      // but head: true on a select with phone_e164 might not give unique count.
+      // Let's just return what we have for now.
+
+      res.json({ 
+        ok: true, 
+        stats: {
+          totalConversations: totalConversations || 0,
+          messagesToday: messagesToday || 0,
+          activeInstances: instances?.filter(i => i.status === 'open').length || 0,
+          conversationsWithTickets: conversationsWithTickets || 0
+        } 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Client Dashboard Operational Metrics
+  app.get("/api/client/dashboard/operational-metrics", requireClientSession, async (req: any, res) => {
+    const clientId = req.clientId;
+    try {
+      const [
+        { count: totalClients },
+        { count: activeClients },
+        { count: totalTasks },
+        { count: pendingTasks },
+        { count: totalEvents },
+        { count: upcomingEvents },
+        { count: totalDocs },
+        { count: totalFinDocs },
+        { count: overdueFinDocs },
+        { count: totalEmails },
+        { count: totalAutos },
+        { count: activeAutos },
+        { count: failedAutos }
+      ] = await Promise.all([
+        supabase.from("client_profiles").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("client_profiles").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("customer_type", "Ativo"),
+        supabase.from("tasks").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("tasks").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("status", "pendente"),
+        supabase.from("calendar_events").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("calendar_events").select("*", { count: 'exact', head: true }).eq("client_id", clientId).gte("start_at", new Date().toISOString()),
+        supabase.from("documents").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("financial_documents").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("financial_documents").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("status", "atrasado"),
+        supabase.from("emails").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("automations").select("*", { count: 'exact', head: true }).eq("client_id", clientId),
+        supabase.from("automations").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("status", "ativa"),
+        supabase.from("automations").select("*", { count: 'exact', head: true }).eq("client_id", clientId).eq("status", "falha")
+      ]);
+
+      const [
+        { data: recentClients },
+        { data: recentTasks },
+        { data: recentEvents },
+        { data: recentDocs },
+        { data: recentEmails },
+        { data: recentFinDocs }
+      ] = await Promise.all([
+        supabase.from("client_profiles").select("id, company_name, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("tasks").select("id, title, status, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("calendar_events").select("id, title, start_at, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("documents").select("id, title, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("emails").select("id, subject, status, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3),
+        supabase.from("financial_documents").select("id, document_number, status, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(3)
+      ]);
+
+      const activities: any[] = [
+        ...(recentClients || []).map(c => ({ id: c.id, type: 'cliente', title: 'Novo Cliente', description: c.company_name, created_at: c.created_at })),
+        ...(recentTasks || []).map(t => ({ id: t.id, type: 'tarefa', title: 'Tarefa Atualizada', description: t.title, created_at: t.created_at, status: t.status })),
+        ...(recentEvents || []).map(e => ({ id: e.id, type: 'evento', title: 'Próximo Evento', description: e.title, created_at: e.created_at })),
+        ...(recentDocs || []).map(d => ({ id: d.id, type: 'documento', title: 'Novo Documento', description: d.title, created_at: d.created_at })),
+        ...(recentEmails || []).map(em => ({ id: em.id, type: 'email', title: 'Email', description: em.subject, created_at: em.created_at, status: em.status })),
+        ...(recentFinDocs || []).map(f => ({ id: f.id, type: 'financeiro', title: 'Documento Financeiro', description: f.document_number, created_at: f.created_at, status: f.status }))
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 10);
+
+      res.json({
+        ok: true,
+        metrics: {
+          total_clients: totalClients || 0,
+          active_clients: activeClients || 0,
+          new_clients_this_week: recentClients?.length || 0,
+          total_tasks: totalTasks || 0,
+          pending_tasks: pendingTasks || 0,
+          completed_tasks_today: recentTasks?.filter(t => t.status === 'concluída').length || 0,
+          total_events: totalEvents || 0,
+          upcoming_events: upcomingEvents || 0,
+          events_today: recentEvents?.length || 0,
+          total_documents: totalDocs || 0,
+          recent_documents: recentDocs?.length || 0,
+          total_financial_documents: totalFinDocs || 0,
+          overdue_financial_documents: overdueFinDocs || 0,
+          total_emails: totalEmails || 0,
+          failed_emails: recentEmails?.filter(e => e.status === 'falha').length || 0,
+          total_automations: totalAutos || 0,
+          active_automations: activeAutos || 0,
+          failed_automations: failedAutos || 0,
+          recent_activity: activities
+        }
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Tickets Routes
+  app.get("/api/client/tickets/stats", requireClientSession, async (req: any, res) => {
+    try {
+      const { data: tickets, error } = await supabase.from("tickets")
+        .select("status, priority")
+        .eq("client_id", req.clientId);
+
+      if (error) throw error;
+
+      const stats = {
+        total: tickets?.length || 0,
+        open: tickets?.filter(t => t.status === 'aberto' || t.status === 'novo' || t.status === 'nova').length || 0,
+        in_progress: tickets?.filter(t => ['em análise', 'em investigação', 'em execução', 'a aguardar cliente', 'a aguardar resposta'].includes(t.status)).length || 0,
+        completed: tickets?.filter(t => ['concluído', 'resolvida', 'encerrada', 'resolvido'].includes(t.status)).length || 0,
+        urgent: tickets?.filter(t => t.priority === 'urgente').length || 0
+      };
+
+      res.json({ ok: true, stats });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/tickets", requireClientSession, async (req: any, res) => {
+    try {
+      const { status, priority, category, kind, assigned_to, search } = req.query;
+      let query = supabase.from("tickets").select(`
+        *,
+        assigned_user:client_users!assigned_user_id(name),
+        client:client_profiles!client_profile_id(company_name)
+      `).eq("client_id", req.clientId);
+
+      if (status) query = query.eq("status", status);
+      if (priority) query = query.eq("priority", priority);
+      if (category) query = query.eq("category", category);
+      if (kind) query = query.eq("kind", kind);
+      if (assigned_to) query = query.eq("assigned_user_id", assigned_to);
+      
+      if (search) {
+        query = query.or(`title.ilike.%${search}%,tracking_code.ilike.%${search}%`);
+      }
+
+      const { data: tickets, error } = await query.order("created_at", { ascending: false });
+      if (error) throw error;
+
+      res.json({ 
+        ok: true, 
+        tickets: tickets?.map(t => ({
+          ...t,
+          assigned_user_name: (t.assigned_user as any)?.name,
+          client_name: (t.client as any)?.company_name
+        })) 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/tickets/:id", requireClientSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { data: ticket, error } = await supabase.from("tickets").select(`
+        *,
+        assigned_user:client_users!assigned_user_id(name),
+        client:client_profiles!client_profile_id(company_name, phone_e164)
+      `).eq("id", id).eq("client_id", req.clientId).single();
+
+      if (error) throw error;
+      if (!ticket) return res.status(404).json({ ok: false, error: "Ticket não encontrado." });
+
+      res.json({ 
+        ok: true, 
+        ticket: {
+          ...ticket,
+          assigned_user_name: (ticket.assigned_user as any)?.name,
+          client_name: (ticket.client as any)?.company_name,
+          client_phone: (ticket.client as any)?.phone_e164
+        } 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/tickets/:id/messages", requireClientSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { data: messages, error } = await supabase.from("ticket_messages")
+        .select("*")
+        .eq("ticket_id", id)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      res.json({ ok: true, messages });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/tickets/:id/history", requireClientSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { data: history, error } = await supabase.from("ticket_history")
+        .select(`
+          *,
+          user:client_users!created_by(name)
+        `)
+        .eq("ticket_id", id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      res.json({ 
+        ok: true, 
+        history: history?.map(h => ({
+          ...h,
+          user_name: (h.user as any)?.name
+        })) 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/client/tickets", requireClientSession, async (req: any, res) => {
+    try {
+      const { title, description, category, kind, priority, client_profile_id } = req.body;
+      if (!title || !description) return res.status(400).json({ ok: false, error: "Título e descrição obrigatórios." });
+      
+      const trackingCode = `TT-${Math.floor(100000 + Math.random() * 900000)}`;
+      
+      const { data: ticket, error } = await supabase.from("tickets").insert({
+        client_id: req.clientId, 
+        title, 
+        description, 
+        category: category || "Geral", 
+        kind: kind || "suporte",
+        priority: priority || "média", 
+        status: "aberto", 
+        tracking_code: trackingCode,
+        client_profile_id,
+        created_by: req.userId
+      }).select().single();
+
+      if (error) throw error;
+      
+      const { data: user } = await supabase.from("client_users").select("name").eq("id", req.userId).single();
+      await logAudit(req.clientId, req.userId, user?.name || "Sistema", "create", "tickets", "ticket", ticket.id, `Ticket #${trackingCode} criado: ${title}`);
+
+      // Initial message
+      await supabase.from("ticket_messages").insert({ 
+        ticket_id: ticket.id, 
+        sender_type: "user", 
+        sender_name: "Sistema",
+        message: description 
+      });
+
+      // Initial history
+      await supabase.from("ticket_history").insert({
+        ticket_id: ticket.id,
+        event_type: "create",
+        event_label: "Ticket criado",
+        created_by: req.userId
+      });
+
+      res.json({ ok: true, ticket });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Client Messages
+  app.get("/api/client/messages", requireClientSession, async (req: any, res) => {
+    const { data: messages } = await supabase.from("wa_messages").select("*").eq("client_id", req.clientId).order("created_at", { ascending: false });
+    const convs = new Map();
+    messages?.forEach(m => { if (!convs.has(m.phone_e164)) convs.set(m.phone_e164, { phone_e164: m.phone_e164, lastMsg: m.text, time: m.created_at }); });
+    res.json({ ok: true, messages: Array.from(convs.values()) });
+  });
+
+  // Billing & Subscriptions
+  app.get("/api/client/billing/subscription", requireClientSession, requirePermission('billing', 'view'), async (req: any, res) => {
+    try {
+      const { data: subscription, error } = await supabase.from("subscriptions")
+        .select("*")
+        .eq("client_id", req.clientId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      res.json({ ok: true, subscription: subscription || null });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/billing/usage", requireClientSession, requirePermission('billing', 'view'), async (req: any, res) => {
+    try {
+      const [ { count: users }, { count: instances }, { count: messages }, { count: tickets }, { count: documents } ] = await Promise.all([
+        supabase.from("client_users").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId),
+        supabase.from("client_instances").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId),
+        supabase.from("wa_messages").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId),
+        supabase.from("tickets").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId),
+        supabase.from("documents").select("id", { count: 'exact', head: true }).eq("client_id", req.clientId)
+      ]);
+
+      res.json({ 
+        ok: true, 
+        usage: {
+          client_id: req.clientId,
+          total_users: users || 0,
+          total_instances: instances || 0,
+          total_messages: messages || 0,
+          total_tickets: tickets || 0,
+          total_documents: documents || 0,
+          last_updated: new Date().toISOString()
+        } 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/dashboard/stats", requireAdminSession, async (req: any, res) => {
+    try {
+      const effectiveClientId = await getEffectiveAdminClientId(req);
+      const now = new Date();
+      const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      let clientsQuery = supabase.from("clients").select("id, status, created_at").order("created_at", { ascending: true });
+      let messagesQuery = supabase.from("wa_messages").select("id, created_at, client_id").gte("created_at", last7d.toISOString()).order("created_at", { ascending: true });
+      let instancesQuery = supabase.from("client_instances").select("id, status, client_id");
+
+      if (effectiveClientId) {
+        clientsQuery = clientsQuery.eq("id", effectiveClientId);
+        messagesQuery = messagesQuery.eq("client_id", effectiveClientId);
+        instancesQuery = instancesQuery.eq("client_id", effectiveClientId);
+      }
+
+      const [
+        { data: clients, error: clientsError },
+        { data: messages, error: messagesError },
+        { data: instances, error: instancesError }
+      ] = await Promise.all([
+        clientsQuery,
+        messagesQuery,
+        instancesQuery
+      ]);
+
+      if (clientsError) throw clientsError;
+      if (messagesError) throw messagesError;
+      if (instancesError) throw instancesError;
+
+      const total_clients = clients?.length || 0;
+      const active_clients = clients?.filter((c: any) => String(c.status || "").toLowerCase() === "active").length || 0;
+      const trial_clients = clients?.filter((c: any) => String(c.status || "").toLowerCase() === "trial").length || 0;
+      const total_messages_24h = messages?.filter((m: any) => new Date(m.created_at) >= last24h).length || 0;
+      const active_instances = instances?.filter((i: any) => ["open", "online", "connected"].includes(String(i.status || "").toLowerCase())).length || 0;
+
+      const messages_chart = [];
+      const clients_chart = [];
+
+      for (let i = 6; i >= 0; i--) {
+        const dayStart = new Date(now);
+        dayStart.setHours(0, 0, 0, 0);
+        dayStart.setDate(dayStart.getDate() - i);
+
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayEnd.getDate() + 1);
+
+        const label = dayStart.toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit" });
+
+        const msgCount = messages?.filter((m: any) => {
+          const d = new Date(m.created_at);
+          return d >= dayStart && d < dayEnd;
+        }).length || 0;
+
+        const clientCount = clients?.filter((c: any) => {
+          const d = new Date(c.created_at);
+          return d >= dayStart && d < dayEnd;
+        }).length || 0;
+
+        messages_chart.push({ date: label, count: msgCount });
+        clients_chart.push({ date: label, count: clientCount });
+      }
+
+      return res.json({
+        total_clients,
+        active_clients,
+        trial_clients,
+        total_messages_24h,
+        active_instances,
+        system_health: 100,
+        messages_chart,
+        clients_chart
+      });
+    } catch (err: any) {
+      console.error("[ADMIN DASHBOARD STATS ERROR]", err);
+      return res.status(500).json({ ok: false, error: err.message || "Erro ao carregar estatísticas do dashboard." });
+    }
+  });
+
+  app.get("/api/admin/alerts", requireAdminSession, async (_req: any, res) => {
+    return res.json({ ok: true, alerts: [] });
+  });
+
+  // Admin Billing (SaaS Operation)
+  app.get("/api/admin/billing/stats", requireAdminSession, async (req: any, res) => {
+    try {
+      if (req.adminScope !== "global") return res.status(403).json({ ok: false, error: "Acesso reservado ao admin global." });
+      const [ { count: totalClients }, { data: subs } ] = await Promise.all([
+        supabase.from("clients").select("id", { count: 'exact', head: true }),
+        supabase.from("subscriptions").select("status, price_monthly")
+      ]);
+
+      const stats = {
+        totalClients: totalClients || 0,
+        activeSubscriptions: subs?.filter(s => s.status === 'active').length || 0,
+        trialSubscriptions: subs?.filter(s => s.status === 'trial').length || 0,
+        suspendedSubscriptions: subs?.filter(s => s.status === 'suspended' || s.status === 'past_due').length || 0,
+        estimatedMonthlyRevenue: subs?.filter(s => s.status === 'active').reduce((acc, s) => acc + (s.price_monthly || 0), 0) || 0
+      };
+
+      res.json({ ok: true, stats });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/billing/subscriptions", requireAdminSession, async (req: any, res) => {
+    try {
+      if (req.adminScope !== "global") return res.status(403).json({ ok: false, error: "Acesso reservado ao admin global." });
+      const { status, plan } = req.query;
+      
+      let query = supabase.from("subscriptions")
+        .select(`
+          *,
+          client:clients(company_name)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (req.adminScope === "client" && req.adminClientId) query = query.eq("client_id", req.adminClientId);
+
+      if (status) query = query.eq("status", status);
+      if (plan) query = query.eq("plan", plan);
+
+      const { data: subscriptions, error } = await query;
+      if (error) throw error;
+
+      res.json({ 
+        ok: true, 
+        subscriptions: subscriptions?.map(s => ({
+          ...s,
+          company_name: (s.client as any)?.company_name
+        })) 
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Admin Routes
+  app.post("/api/admin/auth/login", async (req, res) => {
+    const { email, password } = req.body;
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    if (authError || !authData.user) return res.status(401).json({ ok: false, error: "Credenciais inválidas." });
+    const { data: admin } = await supabase.from("admins").select("*").eq("user_id", authData.user.id).single();
+    if (!admin) return res.status(403).json({ ok: false, error: "Acesso negado." });
+    const token = jwt.sign({ userId: authData.user.id, email: authData.user.email, isAdmin: true, scope: "global", clientId: null, phone_e164: admin.phone_e164 || null }, JWT_SECRET, { expiresIn: "12h" });
+    res.cookie("tratatudo_admin_session", token, { httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 12 * 60 * 60 * 1000 });
+    res.json({ ok: true, email: authData.user.email, scope: "global" });
+  });
+
+  app.post("/api/admin/auth/send-otp", async (req, res) => {
+    try {
+      let { phone_e164 } = req.body;
+      if (!phone_e164) return res.status(400).json({ ok: false, error: "Número obrigatório." });
+
+      phone_e164 = normalizePhone(phone_e164);
+
+      const { data: globalAdmin } = await supabase
+        .from("admins")
+        .select("*")
+        .eq("phone_e164", phone_e164)
+        .single();
+
+      let scopedClientUser = null;
+      if (!globalAdmin) {
+        const { data: clientUser } = await supabase
+          .from("client_users")
+          .select("id, client_id, role, status, phone_e164")
+          .eq("phone_e164", phone_e164)
+          .single();
+
+        if (clientUser && ["admin", "manager"].includes(String(clientUser.role || "").toLowerCase()) && String(clientUser.status || "active").toLowerCase() !== "inactive") {
+          scopedClientUser = clientUser;
+        }
+      }
+
+      if (!globalAdmin && !scopedClientUser) {
+        return res.status(403).json({ ok: false, error: "Número sem acesso administrativo." });
+      }
+
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const codeHash = await bcrypt.hash(code, 10);
+
+      await supabase
+        .from("auth_otps")
+        .update({ used_at: new Date().toISOString() })
+        .eq("phone_e164", phone_e164)
+        .eq("purpose", "admin_login")
+        .is("used_at", null);
+
+      const { error } = await supabase.from("auth_otps").insert({
+        phone_e164,
+        code_hash: codeHash,
+        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        purpose: "admin_login"
+      });
+
+      if (error) {
+        console.error("[ADMIN OTP INSERT ERROR]", JSON.stringify(error, null, 2));
+        return res.status(500).json({ ok: false, error: error.message || "Erro ao gerar código administrativo." });
+      }
+
+      const targetClientId = scopedClientUser?.client_id || "hub";
+      await sendWhatsAppNotification(targetClientId, phone_e164, `O seu código administrativo TrataTudo é: ${code}`);
+
+      res.json({ ok: true, message: "Código administrativo enviado!" });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message || "Erro ao enviar código administrativo." });
+    }
+  });
+
+  app.post("/api/admin/auth/verify-otp", async (req, res) => {
+    try {
+      let { phone_e164, code } = req.body;
+      if (!phone_e164 || !code) return res.status(400).json({ ok: false, error: "Número e código são obrigatórios." });
+
+      phone_e164 = normalizePhone(phone_e164);
+
+      const { data: otp } = await supabase
+        .from("auth_otps")
+        .select("*")
+        .eq("phone_e164", phone_e164)
+        .eq("purpose", "admin_login")
+        .is("used_at", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!otp || new Date(otp.expires_at) < new Date()) {
+        return res.status(400).json({ ok: false, error: "Código inválido ou expirado." });
+      }
+
+      const valid = await bcrypt.compare(code, otp.code_hash);
+      if (!valid) return res.status(400).json({ ok: false, error: "Código incorreto." });
+
+      await supabase.from("auth_otps").update({ used_at: new Date().toISOString() }).eq("id", otp.id);
+
+      const { data: globalAdmin } = await supabase
+        .from("admins")
+        .select("*")
+        .eq("phone_e164", phone_e164)
+        .single();
+
+      if (globalAdmin) {
+        const token = jwt.sign(
+          {
+            userId: globalAdmin.user_id,
+            phone_e164,
+            isAdmin: true,
+            scope: "global",
+            clientId: null
+          },
+          JWT_SECRET,
+          { expiresIn: "12h" }
+        );
+        res.cookie("tratatudo_admin_session", token, { httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 12 * 60 * 60 * 1000 });
+        return res.json({ ok: true, scope: "global", userId: globalAdmin.user_id });
+      }
+
+      const { data: clientUser } = await supabase
+        .from("client_users")
+        .select("id, client_id, role, status, name, email, phone_e164")
+        .eq("phone_e164", phone_e164)
+        .single();
+
+      if (!clientUser) return res.status(403).json({ ok: false, error: "Utilizador administrativo não encontrado." });
+      if (!["admin", "manager"].includes(String(clientUser.role || "").toLowerCase())) {
+        return res.status(403).json({ ok: false, error: "Permissões administrativas insuficientes." });
+      }
+
+      const token = jwt.sign(
+        {
+          userId: clientUser.id,
+          phone_e164,
+          isAdmin: true,
+          scope: "client",
+          clientId: clientUser.client_id
+        },
+        JWT_SECRET,
+        { expiresIn: "12h" }
+      );
+
+      res.cookie("tratatudo_admin_session", token, { httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 12 * 60 * 60 * 1000 });
+      res.json({ ok: true, scope: "client", clientId: clientUser.client_id, role: clientUser.role, userId: clientUser.id });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message || "Erro ao validar código administrativo." });
+    }
+  });
+
+  app.get("/api/admin/auth/session", async (req, res) => {
+    const token = req.cookies.tratatudo_admin_session;
+    if (!token) return res.json({ ok: true, authenticated: false });
+
+    try {
+      const decoded: any = jwt.verify(token, JWT_SECRET);
+      if (!decoded.isAdmin) throw new Error("Not admin");
+
+      if (decoded.scope === "global") {
+        const { data: admin } = await supabase.from("admins").select("*").eq("user_id", decoded.userId).single();
+        if (!admin) throw new Error("Admin not found");
+        return res.json({
+          ok: true,
+          authenticated: true,
+          scope: "global",
+          phone_e164: decoded.phone_e164 || admin.phone_e164 || null,
+          userId: decoded.userId
+        });
+      }
+
+      if (decoded.scope === "client") {
+        const { data: clientUser } = await supabase
+          .from("client_users")
+          .select(`
+            id, client_id, name, email, role, phone_e164,
+            client:clients(company_name)
+          `)
+          .eq("id", decoded.userId)
+          .eq("client_id", decoded.clientId)
+          .single();
+
+        if (!clientUser) throw new Error("Client admin not found");
+
+        return res.json({
+          ok: true,
+          authenticated: true,
+          scope: "client",
+          userId: clientUser.id,
+          clientId: clientUser.client_id,
+          name: clientUser.name,
+          email: clientUser.email,
+          role: clientUser.role,
+          phone_e164: clientUser.phone_e164,
+          company_name: (clientUser.client as any)?.company_name || null
+        });
+      }
+
+      throw new Error("Invalid admin scope");
+    } catch {
+      res.clearCookie("tratatudo_admin_session");
+      res.json({ ok: true, authenticated: false });
+    }
+  });
+
+  app.post("/api/admin/auth/logout", (req, res) => {
+    res.clearCookie("tratatudo_admin_session", { httpOnly: true, secure: true, sameSite: "none", path: "/" });
+    res.json({ ok: true });
+  });
+
+  app.get("/api/admin/tickets", requireAdminSession, async (req: any, res) => {
+    try {
+      const { status, kind, category, client_id, search } = req.query;
+
+      let query = supabase
+        .from("tickets")
+        .select(`
+          *,
+          client:clients(company_name)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (req.adminScope === "client" && req.adminClientId) query = query.eq("client_id", req.adminClientId);
+
+      if (status) query = query.eq("status", status);
+      if (kind) query = query.eq("kind", kind);
+      if (category) query = query.eq("category", category);
+      if (client_id) query = query.eq("client_id", client_id);
+      if (search) {
+        query = query.or(`tracking_code.ilike.%${search}%,title.ilike.%${search}%,subject.ilike.%${search}%,description.ilike.%${search}%`);
+      }
+
+      const { data: tickets, error } = await query;
+      if (error) throw error;
+
+      res.json({
+        ok: true,
+        tickets: (tickets || []).map((t: any) => ({
+          ...t,
+          company_name: (t.client as any)?.company_name || null
+        }))
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/tickets/stats", requireAdminSession, async (req: any, res) => {
+    try {
+      let statsQuery = supabase
+        .from("tickets")
+        .select("id,status,kind,category");
+
+      if (req.adminScope === "client" && req.adminClientId) statsQuery = statsQuery.eq("client_id", req.adminClientId);
+
+      const { data: tickets, error } = await statsQuery;
+      if (error) throw error;
+
+      const all = tickets || [];
+      const isComplaint = (t: any) => {
+        const kind = String(t.kind || "").toLowerCase();
+        const category = String(t.category || "").toLowerCase();
+        return kind.includes("reclam") || category.includes("reclam") || category.includes("pos_venda");
+      };
+      const isActive = (t: any) => {
+        const s = String(t.status || "").toLowerCase();
+        return ["new","open","aberto","pendente","recebido","em análise","em_analise","in_progress"].some(v => s.includes(v));
+      };
+
+      res.json({
+        ok: true,
+        stats: {
+          totalTickets: all.length,
+          activeTickets: all.filter((t: any) => isActive(t) && !isComplaint(t)).length,
+          complaints: all.filter((t: any) => isComplaint(t)).length,
+          openTickets: all.filter((t: any) => ["new","open","aberto","pendente","recebido","em análise","em_analise","in_progress"].some(v => String(t.status || "").toLowerCase().includes(v))).length,
+          closedTickets: all.filter((t: any) => ["closed","fechado","finalizado","resolvido","concluído","concluido"].some(v => String(t.status || "").toLowerCase().includes(v))).length
+        }
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/clients", requireAdminSession, async (req: any, res) => {
+    try {
+      const { search } = req.query;
+
+      let query = supabase
+        .from("clients")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (req.adminScope === "client" && req.adminClientId) {
+        query = query.eq("id", req.adminClientId);
+      }
+
+      if (search) {
+        query = query.or(`company_name.ilike.%${search}%,phone_e164.ilike.%${search}%,email.ilike.%${search}%`);
+      }
+
+      const { data: clients, error } = await query;
+      if (error) throw error;
+
+      const clientIds = (clients || []).map((c: any) => c.id).filter(Boolean);
+
+      let instancesByClientId: Record<string, any> = {};
+      if (clientIds.length > 0) {
+        const { data: instances, error: instancesError } = await supabase
+          .from("client_instances")
+          .select("client_id, instance_name, status, updated_at")
+          .in("client_id", clientIds)
+          .order("updated_at", { ascending: false });
+
+        if (instancesError) throw instancesError;
+
+        for (const inst of (instances || [])) {
+          if (!instancesByClientId[inst.client_id]) {
+            instancesByClientId[inst.client_id] = inst;
+          }
+        }
+      }
+
+      const normalizedClients = (clients || []).map((client: any) => {
+        const inst = instancesByClientId[client.id] || null;
+        const resolvedInstanceName =
+          inst?.instance_name ||
+          client.production_instance_name ||
+          client.instance_name ||
+          null;
+
+        return {
+          ...client,
+          client_id: client.id,
+          email: client.email || "",
+          phone: client.phone_e164 || "",
+          instance: resolvedInstanceName ? {
+            instance_name: resolvedInstanceName,
+            status: inst?.status || (resolvedInstanceName === "TrataTudo bot" ? "hub" : "unknown"),
+            is_hub: resolvedInstanceName === "TrataTudo bot"
+          } : null
+        };
+      });
+
+      res.json({ ok: true, clients: normalizedClients });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message || "Erro ao carregar clientes." });
+    }
+  });
+
+  app.get("/api/admin/clients/:id", requireAdminSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      let clientQuery = supabase
+        .from("clients")
+        .select("*")
+        .eq("id", id);
+
+      if (req.adminScope === "client" && req.adminClientId) clientQuery = clientQuery.eq("id", req.adminClientId);
+
+      const { data: client, error } = await clientQuery.single();
+
+      if (error) throw error;
+      if (!client) return res.status(404).json({ ok: false, error: "Cliente não encontrado." });
+
+      res.json({ ok: true, client });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/sales", requireAdminSession, async (req: any, res) => {
+    try {
+      const { status, plan } = req.query;
+
+      let query = supabase
+        .from("subscriptions")
+        .select(`
+          *,
+          client:clients(company_name)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (req.adminScope === "client" && req.adminClientId) query = query.eq("client_id", req.adminClientId);
+
+      if (status) query = query.eq("status", status);
+      if (plan) query = query.eq("plan", plan);
+
+      const { data: sales, error } = await query;
+      if (error) throw error;
+
+      res.json({
+        ok: true,
+        sales: (sales || []).map((s: any) => ({
+          ...s,
+          company_name: (s.client as any)?.company_name || null
+        }))
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/sales/stats", requireAdminSession, async (req: any, res) => {
+    try {
+      let salesStatsQuery = supabase
+        .from("subscriptions")
+        .select("status, plan, created_at, client_id");
+
+      if (req.adminScope === "client" && req.adminClientId) salesStatsQuery = salesStatsQuery.eq("client_id", req.adminClientId);
+
+      const { data: sales, error } = await salesStatsQuery;
+      if (error) throw error;
+
+      const all = sales || [];
+      const active = all.filter((s: any) => s.status === "active");
+      const trial = all.filter((s: any) => s.status === "trial");
+      const suspended = all.filter((s: any) => ["suspended", "past_due", "inactive"].includes(String(s.status || "").toLowerCase()));
+
+      res.json({
+        ok: true,
+        stats: {
+          totalSales: all.length,
+          activeSubscriptions: active.length,
+          trialSubscriptions: trial.length,
+          suspendedSubscriptions: suspended.length,
+          totalRevenue: 0,
+          avgTicket: 0,
+          monthlyRevenue: 0
+        }
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.patch("/api/admin/clients/:id", requireAdminSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+
+      let checkQuery = supabase
+        .from("clients")
+        .select("id")
+        .eq("id", id);
+
+      if (req.adminScope === "client" && req.adminClientId) {
+        checkQuery = checkQuery.eq("id", req.adminClientId);
+      }
+
+      const { data: existing, error: existingError } = await checkQuery.single();
+      if (existingError || !existing) {
+        return res.status(404).json({ ok: false, error: "Cliente não encontrado." });
+      }
+
+      const allowedFields = [
+        "company_name",
+        "email",
+        "phone_e164",
+        "status",
+        "plan",
+        "bot_instructions",
+        "instance_name",
+        "production_instance_name",
+        "trial_end"
+      ];
+
+      const payload: any = {};
+      for (const key of allowedFields) {
+        if (req.body[key] !== undefined) payload[key] = req.body[key];
+      }
+
+      if (payload.phone_e164) {
+        let cleaned = String(payload.phone_e164).replace(/\D/g, "");
+        if (cleaned.length === 9) cleaned = "351" + cleaned;
+        payload.phone_e164 = "+" + cleaned;
+      }
+
+      payload.updated_at = new Date().toISOString();
+
+      const { data: client, error } = await supabase
+        .from("clients")
+        .update(payload)
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      return res.json({ ok: true, client });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err.message || "Erro ao atualizar cliente." });
+    }
+  });
+
+  app.put("/api/admin/clients/:id", requireAdminSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { company_name, phone_e164, email, status, bot_instructions, plan, trial_end, instance_name, production_instance_name } = req.body || {};
+
+      if (!id) {
+        return res.status(400).json({ ok: false, error: "ID do cliente é obrigatório." });
+      }
+
+      let checkQuery = supabase.from("clients").select("id").eq("id", id);
+      if (req.adminScope === "client" && req.adminClientId) {
+        checkQuery = checkQuery.eq("id", req.adminClientId);
+      }
+
+      const { data: existing, error: existingError } = await checkQuery.single();
+      if (existingError || !existing) {
+        return res.status(404).json({ ok: false, error: "Cliente não encontrado." });
+      }
+
+      const payload: any = {};
+      if (company_name !== undefined) payload.company_name = company_name;
+      if (email !== undefined) payload.email = email;
+      if (status !== undefined) payload.status = status;
+      if (bot_instructions !== undefined) payload.bot_instructions = bot_instructions;
+      if (plan !== undefined) payload.plan = plan;
+      if (trial_end !== undefined) payload.trial_end = trial_end;
+      if (instance_name !== undefined) payload.instance_name = instance_name;
+      if (production_instance_name !== undefined) payload.production_instance_name = production_instance_name;
+
+      if (phone_e164 !== undefined) {
+        let cleaned = String(phone_e164).replace(/\D/g, "");
+        if (cleaned.length === 9) cleaned = "351" + cleaned;
+        payload.phone_e164 = "+" + cleaned;
+      }
+
+      payload.updated_at = new Date().toISOString();
+
+      const { data: client, error } = await supabase
+        .from("clients")
+        .update(payload)
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      return res.json({ ok: true, client });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || "Erro ao atualizar cliente." });
+    }
+  });
+
+  app.delete("/api/admin/clients/:id", requireAdminSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+
+      let checkQuery = supabase.from("clients").select("id").eq("id", id);
+      if (req.adminScope === "client" && req.adminClientId) {
+        checkQuery = checkQuery.eq("id", req.adminClientId);
+      }
+
+      const { data: existing, error: existingError } = await checkQuery.single();
+      if (existingError || !existing) {
+        return res.status(404).json({ ok: false, error: "Cliente não encontrado." });
+      }
+
+      const { error } = await supabase
+        .from("clients")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      return res.json({ ok: true });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || "Erro ao eliminar cliente." });
+    }
+  });
+
+  app.patch("/api/admin/clients/:id/status", requireAdminSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    try {
+      const { data, error } = await supabase
+        .from("clients")
+        .update({ status })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      res.json({ ok: true, client: data });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // 7. Admin Instances List
+
+  app.get("/api/admin/instances", requireAdminSession, async (req: any, res) => {
+    try {
+      const { data: instances, error } = await supabase
+        .from("client_instances")
+        .select(`
+          *,
+          clients (company_name)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      
+      const result = (instances || []).map(inst => ({
+        ...inst,
+        company_name: (inst.clients as any)?.company_name || 'Desconhecido'
+      }));
+
+      res.json({ ok: true, instances: result });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // 8. Admin Global Messages
+
+  app.get("/api/admin/messages", requireAdminSession, async (req: any, res) => {
+    try {
+      const { data: messages, error } = await supabase
+        .from("wa_messages")
+        .select(`
+          *,
+          clients (company_name)
+        `)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      const result = (messages || []).map(msg => ({
+        ...msg,
+        company_name: (msg.clients as any)?.company_name || 'Desconhecido'
+      }));
+
+      res.json({ ok: true, messages: result });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // 9. Admin Global Tickets
+
+  app.get("/api/admin/subscriptions", requireAdminSession, async (req: any, res) => {
+    try {
+      const { data: subscriptions, error } = await supabase
+        .from("subscriptions")
+        .select(`
+          *,
+          clients (company_name)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const result = (subscriptions || []).map(s => ({
+        ...s,
+        company_name: (s.clients as any)?.company_name || 'Desconhecido',
+        amount: s.plan === 'Pro' ? 49.90 : s.plan === 'Enterprise' ? 149.90 : 0,
+        next_billing: s.ends_at || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      }));
+
+      res.json({ ok: true, subscriptions: result });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // 12. Admin System Logs
+
+  app.get("/api/admin/logs", requireAdminSession, async (req: any, res) => {
+    // Return empty for now as requested if no table exists
+    res.json({ ok: true, logs: [] });
+  });
+
+  // 12.1 Create Trial Client
+
+  app.post("/api/admin/clients/trial", requireAdminSession, async (req: any, res) => {
+    const { phone_e164, company_name, contact_name } = req.body;
+
+    if (!phone_e164 || !company_name) {
+      return res.status(400).json({ ok: false, error: "Telefone e Nome da Empresa são obrigatórios" });
+    }
+
+    try {
+      // 1. Create Client
+      const trialEnd = new Date();
+      trialEnd.setDate(trialEnd.getDate() + 7); // 7 days trial
+
+      const { data: client, error: clientError } = await supabase
+        .from("clients")
+        .insert({
+          phone_e164,
+          company_name,
+          contact_name: contact_name || company_name,
+          status: 'active',
+          trial_end: trialEnd.toISOString(),
+          bot_instructions: "És um assistente prestativo para a empresa " + company_name + "."
+        })
+        .select()
+        .single();
+
+      if (clientError) throw clientError;
+
+      // 2. Create Subscription
+      await supabase.from("subscriptions").insert({
+        client_id: client.id,
+        plan: 'Trial',
+        status: 'active',
+        ends_at: trialEnd.toISOString()
+      });
+
+      // 3. Associate with Shared Hub Instance "TrataTudo bot"
+      await supabase.from("client_instances").insert({
+        client_id: client.id,
+        instance_name: "TrataTudo bot",
+        status: 'online',
+        is_hub: true
+      });
+
+      res.json({ ok: true, client });
+    } catch (err: any) {
+      console.error("[CREATE TRIAL ERROR]", err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/admin/clients/:id/activate-production", requireAdminSession, async (req: any, res) => {
+    const { id } = req.params;
+    try {
+      // 1. Update Client
+      const { error: clientError } = await supabase
+        .from("clients")
+        .update({ 
+          status: 'active', 
+          trial_end: null 
+        })
+        .eq("id", id);
+
+      if (clientError) throw clientError;
+
+      // 2. Update Subscription
+      await supabase
+        .from("subscriptions")
+        .update({ 
+          plan: 'Pro', 
+          status: 'active',
+          ends_at: null // Or set a real end date if monthly
+        })
+        .eq("client_id", id);
+
+      // 3. Update Instance to Private
+      const privateInstanceName = `prod-${id.split('-')[0]}`;
+      await supabase
+        .from("client_instances")
+        .update({
+          instance_name: privateInstanceName,
+          is_hub: false,
+          status: 'offline' // Needs to be connected via QR
+        })
+        .eq("client_id", id);
+
+      res.json({ ok: true, message: "Produção ativada com sucesso!", instance_name: privateInstanceName });
+    } catch (err: any) {
+      console.error("[ACTIVATE PRODUCTION ERROR]", err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // 13. Evolution API: Create Instance
+
+  app.post("/api/admin/instances/create", requireAdminSession, async (req: any, res) => {
+    const { client_id } = req.body;
+    if (!client_id) return res.status(400).json({ ok: false, error: "client_id é obrigatório." });
+
+    const instance_name = `client-${client_id}`;
+    const EVO_URL = process.env.EVO_URL;
+    const EVO_KEY = process.env.EVO_KEY;
+
+    if (!EVO_URL || !EVO_KEY) {
+      return res.status(500).json({ ok: false, error: "Configuração da Evolution API em falta (EVO_URL/EVO_KEY)." });
+    }
+
+    try {
+      // 1. Call Evolution API to create instance
+      const evoResponse = await fetch(`${EVO_URL}/instance/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVO_KEY
+        },
+        body: JSON.stringify({
+          instanceName: instance_name,
+          integration: "WHATSAPP-BAILEYS"
+        })
+      });
+
+      const evoData = await evoResponse.json();
+      
+      // Evolution API might return 400 if instance already exists, handle gracefully
+      if (!evoResponse.ok && evoData.message !== 'The instance already exists') {
+        return res.status(evoResponse.status).json({ ok: false, error: evoData.message || "Erro na Evolution API" });
+      }
+
+      // 2. Save to Supabase
+      const { data, error } = await supabase
+        .from("client_instances")
+        .upsert({
+          client_id,
+          instance_name,
+          status: "connecting",
+          is_hub: false,
+          created_at: new Date().toISOString()
+        }, { onConflict: 'instance_name' })
+        .select()
+        .single();
+
+      if (error) return res.status(500).json({ ok: false, error: error.message });
+
+      res.json({ ok: true, instance: data });
+    } catch (err) {
+      console.error("Error creating instance:", err);
+      res.status(500).json({ ok: false, error: "Erro interno ao criar instância." });
+    }
+  });
+
+  app.get("/api/admin/instances/health", async (req, res) => {
+    const sessionId = req.cookies.tratatudo_admin_session;
+    if (!sessionId) return res.status(401).json({ error: "Não autorizado." });
+
+    await checkInstancesHealth();
+    res.json({ success: true, message: "Verificação de saúde concluída." });
+  });
+
+  // Start background job (every 60 seconds)
+  setInterval(checkInstancesHealth, 60000);
+
+  // 16. Admin System Alerts
+
+  app.patch("/api/admin/tickets/:id/status", requireAdminSession, async (req: any, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    let updateQuery = supabase.from("tickets").update({ status }).eq("id", id);
+    if (req.adminScope === "client" && req.adminClientId) updateQuery = updateQuery.eq("client_id", req.adminClientId);
+    const { data: ticket } = await updateQuery.select().single();
+    if (status === 'resolvido' && ticket) {
+      await sendWhatsAppNotification(ticket.client_id, ticket.phone_e164, `O seu ticket #${ticket.tracking_code} foi resolvido!`);
+    }
+    res.json({ ok: true, ticket });
+  });
+  app.get("/api/admin/travel/orders", requireAdminSession, async (req: any, res) => {
+    try {
+      const { client_id, payment_status, sales_status, destination, search } = req.query;
+      let query = supabase.from("travel_orders")
+        .select("*, client:clients(company_name)")
+        .order("created_at", { ascending: false });
+
+      query = await applyAdminScope(query, req);
+
+      if (client_id) query = query.eq("client_id", client_id);
+      if (payment_status) query = query.eq("payment_status", payment_status);
+      if (sales_status) query = query.eq("sales_status", sales_status);
+      if (destination) query = query.ilike("destination", `%${destination}%`);
+      
+      if (search) {
+        query = query.or(`tracking_code.ilike.%${search}%,order_code.ilike.%${search}%,customer_name.ilike.%${search}%,destination.ilike.%${search}%`);
+      }
+
+      const { data: orders, error } = await query;
+      if (error) throw error;
+
+      res.json({ ok: true, orders: orders?.map(o => ({ ...o, company_name: (o.client as any)?.company_name })) });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/travel/orders/:id", requireAdminSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      let query = supabase.from("travel_orders")
+        .select("*, client:clients(company_name), ticket:tickets(*)")
+        .eq("id", id);
+
+      query = await applyAdminScope(query, req);
+
+      const { data: order, error } = await query.single();
+      if (error) throw error;
+
+      res.json({ ok: true, order: { ...order, company_name: (order.client as any)?.company_name } });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/admin/travel/orders", requireAdminSession, async (req: any, res) => {
+    try {
+      const data = req.body;
+      
+      const effectiveClientId = await getEffectiveAdminClientId(req);
+      if (effectiveClientId && String(data.client_id) !== String(effectiveClientId)) {
+        return res.status(403).json({ ok: false, error: "Não tem permissão para criar pedidos para este cliente." });
+      }
+
+      if (data.amount_due === undefined || data.amount_due === null) {
+        data.amount_due = (data.total_amount || 0) - (data.amount_paid || 0);
+      }
+
+      const { data: order, error } = await supabase.from("travel_orders").insert(data).select().single();
+      if (error) throw error;
+
+      res.json({ ok: true, order });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.patch("/api/admin/travel/orders/:id", requireAdminSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+
+      let checkQuery = supabase.from("travel_orders").select("id, client_id").eq("id", id);
+      checkQuery = await applyAdminScope(checkQuery, req);
+      const { data: existing } = await checkQuery.single();
+      if (!existing) return res.status(404).json({ ok: false, error: "Pedido não encontrado ou sem acesso." });
+
+      const { data: order, error } = await supabase.from("travel_orders").update(updateData).eq("id", id).select().single();
+      if (error) throw error;
+
+      res.json({ ok: true, order });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // --- Travel Payments ---
+  app.get("/api/admin/travel/payments", requireAdminSession, async (req: any, res) => {
+    try {
+      const { client_id, order_id, status, payment_method, search } = req.query;
+      let query = supabase.from("travel_payments")
+        .select("*, travel_orders(*), client:clients(company_name)")
+        .order("created_at", { ascending: false });
+
+      query = await applyAdminScope(query, req);
+
+      if (client_id) query = query.eq("client_id", client_id);
+      if (order_id) query = query.eq("order_id", order_id);
+      if (status) query = query.eq("status", status);
+      if (payment_method) query = query.eq("payment_method", payment_method);
+      
+      if (search) {
+        query = query.or(`payment_code.ilike.%${search}%,external_reference.ilike.%${search}%,payer_name.ilike.%${search}%`);
+      }
+
+      const { data: payments, error } = await query;
+      if (error) throw error;
+
+      res.json({ ok: true, payments: payments?.map(p => ({ ...p, company_name: (p.client as any)?.company_name })) });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/travel/payments/:id", requireAdminSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      let query = supabase.from("travel_payments")
+        .select("*, travel_orders(*), client:clients(company_name)")
+        .eq("id", id);
+
+      query = await applyAdminScope(query, req);
+
+      const { data: payment, error } = await query.single();
+      if (error) throw error;
+
+      res.json({ ok: true, payment: { ...payment, company_name: (payment.client as any)?.company_name } });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/admin/travel/payments", requireAdminSession, async (req: any, res) => {
+    try {
+      const data = req.body;
+      
+      const effectiveClientId = await getEffectiveAdminClientId(req);
+      if (effectiveClientId && String(data.client_id) !== String(effectiveClientId)) {
+        return res.status(403).json({ ok: false, error: "Não tem permissão para criar pagamentos para este cliente." });
+      }
+
+      const { data: payment, error } = await supabase.from("travel_payments").insert(data).select().single();
+      if (error) throw error;
+
+      res.json({ ok: true, payment });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.patch("/api/admin/travel/payments/:id", requireAdminSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+
+      let checkQuery = supabase.from("travel_payments").select("id, client_id").eq("id", id);
+      checkQuery = await applyAdminScope(checkQuery, req);
+      const { data: existing } = await checkQuery.single();
+      if (!existing) return res.status(404).json({ ok: false, error: "Pagamento não encontrado ou sem acesso." });
+
+      const { data: payment, error } = await supabase.from("travel_payments").update(updateData).eq("id", id).select().single();
+      if (error) throw error;
+
+      res.json({ ok: true, payment });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // --- Travel Stats ---
+  app.get("/api/admin/travel/stats", requireAdminSession, async (req: any, res) => {
+    try {
+      let ordersQuery = supabase.from("travel_orders").select("sales_status, payment_status, amount_due");
+      let paymentsQuery = supabase.from("travel_payments").select("amount, status, payment_method, payment_type");
+
+      ordersQuery = await applyAdminScope(ordersQuery, req);
+      paymentsQuery = await applyAdminScope(paymentsQuery, req);
+
+      const [ { data: orders }, { data: payments } ] = await Promise.all([
+        ordersQuery,
+        paymentsQuery
+      ]);
+
+      const stats = {
+        totalOrders: orders?.length || 0,
+        quotedOrders: orders?.filter(o => o.sales_status === 'quoted').length || 0,
+        awaitingPaymentOrders: orders?.filter(o => o.sales_status === 'awaiting_payment').length || 0,
+        confirmedOrders: orders?.filter(o => o.sales_status === 'confirmed').length || 0,
+        completedOrders: orders?.filter(o => o.sales_status === 'completed').length || 0,
+        cancelledOrders: orders?.filter(o => o.sales_status === 'cancelled').length || 0,
+        
+        pendingPayments: payments?.filter(p => p.status === 'pending').length || 0,
+        paidPayments: payments?.filter(p => p.status === 'paid').length || 0,
+        
+        partialOrders: orders?.filter(o => o.payment_status === 'partial').length || 0,
+        
+        totalPaidAmount: payments?.filter(p => p.status === 'paid').reduce((acc, p) => acc + (p.amount || 0), 0) || 0,
+        totalOutstandingAmount: orders?.reduce((acc, o) => acc + (o.amount_due || 0), 0) || 0,
+        
+        pixPayments: payments?.filter(p => p.payment_method === 'pix').length || 0,
+        cardPayments: payments?.filter(p => p.payment_method === 'credit_card' || p.payment_method === 'debit_card').length || 0,
+        installmentPayments: payments?.filter(p => p.payment_type === 'installment').length || 0,
+        boletoPayments: payments?.filter(p => p.payment_method === 'boleto').length || 0
+      };
+
+      res.json({ ok: true, stats });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // --- Client Travel Data ---
+  app.get("/api/admin/clients/:id/travel-orders", requireAdminSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      const effectiveClientId = await getEffectiveAdminClientId(req);
+      if (effectiveClientId && String(id) !== String(effectiveClientId)) {
+        return res.status(403).json({ ok: false, error: "Acesso negado a este cliente." });
+      }
+
+      const { data: orders, error } = await supabase.from("travel_orders")
+        .select("*")
+        .eq("client_id", id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      res.json({ ok: true, orders });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/clients/:id/travel-payments", requireAdminSession, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      const effectiveClientId = await getEffectiveAdminClientId(req);
+      if (effectiveClientId && String(id) !== String(effectiveClientId)) {
+        return res.status(403).json({ ok: false, error: "Acesso negado a este cliente." });
+      }
+
+      const { data: payments, error } = await supabase.from("travel_payments")
+        .select("*, travel_orders(order_code)")
+        .eq("client_id", id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      res.json({ ok: true, payments });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+
+
+  // Helpers
+  function normalizePhone(phone: string): string {
+    let cleaned = phone.replace(/\D/g, "");
+    if (cleaned.length === 9) return "+351" + cleaned;
+    if (!cleaned.startsWith("+") && cleaned.length > 0) return "+" + cleaned;
+    return phone;
+  }
+
+  async function checkInstancesHealth() {
+    try {
+      const { data: instances, error } = await supabase
+        .from("client_instances")
+        .select("id, client_id, instance_name, status, updated_at")
+        .order("updated_at", { ascending: false });
+
+      if (error) {
+        return {
+          ok: false,
+          total: 0,
+          online: 0,
+          offline: 0,
+          instances: [],
+          error: error.message
+        };
+      }
+
+      const normalized = (instances || []).map((inst: any) => ({
+        id: inst.id,
+        client_id: inst.client_id,
+        instance_name: inst.instance_name,
+        status: inst.status || "unknown",
+        updated_at: inst.updated_at || null
+      }));
+
+      return {
+        ok: true,
+        total: normalized.length,
+        online: normalized.filter((i: any) => String(i.status).toLowerCase() === "online").length,
+        offline: normalized.filter((i: any) => String(i.status).toLowerCase() !== "online").length,
+        instances: normalized
+      };
+    } catch (err: any) {
+      return {
+        ok: false,
+        total: 0,
+        online: 0,
+        offline: 0,
+        instances: [],
+        error: err.message || "Erro ao verificar instâncias."
+      };
+    }
+  }
+
+  async function sendWhatsAppNotification(clientId: string, phone: string, text: string) {
+    if (!EVO_URL || !EVO_KEY) throw new Error("Evolution API config missing");
+    const { data: inst } = await supabase.from("client_instances").select("instance_name").eq("client_id", clientId).eq("status", "online").single();
+    const instanceName = inst?.instance_name || "TrataTudo bot";
+    const url = `${EVO_URL}/message/sendText/${encodeURIComponent(instanceName)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': EVO_KEY },
+      body: JSON.stringify({ number: phone.replace("+", ""), text, delay: 1000 })
+    });
+    if (!res.ok) throw new Error(`Evolution API error: ${res.status}`);
+    await supabase.from("wa_messages").insert({ client_id: clientId === "hub" ? null : clientId, phone_e164: phone, instance: instanceName, direction: "outbound", text });
+  }
+
+  // Webhook Evolution
+  app.post("/api/webhook/evolution", async (req, res) => {
+    const { event, data, instance: instanceName } = req.body;
+    if (event !== "messages.upsert") return res.json({ ok: true });
+    const remoteJid = data.key.remoteJid;
+    if (remoteJid.endsWith("@g.us")) return res.json({ ok: true });
+    const phone = "+" + remoteJid.split("@")[0];
+    const text = data.message?.conversation || data.message?.extendedTextMessage?.text || "";
+    if (!text) return res.json({ ok: true });
+    
+    // Simple resolution logic
+    const { data: client } = await supabase.from("clients").select("id, status, bot_instructions").eq("phone_e164", phone).single();
+    const clientId = client?.id;
+    if (clientId) {
+      await supabase.from("wa_messages").insert({ client_id: clientId, phone_e164: phone, instance: instanceName, direction: data.key.fromMe ? "outbound" : "inbound", text });
+      if (!data.key.fromMe && client.status === 'active') {
+        // AI logic here (simplified)
+        const completion = await groq.chat.completions.create({
+          messages: [{ role: "system", content: client.bot_instructions }, { role: "user", content: text }],
+          model: "llama-3.3-70b-versatile",
+        });
+        const aiText = completion.choices[0]?.message?.content || "";
+        await sendWhatsAppNotification(clientId, phone, aiText);
+      }
+    }
+    res.json({ ok: true });
+  });
+
+  app.use("/api/imports-turismo", importsTurismoRouter);
+  app.use("/api/public", publicRouter);
+
+  // Static files for production
+  if (process.env.NODE_ENV === "production") {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
+  }
+
+  app.listen(PORT, "0.0.0.0", () => console.log(`Server running on port ${PORT}`));
+}
+
+startServer().catch(console.error);
