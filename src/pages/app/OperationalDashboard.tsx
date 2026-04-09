@@ -48,13 +48,48 @@ const OperationalDashboard: React.FC = () => {
   const fetchMetrics = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch('/api/client/dashboard/operational-metrics');
+      setError(null);
+
+      const res = await apiFetch('/api/client/dashboard/stats');
       const data = await res.json();
-      if (data.ok) {
-        setMetrics(data.metrics);
-      } else {
-        setError('Erro ao carregar métricas operacionais');
+
+      if (!data.ok) {
+        setError(data.error || 'Erro ao carregar métricas operacionais');
+        return;
       }
+
+      const stats = data.stats || {};
+      const activity = Array.isArray(data.activity) ? data.activity : [];
+      const instance = data.instance || null;
+
+      setMetrics({
+        total_clients: 1,
+        active_clients: 1,
+        new_clients_this_week: 0,
+        total_tasks: stats.totalTickets || 0,
+        pending_tasks: stats.openTickets || 0,
+        completed_tasks_today: stats.resolvedTickets || 0,
+        total_events: activity.length || 0,
+        upcoming_events: stats.inProgressTickets || 0,
+        events_today: 0,
+        total_documents: stats.totalTickets || 0,
+        recent_documents: 0,
+        total_financial_documents: 0,
+        overdue_financial_documents: 0,
+        total_emails: stats.totalMessages || 0,
+        failed_emails: 0,
+        total_automations: instance ? 1 : 0,
+        active_automations: instance?.status === 'online' ? 1 : 0,
+        failed_automations: instance?.status === 'offline' ? 1 : 0,
+        recent_activity: activity.map((item: any, idx: number) => ({
+          id: String(idx + 1),
+          type: item.type === 'message' ? 'email' : 'tarefa',
+          title: item.title || 'Atividade',
+          description: item.status || 'Sem detalhe',
+          created_at: item.created_at || new Date().toISOString(),
+          status: item.status || ''
+        }))
+      });
     } catch (err) {
       setError('Erro de ligação ao servidor');
     } finally {

@@ -17,7 +17,7 @@ import {
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { Document } from '../../types/hub';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, apiPost } from '../../lib/api';
 import { StatCard } from '../../components/app/StatCard';
 import { SearchInput } from '../../components/app/SearchInput';
 import { FilterDropdown } from '../../components/app/FilterDropdown';
@@ -31,6 +31,17 @@ const Documents: React.FC = () => {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('todos');
   const [typeFilter, setTypeFilter] = useState('todos');
+  const [isCreating, setIsCreating] = useState(false);
+  const [savingDocument, setSavingDocument] = useState(false);
+  const [newDocument, setNewDocument] = useState({
+    title: '',
+    description: '',
+    category: 'geral',
+    file_name: '',
+    file_type: 'application/pdf',
+    file_url: '',
+    status: 'ativo'
+  });
 
   useEffect(() => {
     fetchDocuments();
@@ -50,6 +61,56 @@ const Documents: React.FC = () => {
       toast.error('Erro de ligação ao servidor');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const resetNewDocument = () => {
+    setNewDocument({
+      title: '',
+      description: '',
+      category: 'geral',
+      file_name: '',
+      file_type: 'application/pdf',
+      file_url: '',
+      status: 'ativo'
+    });
+  };
+
+  const handleCreateDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newDocument.title.trim()) {
+      toast.error('O título do documento é obrigatório');
+      return;
+    }
+
+    try {
+      setSavingDocument(true);
+
+      const payload = {
+        title: newDocument.title,
+        description: newDocument.description,
+        category: newDocument.category,
+        file_name: newDocument.file_name,
+        file_type: newDocument.file_type,
+        file_url: newDocument.file_url,
+        status: newDocument.status
+      };
+
+      const res = await apiPost('/api/client/documents', payload);
+
+      if ((res as any)?.ok) {
+        toast.success('Documento criado com sucesso');
+        setIsCreating(false);
+        resetNewDocument();
+        fetchDocuments();
+      } else {
+        toast.error((res as any)?.error || 'Erro ao criar documento');
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao criar documento');
+    } finally {
+      setSavingDocument(false);
     }
   };
 
@@ -156,7 +217,7 @@ const Documents: React.FC = () => {
         <ActionButton 
           label="Novo Documento" 
           icon={Plus} 
-          onClick={() => toast.info('Funcionalidade de upload em desenvolvimento')} 
+          onClick={() => setIsCreating(true)} 
         />
       </div>
 
@@ -246,9 +307,133 @@ const Documents: React.FC = () => {
             : "Ainda não tens documentos carregados. Começa por adicionar o primeiro!"}
           action={!(search || categoryFilter !== 'todos' || typeFilter !== 'todos') ? {
             label: "Carregar Documento",
-            onClick: () => toast.info('Funcionalidade em desenvolvimento')
+            onClick: () => setIsCreating(true)
           } : undefined}
         />
+      )}
+      {isCreating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Novo Documento</h3>
+                <p className="text-sm text-slate-500">Registar documento no sistema.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsCreating(false);
+                  resetNewDocument();
+                }}
+                className="px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-500"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateDocument} className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Título</label>
+                <input
+                  type="text"
+                  value={newDocument.title}
+                  onChange={(e) => setNewDocument({ ...newDocument, title: e.target.value })}
+                  placeholder="Ex: Fatura Março 2026"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Descrição</label>
+                <textarea
+                  value={newDocument.description}
+                  onChange={(e) => setNewDocument({ ...newDocument, description: e.target.value })}
+                  rows={4}
+                  placeholder="Descrição do documento"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Categoria</label>
+                  <select
+                    value={newDocument.category}
+                    onChange={(e) => setNewDocument({ ...newDocument, category: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                  >
+                    <option value="geral">Geral</option>
+                    <option value="financeiro">Financeiro</option>
+                    <option value="contrato">Contrato</option>
+                    <option value="relatorio">Relatório</option>
+                    <option value="imagem">Imagem</option>
+                    <option value="outro">Outro</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Tipo de ficheiro</label>
+                  <select
+                    value={newDocument.file_type}
+                    onChange={(e) => setNewDocument({ ...newDocument, file_type: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                  >
+                    <option value="application/pdf">PDF</option>
+                    <option value="image/jpeg">Imagem JPG</option>
+                    <option value="image/png">Imagem PNG</option>
+                    <option value="text/csv">CSV</option>
+                    <option value="application/vnd.ms-excel">Excel</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Nome do ficheiro</label>
+                  <input
+                    type="text"
+                    value={newDocument.file_name}
+                    onChange={(e) => setNewDocument({ ...newDocument, file_name: e.target.value })}
+                    placeholder="Ex: fatura-marco-2026.pdf"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">URL do ficheiro</label>
+                  <input
+                    type="text"
+                    value={newDocument.file_url}
+                    onChange={(e) => setNewDocument({ ...newDocument, file_url: e.target.value })}
+                    placeholder="https://..."
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-600">
+                Nesta fase já consegues registar documentos no sistema. O passo seguinte é ligar upload real e ingestão automática de PDF/fotos vindos do WhatsApp.
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreating(false);
+                    resetNewDocument();
+                  }}
+                  className="px-5 py-3 rounded-xl text-slate-600 hover:bg-slate-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingDocument}
+                  className="px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-70"
+                >
+                  {savingDocument ? 'A guardar...' : 'Criar Documento'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -17,7 +17,7 @@ import {
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { Automation } from '../../types/hub';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, apiPost } from '../../lib/api';
 import { StatCard } from '../../components/app/StatCard';
 import { SearchInput } from '../../components/app/SearchInput';
 import { FilterDropdown } from '../../components/app/FilterDropdown';
@@ -32,6 +32,13 @@ const Automations: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
   const [triggerFilter, setTriggerFilter] = useState('todos');
+  const [isCreating, setIsCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [newAutomation, setNewAutomation] = useState({
+    template_key: 'ticket_auto_assign',
+    name: '',
+    description: ''
+  });
 
   useEffect(() => {
     fetchAutomations();
@@ -51,6 +58,66 @@ const Automations: React.FC = () => {
       toast.error('Erro de ligação ao servidor');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const resetNewAutomation = () => {
+    setNewAutomation({
+      template_key: 'ticket_auto_assign',
+      name: '',
+      description: ''
+    });
+  };
+
+  const getTemplateDefaults = (templateKey: string) => {
+    if (templateKey === 'urgent_escalation') {
+      return {
+        name: 'Escalação Automática de Urgência',
+        description: 'Escala automaticamente tickets com prioridade alta ou urgente.'
+      };
+    }
+
+    if (templateKey === 'stale_followup') {
+      return {
+        name: 'Follow-up por Falta de Resposta',
+        description: 'Assinala tickets parados e prepara escalação interna.'
+      };
+    }
+
+    return {
+      name: 'Encaminhamento Inteligente por Categoria',
+      description: 'Atribui automaticamente novos tickets com base na categoria e prioridade.'
+    };
+  };
+
+  const handleCreateAutomation = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      setSaving(true);
+
+      const defaults = getTemplateDefaults(newAutomation.template_key);
+
+      const payload = {
+        template_key: newAutomation.template_key,
+        name: newAutomation.name || defaults.name,
+        description: newAutomation.description || defaults.description
+      };
+
+      const res = await apiPost('/api/client/automations', payload);
+
+      if ((res as any)?.ok) {
+        toast.success('Automação criada com sucesso');
+        setIsCreating(false);
+        resetNewAutomation();
+        fetchAutomations();
+      } else {
+        toast.error((res as any)?.error || 'Erro ao criar automação');
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao criar automação');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -148,7 +215,7 @@ const Automations: React.FC = () => {
         <ActionButton 
           label="Nova Automação" 
           icon={Plus} 
-          onClick={() => toast.info('Construtor de automações em desenvolvimento')} 
+          onClick={() => setIsCreating(true)} 
         />
       </div>
 
@@ -238,9 +305,91 @@ const Automations: React.FC = () => {
             : "Ainda não tens automações configuradas."}
           action={!(search || statusFilter !== 'todos' || triggerFilter !== 'todos') ? {
             label: "Criar Primeira Automação",
-            onClick: () => toast.info('Construtor em desenvolvimento')
+            onClick: () => setIsCreating(true)
           } : undefined}
         />
+      )}
+      {isCreating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Nova Automação</h3>
+                <p className="text-sm text-slate-500">Escolhe um template pronto para ativar no sistema.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsCreating(false);
+                  resetNewAutomation();
+                }}
+                className="px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-500"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAutomation} className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Template</label>
+                <select
+                  value={newAutomation.template_key}
+                  onChange={(e) => setNewAutomation({ ...newAutomation, template_key: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                >
+                  <option value="ticket_auto_assign">Encaminhamento Inteligente por Categoria</option>
+                  <option value="urgent_escalation">Escalação Automática de Urgência</option>
+                  <option value="stale_followup">Follow-up por Falta de Resposta</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Nome da automação</label>
+                <input
+                  type="text"
+                  value={newAutomation.name}
+                  onChange={(e) => setNewAutomation({ ...newAutomation, name: e.target.value })}
+                  placeholder="Deixa em branco para usar o nome do template"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Descrição</label>
+                <textarea
+                  value={newAutomation.description}
+                  onChange={(e) => setNewAutomation({ ...newAutomation, description: e.target.value })}
+                  rows={3}
+                  placeholder="Deixa em branco para usar a descrição do template"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                />
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-600">
+                <strong className="text-slate-900">Canal preferencial:</strong> WhatsApp. O bot continua a criar os tickets, e esta automação trata do encaminhamento, prioridade e seguimento.
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreating(false);
+                    resetNewAutomation();
+                  }}
+                  className="px-5 py-3 rounded-xl text-slate-600 hover:bg-slate-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-70"
+                >
+                  {saving ? 'A guardar...' : 'Criar Automação'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -24,7 +24,7 @@ import { FilterDropdown } from '../../components/app/FilterDropdown';
 import { ActionButton } from '../../components/app/ActionButton';
 import { DataTable } from '../../components/app/DataTable';
 import { EmptyState } from '../../components/app/EmptyState';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, apiPost } from '../../lib/api';
 
 interface TicketStats {
   total: number;
@@ -42,6 +42,14 @@ const Tickets: React.FC = () => {
   const [tickets, setTickets] = useState<HubTicket[]>([]);
   const [stats, setStats] = useState<TicketStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  const [savingTicket, setSavingTicket] = useState(false);
+  const [newTicket, setNewTicket] = useState({
+    subject: '',
+    description: '',
+    category: 'geral',
+    priority: 'média'
+  });
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -157,6 +165,66 @@ const Tickets: React.FC = () => {
     }
   ];
 
+  const normalizeStatus = (value: any) =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+  const normalizePriority = (value: any) =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+  const computedStats = {
+    total: tickets.length,
+    open: tickets.filter((t: any) => ['aberto', 'open', 'novo'].includes(normalizeStatus(t.status))).length,
+    in_progress: tickets.filter((t: any) => ['em tratamento', 'em analise', 'em análise', 'em execucao', 'em execução', 'in_progress', 'processing'].includes(normalizeStatus(t.status))).length,
+    completed: tickets.filter((t: any) => ['concluido', 'concluído', 'resolved', 'done', 'closed'].includes(normalizeStatus(t.status))).length,
+    urgent: tickets.filter((t: any) => ['urgente', 'urgent'].includes(normalizePriority(t.priority))).length,
+  };
+
+  const resetNewTicket = () => {
+    setNewTicket({
+      subject: '',
+      description: '',
+      category: 'geral',
+      priority: 'média'
+    });
+  };
+
+  const handleCreateTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newTicket.subject.trim()) {
+      return;
+    }
+
+    try {
+      setSavingTicket(true);
+
+      const res = await apiPost('/api/client/tickets', {
+        subject: newTicket.subject,
+        description: newTicket.description,
+        category: newTicket.category,
+        priority: newTicket.priority
+      });
+
+      if ((res as any)?.ok) {
+        setIsCreating(false);
+        resetNewTicket();
+        await fetchTickets();
+      }
+    } catch (error) {
+      console.error('Erro ao criar ticket:', error);
+    } finally {
+      setSavingTicket(false);
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
       {/* Header */}
@@ -168,7 +236,7 @@ const Tickets: React.FC = () => {
         <ActionButton 
           icon={Plus} 
           label="Novo Ticket" 
-          onClick={() => toast.info('Funcionalidade de criação em breve')}
+          onClick={() => setIsCreating(true)}
         />
       </div>
 
@@ -176,31 +244,31 @@ const Tickets: React.FC = () => {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <StatCard 
           label="Total" 
-          value={stats?.total || 0} 
+          value={computedStats.total} 
           icon={Ticket}
           color="bg-slate-600"
         />
         <StatCard 
           label="Abertos" 
-          value={stats?.open || 0} 
+          value={computedStats.open} 
           icon={AlertCircle}
           color="bg-blue-600"
         />
         <StatCard 
           label="Em Tratamento" 
-          value={stats?.in_progress || 0} 
+          value={computedStats.in_progress} 
           icon={Clock}
           color="bg-amber-600"
         />
         <StatCard 
           label="Concluídos" 
-          value={stats?.completed || 0} 
+          value={computedStats.completed} 
           icon={CheckCircle2}
           color="bg-emerald-600"
         />
         <StatCard 
           label="Urgentes" 
-          value={stats?.urgent || 0} 
+          value={computedStats.urgent} 
           icon={AlertTriangle}
           color="bg-red-600"
         />
@@ -298,6 +366,104 @@ const Tickets: React.FC = () => {
           />
         )}
       </div>
+      {isCreating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Novo Ticket</h3>
+                <p className="text-sm text-slate-500">Registar novo pedido, reclamação ou suporte.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsCreating(false);
+                  resetNewTicket();
+                }}
+                className="px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-500"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTicket} className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Assunto</label>
+                <input
+                  type="text"
+                  value={newTicket.subject}
+                  onChange={(e) => setNewTicket({ ...newTicket, subject: e.target.value })}
+                  placeholder="Ex: Reclamação - Iluminação pública"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Descrição</label>
+                <textarea
+                  value={newTicket.description}
+                  onChange={(e) => setNewTicket({ ...newTicket, description: e.target.value })}
+                  rows={4}
+                  placeholder="Descreva o pedido ou problema"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Categoria</label>
+                  <select
+                    value={newTicket.category}
+                    onChange={(e) => setNewTicket({ ...newTicket, category: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                  >
+                    <option value="geral">Geral</option>
+                    <option value="iluminacao">Iluminação</option>
+                    <option value="agua">Água</option>
+                    <option value="limpeza_residuos">Limpeza e Resíduos</option>
+                    <option value="documentos">Documentos</option>
+                    <option value="vendas">Vendas</option>
+                    <option value="suporte">Suporte</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Prioridade</label>
+                  <select
+                    value={newTicket.priority}
+                    onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none"
+                  >
+                    <option value="baixa">Baixa</option>
+                    <option value="média">Média</option>
+                    <option value="alta">Alta</option>
+                    <option value="urgente">Urgente</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreating(false);
+                    resetNewTicket();
+                  }}
+                  className="px-5 py-3 rounded-xl text-slate-600 hover:bg-slate-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingTicket}
+                  className="px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-70"
+                >
+                  {savingTicket ? 'A guardar...' : 'Criar Ticket'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
