@@ -26,12 +26,29 @@ import {
   Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { AREA_CONFIG, ClientProfile } from '../../types/hub';
+import { AREA_CONFIG } from '../../types/hub';
 import { toast } from 'sonner';
 import { apiFetch, apiPost } from '../../lib/api';
 import { cn } from '../../lib/utils';
-
 import { useAuth } from '../../lib/auth/AuthContext';
+
+// Tipo adaptado à resposta real da API
+interface ClientProfile {
+  id: number;
+  company_name: string;
+  contact_name: string | null;
+  email: string | null;
+  phone_e164: string | null;
+  nif: string | null;
+  address: string | null;
+  city: string | null;
+  postal_code: string | null;
+  country: string | null;
+  customer_type: string;
+  customer_score: number;
+  notes: string | null;
+  last_interaction_at: string | null;
+}
 
 const Clients: React.FC = () => {
   const { can } = useAuth();
@@ -65,16 +82,31 @@ const Clients: React.FC = () => {
   const fetchProfiles = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch('/api/client/profiles');
+      // CORRIGIDO: endpoint correto
+      const res = await apiFetch('/api/client/client-profiles');
       const data = await res.json();
-      if (data.ok) {
+      
+      // A API retorna array diretamente, não { ok, profiles }
+      if (Array.isArray(data)) {
+        // Mapear para o formato esperado pelo componente
+        const mapped = data.map((c: any) => ({
+          ...c,
+          contact_name: c.contact_name || c.company_name,
+          customer_type: c.customer_type || 'Lead',
+          customer_score: c.customer_score || 0,
+          last_interaction_at: c.last_interaction_at || c.updated_at || null,
+        }));
+        setProfiles(mapped);
+      } else if (data.ok && data.profiles) {
         setProfiles(data.profiles);
       } else {
-        toast.error('Erro ao carregar clientes');
+        toast.error('Formato de resposta inesperado');
+        setProfiles([]);
       }
     } catch (error) {
       console.error('Fetch error:', error);
       toast.error('Erro de ligação ao servidor');
+      setProfiles([]);
     } finally {
       setLoading(false);
     }
@@ -82,14 +114,15 @@ const Clients: React.FC = () => {
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.company_name || !formData.contact_name || !formData.email) {
+    if (!formData.company_name || !formData.email) {
       toast.error('Por favor preencha os campos obrigatórios');
       return;
     }
 
     try {
       setIsSubmitting(true);
-      const res = await apiPost('/api/client/profiles', formData);
+      // CORRIGIDO: endpoint correto
+      const res = await apiPost('/api/client/client-profiles', formData);
       if (res.ok) {
         toast.success('Cliente criado com sucesso!');
         setIsAddingClient(false);
@@ -108,7 +141,8 @@ const Clients: React.FC = () => {
         });
         fetchProfiles();
       } else {
-        toast.error(res.error || 'Erro ao criar cliente');
+        const errorData = await res.json().catch(() => ({}));
+        toast.error(errorData.error || 'Erro ao criar cliente');
       }
     } catch (error: any) {
       toast.error(error.message || 'Erro ao criar cliente');
@@ -120,14 +154,14 @@ const Clients: React.FC = () => {
   const filteredProfiles = profiles.filter(p => {
     const query = searchQuery.toLowerCase();
     const matchesSearch = 
-      p.company_name.toLowerCase().includes(query) ||
-      p.contact_name.toLowerCase().includes(query) ||
-      p.email.toLowerCase().includes(query) ||
-      p.phone_e164.includes(searchQuery) ||
-      (p.nif && p.nif.includes(searchQuery));
-    
+      (p.company_name || '').toLowerCase().includes(query) ||
+      (p.contact_name || '').toLowerCase().includes(query) ||
+      (p.email || '').toLowerCase().includes(query) ||
+      (p.phone_e164 || '').includes(searchQuery) ||
+      (p.nif || '').includes(searchQuery);
+
     const matchesFilter = filterType === 'all' || p.customer_type === filterType;
-    
+
     return matchesSearch && matchesFilter;
   });
 
@@ -153,7 +187,7 @@ const Clients: React.FC = () => {
             <p className="text-slate-500 text-sm">Centralize e gira todos os seus contactos e histórico.</p>
           </div>
         </div>
-        
+
         {can('clients', 'create') && (
           <button 
             onClick={() => setIsAddingClient(true)}
@@ -205,7 +239,7 @@ const Clients: React.FC = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        
+
         <div className="flex gap-2">
           <select 
             className="px-4 py-2.5 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-slate-600"
@@ -217,7 +251,7 @@ const Clients: React.FC = () => {
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
-          
+
           <button className="p-2.5 bg-slate-50 text-slate-500 rounded-xl hover:bg-slate-100 transition-all">
             <Filter size={20} />
           </button>
@@ -253,24 +287,28 @@ const Clients: React.FC = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">
-                          {profile.company_name.substring(0, 2).toUpperCase()}
+                          {(profile.company_name || 'C').substring(0, 2).toUpperCase()}
                         </div>
                         <div>
                           <div className="font-semibold text-slate-900">{profile.company_name}</div>
-                          <div className="text-xs text-slate-500">{profile.contact_name}</div>
+                          <div className="text-xs text-slate-500">{profile.contact_name || '-'}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-1.5 text-sm text-slate-600">
-                          <Mail size={14} className="text-slate-400" />
-                          <span>{profile.email}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-sm text-slate-600">
-                          <Phone size={14} className="text-slate-400" />
-                          <span>{profile.phone_e164}</span>
-                        </div>
+                        {profile.email && (
+                          <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                            <Mail size={14} className="text-slate-400" />
+                            <span>{profile.email}</span>
+                          </div>
+                        )}
+                        {profile.phone_e164 && (
+                          <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                            <Phone size={14} className="text-slate-400" />
+                            <span>{profile.phone_e164}</span>
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -281,7 +319,7 @@ const Clients: React.FC = () => {
                           profile.customer_type === 'VIP' ? 'bg-purple-100 text-purple-700' :
                           'bg-slate-100 text-slate-700'
                         }`}>
-                          {profile.customer_type || 'N/A'}
+                          {profile.customer_type || 'Lead'}
                         </span>
                         <div className="flex items-center gap-1">
                           <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -342,7 +380,7 @@ const Clients: React.FC = () => {
         )}
       </div>
 
-      {/* New Client Modal */}
+      {/* New Client Modal - mantido igual ao original */}
       <AnimatePresence>
         {isAddingClient && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -352,6 +390,7 @@ const Clients: React.FC = () => {
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200"
             >
+              {/* ... (o conteúdo do modal permanece igual ao original) ... */}
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                 <div className="flex items-center gap-3">
                   <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", config.bgLight, config.textMain)}>
@@ -372,7 +411,6 @@ const Clients: React.FC = () => {
 
               <form onSubmit={handleAddClient} className="p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Company Name */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       <Building2 size={14} className="text-slate-400" />
@@ -388,7 +426,6 @@ const Clients: React.FC = () => {
                     />
                   </div>
 
-                  {/* Contact Name */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       <User size={14} className="text-slate-400" />
@@ -404,7 +441,6 @@ const Clients: React.FC = () => {
                     />
                   </div>
 
-                  {/* Email */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       <Mail size={14} className="text-slate-400" />
@@ -420,7 +456,6 @@ const Clients: React.FC = () => {
                     />
                   </div>
 
-                  {/* Phone */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       <Phone size={14} className="text-slate-400" />
@@ -435,7 +470,6 @@ const Clients: React.FC = () => {
                     />
                   </div>
 
-                  {/* NIF */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       <CreditCard size={14} className="text-slate-400" />
@@ -450,7 +484,6 @@ const Clients: React.FC = () => {
                     />
                   </div>
 
-                  {/* Customer Type */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       <Tag size={14} className="text-slate-400" />
@@ -468,13 +501,12 @@ const Clients: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Address Section */}
                 <div className="space-y-4 pt-2">
                   <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                     <MapPin size={14} />
                     Morada e Localização
                   </h4>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="md:col-span-3 space-y-1.5">
                       <label className="text-xs font-semibold text-slate-500">Morada Completa</label>
@@ -486,7 +518,7 @@ const Clients: React.FC = () => {
                         className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 transition-all outline-none text-sm"
                       />
                     </div>
-                    
+
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-500">Cidade</label>
                       <input
@@ -497,7 +529,7 @@ const Clients: React.FC = () => {
                         className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 transition-all outline-none text-sm"
                       />
                     </div>
-                    
+
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-500">Código Postal</label>
                       <input
@@ -508,7 +540,7 @@ const Clients: React.FC = () => {
                         className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 transition-all outline-none text-sm"
                       />
                     </div>
-                    
+
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-500">País</label>
                       <div className="relative">
@@ -524,7 +556,6 @@ const Clients: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Notes */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                     <FileText size={14} className="text-slate-400" />
