@@ -17,6 +17,7 @@ import { NotificationProvider } from './components/NotificationProvider';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { AdminLogin } from './pages/admin/Login';
+import { TestAPI } from './pages/TestAPI';   // <-- ADICIONADO
 
 // App Pages
 import { Dashboard } from './pages/app/Dashboard';
@@ -118,6 +119,7 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/test" element={<TestAPI />} />   {/* <-- ADICIONADO */}
 
                 {/* App Routes (Client Hub) */}
                 <Route 
