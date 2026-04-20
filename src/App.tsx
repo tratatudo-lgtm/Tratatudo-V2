@@ -17,7 +17,8 @@ import { NotificationProvider } from './components/NotificationProvider';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { AdminLogin } from './pages/admin/Login';
-import { TestAPI } from './pages/TestAPI';   // <-- ADICIONADO
+import { TestAPI } from './pages/TestAPI';
+import { TestToken } from './pages/TestToken';   // <-- NOVA IMPORTAÇÃO
 
 // App Pages
 import { Dashboard } from './pages/app/Dashboard';
@@ -119,7 +120,8 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/test" element={<TestAPI />} />   {/* <-- ADICIONADO */}
+                <Route path="/test" element={<TestAPI />} />
+                <Route path="/test-token" element={<TestToken />} />   {/* <-- NOVA ROTA */}
 
                 {/* App Routes (Client Hub) */}
                 <Route 
