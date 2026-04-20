@@ -1,15 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   MessageSquare, 
   ArrowLeft, 
-  Smartphone, 
   Key, 
   CheckCircle2, 
   AlertCircle, 
   Loader2,
-  Globe,
-  Languages
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../lib/auth/AuthContext';
@@ -24,7 +21,7 @@ export function Login() {
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [language, setLanguage] = useState<Language>('pt');
+  const [language] = useState<Language>('pt');
   const navigate = useNavigate();
   const { refreshSession } = useAuth();
 
@@ -49,48 +46,6 @@ export function Login() {
       errorSession: 'Sessão não estabelecida. Verifique se o seu navegador aceita cookies de terceiros.',
       successLogin: 'Login efetuado com sucesso! A redirecionar...',
       successCode: 'Código enviado com sucesso para o seu WhatsApp!'
-    },
-    en: {
-      title: 'Access your dashboard',
-      subtitle: 'Log in securely using your WhatsApp number.',
-      brandingTitle: 'Your secure service center.',
-      brandingSubtitle: 'Log in quickly and securely using WhatsApp authentication. No passwords to remember.',
-      phoneLabel: 'WhatsApp Number',
-      phoneHint: 'Enter the number associated with your TrataTudo account.',
-      sendCode: 'Receive code',
-      otpTitle: 'Verification Code',
-      otpHint: 'We sent a 6-digit code to your WhatsApp.',
-      otpPlaceholder: 'Enter code',
-      verify: 'Enter',
-      changePhone: 'Change number',
-      resend: "Didn't receive the code? Resend",
-      back: 'Back to home page',
-      errorPhone: 'Please enter a valid number.',
-      errorOtp: 'The code must be exactly 6 digits.',
-      errorSession: 'Session not established. Check if your browser accepts third-party cookies.',
-      successLogin: 'Login successful! Redirecting...',
-      successCode: 'Code sent successfully to your WhatsApp!'
-    },
-    es: {
-      title: 'Acceda a su panel',
-      subtitle: 'Inicie sesión de forma segura con su número de WhatsApp.',
-      brandingTitle: 'Su centro de atención seguro.',
-      brandingSubtitle: 'Inicie sesión de forma rápida y segura mediante la autenticación de WhatsApp. Sin contraseñas que recordar.',
-      phoneLabel: 'Número de WhatsApp',
-      phoneHint: 'Introduzca el número asociado a su cuenta TrataTudo.',
-      sendCode: 'Recibir código',
-      otpTitle: 'Código de Verificación',
-      otpHint: 'Hemos enviado un código de 6 dígitos a tu WhatsApp.',
-      otpPlaceholder: 'Introduzca el código',
-      verify: 'Entrar',
-      changePhone: 'Cambiar número',
-      resend: '¿No has recibido el código? Reenviar',
-      back: 'Volver a la página de inicio',
-      errorPhone: 'Por favor, introduzca un número válido.',
-      errorOtp: 'El código debe tener exactamente 6 dígitos.',
-      errorSession: 'Sesión no establecida. Compruebe si su navegador acepta cookies de terceros.',
-      successLogin: '¡Inicio de sesión con éxito! Redirigiendo...',
-      successCode: '¡Código enviado con éxito a tu WhatsApp!'
     }
   }[language];
 
@@ -100,13 +55,13 @@ export function Login() {
       setMessage({ type: 'error', text: t.errorPhone });
       return;
     }
-    
+
     setIsLoading(true);
     setMessage(null);
-    
+
     const url = `${import.meta.env.VITE_API_URL}/api/auth/send-otp`;
     const payload = { phone_e164: phone };
-    
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -114,9 +69,9 @@ export function Login() {
         credentials: 'include',
         body: JSON.stringify(payload),
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         setStep('otp');
         setMessage({ type: 'success', text: t.successCode });
@@ -151,13 +106,20 @@ export function Login() {
         credentials: 'include',
         body: JSON.stringify(payload),
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
+        // 🔑 CORREÇÃO PRINCIPAL: Guardar token no localStorage para ser usado nas chamadas à API
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('client', JSON.stringify(data.client || {}));
+        }
+
+        // Mantém a verificação de cookie para compatibilidade
         const sessionEstablished = await refreshSession();
-        
-        if (sessionEstablished) {
+
+        if (sessionEstablished || data.token) {
           setMessage({ type: 'success', text: t.successLogin });
           setTimeout(() => navigate('/app'), 1000);
         } else {
@@ -179,7 +141,7 @@ export function Login() {
       {/* Left Side - Branding */}
       <div className="lg:w-1/2 bg-slate-900 p-8 lg:p-24 flex flex-col justify-between text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        
+
         <div className="flex items-center justify-between relative z-10">
           <Link to="/" className="flex items-center gap-2">
             <div className="bg-primary p-2 rounded-lg">
@@ -189,23 +151,6 @@ export function Login() {
               Trata<span className="text-primary">Tudo</span>
             </span>
           </Link>
-
-          {/* Language Switcher */}
-          <div className="flex items-center gap-1 bg-white/5 backdrop-blur-md rounded-xl p-1 border border-white/10">
-            {(['pt', 'en', 'es'] as const).map((lang) => (
-              <button
-                key={lang}
-                onClick={() => setLanguage(lang)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                  language === lang 
-                    ? 'bg-white text-slate-900 shadow-lg' 
-                    : 'text-white/60 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                {lang.toUpperCase()}
-              </button>
-            ))}
-          </div>
         </div>
 
         <div className="relative z-10 space-y-6">
