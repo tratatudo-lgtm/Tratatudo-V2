@@ -49,8 +49,6 @@ const staggerContainer = {
 export function Home() {
   return (
     <div className="overflow-hidden bg-white">
-      <Header />
-      
       {/* 1. HERO SECTION */}
       <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(45%_40%_at_50%_50%,rgba(37,99,235,0.08)_0%,transparent_100%)]" />
@@ -520,7 +518,6 @@ export function Home() {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

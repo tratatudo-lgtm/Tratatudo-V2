@@ -13,10 +13,21 @@ import { AuthProvider } from './lib/auth/AuthContext';
 import { AdminAuthProvider } from './lib/auth/AdminAuthContext';
 import { NotificationProvider } from './components/NotificationProvider';
 
+// Layouts
+import { PublicLayout } from './components/PublicLayout';
+
 // Public Pages
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { AdminLogin } from './pages/admin/Login';
+import { Features } from './pages/Features';
+import { HowItWorks } from './pages/HowItWorks';
+import { Pricing } from './pages/Pricing';
+import { ForWho } from './pages/ForWho';
+import { Contact } from './pages/Contact';
+import { Terms } from './pages/Terms';
+import { Privacy } from './pages/Privacy';
+import { Cookies } from './pages/Cookies';
 
 // App Pages
 import { Dashboard } from './pages/app/Dashboard';
@@ -127,9 +138,19 @@ function App() {
             <BrowserRouter>
               <Routes>
                 {/* Public Routes */}
-                <Route path="/" element={<Home />} />
+                <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/admin/login" element={<AdminLogin />} />
+                
+                <Route path="/funcionalidades" element={<PublicLayout><Features /></PublicLayout>} />
+                <Route path="/como-funciona" element={<PublicLayout><HowItWorks /></PublicLayout>} />
+                <Route path="/precos" element={<PublicLayout><Pricing /></PublicLayout>} />
+                <Route path="/para-quem" element={<PublicLayout><ForWho /></PublicLayout>} />
+                <Route path="/contacto" element={<PublicLayout><Contact /></PublicLayout>} />
+                <Route path="/termos" element={<PublicLayout><Terms /></PublicLayout>} />
+                <Route path="/privacidade" element={<PublicLayout><Privacy /></PublicLayout>} />
+                <Route path="/cookies" element={<PublicLayout><Cookies /></PublicLayout>} />
+                <Route path="/experimentar" element={<Navigate to="/login" replace />} />
 
                 {/* App Routes (Client Hub) */}
                 <Route 
