@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { apiGet, apiPost } from '../../lib/api';
+
 interface SubscriptionData {
   plan: string;
   status: string;
@@ -207,21 +209,16 @@ const PaymentMethodsModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
                   onClick={async () => {
                     try {
                       toast.loading('A redirecionar para o Portal Stripe...');
-                      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-                      const res = await fetch(`${baseUrl}/api/client/stripe/portal`, {
-                        method: 'POST',
-                        credentials: 'include'
-                      });
-                      const json = await res.json();
+                      const json = await apiPost('/api/client/stripe/portal', {});
                       toast.dismiss();
-                      if (json.ok && json.url) {
+                      if (json.url) {
                         window.location.href = json.url;
                       } else {
-                        toast.error(json.error || 'Não foi possível abrir o portal.');
+                        toast.error('Não foi possível abrir o portal.');
                       }
-                    } catch (err) {
+                    } catch (err: any) {
                       toast.dismiss();
-                      toast.error('Erro de conexão ao abrir o portal.');
+                      toast.error(err.message || 'Erro de conexão ao abrir o portal.');
                     }
                   }}
                   className="w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 flex items-center justify-center gap-2"
@@ -253,44 +250,20 @@ export default function Subscription() {
   }, []);
 
   const fetchSubscription = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-    const endpoints = [
-      `${baseUrl}/api/client/subscription`,
-      `${baseUrl}/api/subscription`
-    ];
-    
-    let lastError = null;
-    
     try {
       setLoading(true);
       setError(null);
       
-      for (const url of endpoints) {
-        console.log(`[SUBSCRIPTION] Fetching from: ${url}`);
-        try {
-          const res = await fetch(url, {
-            credentials: 'include'
-          });
-          
-          if (res.ok) {
-            const json = await res.json();
-            console.log('[SUBSCRIPTION] Data received:', json);
-            setData(json);
-            setLoading(false);
-            return;
-          } else if (res.status === 401) {
-            throw new Error('Sessão expirada. Por favor, faça login novamente.');
-          }
-        } catch (e) {
-          lastError = e;
-        }
+      let json;
+      try {
+        json = await apiGet('/api/client/subscription');
+      } catch (e) {
+        json = await apiGet('/api/subscription');
       }
       
-      throw lastError || new Error('Falha ao carregar dados de subscrição');
-      
+      setData(json);
     } catch (err: any) {
       console.error('[SUBSCRIPTION] Fetch failed:', err);
-      setError(err.message || 'Não foi possível carregar os dados da sua subscrição.');
       
       // Professional fallback for demo/development
       if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
@@ -309,6 +282,8 @@ export default function Subscription() {
           }
         });
         setError(null);
+      } else {
+        setError(err.message || 'Não foi possível carregar os dados da sua subscrição.');
       }
     } finally {
       setLoading(false);
@@ -317,57 +292,38 @@ export default function Subscription() {
 
   const handleSupportSubmit = async (supportData: any) => {
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-      const res = await fetch(`${baseUrl}/api/client/tickets`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          subject: supportData.subject,
-          description: supportData.message,
-          category: supportData.category,
-          priority: supportData.priority
-        })
+      const json = await apiPost('/api/client/tickets', {
+        subject: supportData.subject,
+        description: supportData.message,
+        category: supportData.category,
+        priority: supportData.priority
       });
       
-      const json = await res.json();
-      if (json.ok) {
+      if (json.ticket) {
         toast.success('Ticket de suporte criado com sucesso! O código é ' + json.ticket.tracking_code);
-      } else {
-        toast.error('Erro ao criar ticket: ' + json.error);
-        throw new Error(json.error);
       }
-    } catch (err) {
-      toast.error('Erro de conexão ao criar ticket.');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro de conexão ao criar ticket.');
       throw err;
     }
   };
 
   const handleUpgrade = async (plan: string) => {
     const priceId = plan === 'Pro' ? 'price_pro_id' : 'price_enterprise_id';
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
     
     try {
       toast.loading(`A preparar checkout para o plano ${plan}...`);
       
-      const res = await fetch(`${baseUrl}/api/client/stripe/checkout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ priceId })
-      });
-      
-      const json = await res.json();
+      const json = await apiPost('/api/client/stripe/checkout', { priceId });
       toast.dismiss();
       
-      if (json.ok && json.url) {
+      if (json.url) {
         window.location.href = json.url;
       } else {
-        console.warn('[SUBSCRIPTION] Checkout failed, using fallback modal', json);
         setIsPaymentModalOpen(true);
         toast.info('Redirecionamento automático indisponível. Por favor, use o formulário de pagamento.');
       }
-    } catch (err) {
+    } catch (err: any) {
       toast.dismiss();
       console.error('[SUBSCRIPTION] Upgrade error:', err);
       setIsPaymentModalOpen(true);

@@ -28,6 +28,8 @@ import { StatCard } from '../../components/app/StatCard';
 import { toast } from 'sonner';
 import { apiFetch } from '../../lib/api';
 
+import { apiGet } from '../../lib/api';
+
 const Billing: React.FC = () => {
   const { user, can } = useAuth();
   const [stats, setStats] = useState<BillingStats | null>(null);
@@ -58,18 +60,13 @@ const Billing: React.FC = () => {
   const fetchAdminData = async () => {
     try {
       setLoading(true);
-      const [statsRes, subsRes] = await Promise.all([
-        apiFetch('/api/admin/billing/stats'),
-        apiFetch('/api/admin/billing/subscriptions')
-      ]);
-
       const [statsData, subsData] = await Promise.all([
-        statsRes.json(),
-        subsRes.json()
+        apiGet('/api/admin/billing/stats'),
+        apiGet('/api/admin/billing/subscriptions')
       ]);
 
-      if (statsData.ok) setStats(statsData.stats);
-      if (subsData.ok) {
+      setStats(statsData.stats);
+      if (subsData.subscriptions) {
         // For the admin view, we'll need to fetch usage for each client too 
         // or just show the subscription list. 
         // For now, let's map the subscriptions to the summary format.
@@ -89,8 +86,8 @@ const Billing: React.FC = () => {
           }
         })));
       }
-    } catch (err) {
-      setError('Erro ao carregar dados administrativos de faturação');
+    } catch (err: any) {
+      setError(err.message || 'Erro ao carregar dados administrativos de faturação');
     } finally {
       setLoading(false);
     }
@@ -99,20 +96,15 @@ const Billing: React.FC = () => {
   const fetchClientData = async () => {
     try {
       setLoading(true);
-      const [subRes, usageRes] = await Promise.all([
-        apiFetch('/api/client/billing/subscription'),
-        apiFetch('/api/client/billing/usage')
-      ]);
-
       const [subData, usageData] = await Promise.all([
-        subRes.json(),
-        usageRes.json()
+        apiGet('/api/client/billing/subscription'),
+        apiGet('/api/client/billing/usage')
       ]);
 
-      if (subData.ok) setMySubscription(subData.subscription);
-      if (usageData.ok) setMyUsage(usageData.usage);
-    } catch (err) {
-      setError('Erro ao carregar os seus dados de subscrição');
+      setMySubscription(subData.subscription);
+      setMyUsage(usageData.usage);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao carregar os seus dados de subscrição');
     } finally {
       setLoading(false);
     }

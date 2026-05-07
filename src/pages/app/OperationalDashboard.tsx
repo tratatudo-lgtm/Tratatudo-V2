@@ -7,55 +7,53 @@ import {
   Mail, 
   Zap,
   Activity,
+  TrendingUp,
+  ArrowUpRight,
+  ArrowDownRight,
   Clock,
   Loader2,
   ChevronRight,
   AlertCircle,
   CheckCircle2,
-  Info,
-  ArrowUpRight
+  Info
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Cell
+} from 'recharts';
+import { DashboardMetrics, RecentActivity } from '../../types/hub';
 import { StatCard } from '../../components/app/StatCard';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
 
-// Tipo ajustado para corresponder à resposta real da API
-interface DashboardStats {
-  totalClients: number;
-  todayAppointments: number;
-  openTickets: number;
-  monthlyRevenue: number;
-}
-
-interface DashboardResponse {
-  ok: boolean;
-  stats: DashboardStats;
-}
+import { apiGet } from '../../lib/api';
 
 const OperationalDashboard: React.FC = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchDashboard();
+    fetchMetrics();
   }, []);
 
-  const fetchDashboard = async () => {
+  const fetchMetrics = async () => {
     try {
       setLoading(true);
-      // CORRIGIDO: usar a rota que existe e funciona
-      const res = await apiFetch('/api/client/dashboard');
-      const data: DashboardResponse = await res.json();
-      if (data.ok && data.stats) {
-        setStats(data.stats);
-      } else {
-        setError('Erro ao carregar métricas operacionais');
-      }
-    } catch (err) {
-      setError('Erro de ligação ao servidor');
+      const data = await apiGet('/api/client/dashboard/operational-metrics');
+      setMetrics(data.metrics);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao carregar métricas operacionais');
     } finally {
       setLoading(false);
     }
@@ -70,7 +68,7 @@ const OperationalDashboard: React.FC = () => {
     );
   }
 
-  if (error || !stats) {
+  if (error || !metrics) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center px-4">
         <div className="p-4 bg-red-50 rounded-full mb-4">
@@ -79,7 +77,7 @@ const OperationalDashboard: React.FC = () => {
         <h2 className="text-xl font-bold text-slate-900 mb-2">Ops! Algo correu mal</h2>
         <p className="text-slate-500 mb-6 max-w-md">{error || 'Não foi possível carregar os dados.'}</p>
         <button 
-          onClick={fetchDashboard}
+          onClick={fetchMetrics}
           className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors"
         >
           Tentar Novamente
@@ -88,22 +86,43 @@ const OperationalDashboard: React.FC = () => {
     );
   }
 
-  // Mapear os dados reais para os valores esperados pelos componentes visuais
-  const metrics = {
-    total_clients: stats.totalClients,
-    pending_tasks: 0,           // placeholder – rota futura
-    upcoming_events: stats.todayAppointments,
-    total_documents: 0,         // placeholder
-    total_emails: 0,            // placeholder
-    active_automations: 0,      // placeholder
-    completed_tasks_today: 0,   // placeholder
-    new_clients_this_week: 0,   // placeholder
-    recent_activity: [] as any[],
-    failed_automations: 0,
-    failed_emails: 0,
-    events_today: stats.todayAppointments,
-    recent_documents: 0,
-    total_automations: 0,
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 1) return 'Agora';
+    if (diffMins < 60) return `Há ${diffMins}m`;
+    if (diffHours < 24) return `Há ${diffHours}h`;
+    if (diffDays < 7) return `Há ${diffDays}d`;
+    return date.toLocaleDateString('pt-PT');
+  };
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'cliente': return <Users className="w-4 h-4" />;
+      case 'tarefa': return <CheckSquare className="w-4 h-4" />;
+      case 'evento': return <Calendar className="w-4 h-4" />;
+      case 'documento': return <FileText className="w-4 h-4" />;
+      case 'email': return <Mail className="w-4 h-4" />;
+      case 'automacao': return <Zap className="w-4 h-4" />;
+      default: return <Activity className="w-4 h-4" />;
+    }
+  };
+
+  const getActivityColor = (type: string) => {
+    switch (type) {
+      case 'cliente': return 'text-blue-600 bg-blue-50';
+      case 'tarefa': return 'text-orange-600 bg-orange-50';
+      case 'evento': return 'text-purple-600 bg-purple-50';
+      case 'documento': return 'text-emerald-600 bg-emerald-50';
+      case 'email': return 'text-indigo-600 bg-indigo-50';
+      case 'automacao': return 'text-amber-600 bg-amber-50';
+      default: return 'text-slate-600 bg-slate-50';
+    }
   };
 
   return (
@@ -127,42 +146,42 @@ const OperationalDashboard: React.FC = () => {
           value={metrics.total_clients} 
           icon={Users} 
           color="bg-blue-600" 
-          trend={{ value: metrics.new_clients_this_week, label: 'esta semana', type: 'up' }}
+          trend={{ value: metrics.new_clients_this_week || 0, label: 'esta semana', type: 'up' }}
         />
         <StatCard 
           label="Tarefas" 
           value={metrics.pending_tasks} 
           icon={CheckSquare} 
           color="bg-orange-500" 
-          trend={{ value: metrics.completed_tasks_today, label: 'hoje', type: 'up' }}
+          trend={{ value: metrics.completed_tasks_today || 0, label: 'hoje', type: 'up' }}
         />
         <StatCard 
           label="Eventos" 
           value={metrics.upcoming_events} 
           icon={Calendar} 
           color="bg-purple-500" 
-          trend={{ value: metrics.events_today, label: 'hoje', type: 'neutral' }}
+          trend={{ value: metrics.events_today || 0, label: 'hoje', type: 'neutral' }}
         />
         <StatCard 
           label="Documentos" 
           value={metrics.total_documents} 
           icon={FileText} 
           color="bg-emerald-500" 
-          trend={{ value: metrics.recent_documents, label: 'recentes', type: 'up' }}
+          trend={{ value: metrics.recent_documents || 0, label: 'recentes', type: 'up' }}
         />
         <StatCard 
           label="Emails" 
           value={metrics.total_emails} 
           icon={Mail} 
           color="bg-indigo-500" 
-          trend={{ value: metrics.failed_emails, label: 'falhas', type: 'down' }}
+          trend={{ value: metrics.failed_emails || 0, label: 'falhas', type: 'down' }}
         />
         <StatCard 
           label="Automações" 
-          value={metrics.active_automations} 
+          value={metrics.active_automations || 0} 
           icon={Zap} 
           color="bg-amber-500" 
-          trend={{ value: metrics.total_automations, label: 'total', type: 'neutral' }}
+          trend={{ value: metrics.total_automations || 0, label: 'total', type: 'neutral' }}
         />
       </div>
 
@@ -219,7 +238,7 @@ const OperationalDashboard: React.FC = () => {
           {/* Quick Actions / Shortcuts */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: 'Novo Cliente', icon: Users, color: 'bg-blue-600', link: '/app/clients' },
+              { label: 'Novo Cliente', icon: Users, color: 'bg-blue-600', link: '/app/crm' },
               { label: 'Nova Tarefa', icon: CheckSquare, color: 'bg-orange-500', link: '/app/tasks' },
               { label: 'Enviar Email', icon: Mail, color: 'bg-indigo-500', link: '/app/emails' },
               { label: 'Upload Doc', icon: FileText, color: 'bg-emerald-500', link: '/app/documents' },
@@ -316,46 +335,6 @@ const OperationalDashboard: React.FC = () => {
       </div>
     </div>
   );
-};
-
-// Funções auxiliares (mantidas do original)
-const formatTime = (dateStr: string) => {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMins < 1) return 'Agora';
-  if (diffMins < 60) return `Há ${diffMins}m`;
-  if (diffHours < 24) return `Há ${diffHours}h`;
-  if (diffDays < 7) return `Há ${diffDays}d`;
-  return date.toLocaleDateString('pt-PT');
-};
-
-const getActivityIcon = (type: string) => {
-  switch (type) {
-    case 'cliente': return <Users className="w-4 h-4" />;
-    case 'tarefa': return <CheckSquare className="w-4 h-4" />;
-    case 'evento': return <Calendar className="w-4 h-4" />;
-    case 'documento': return <FileText className="w-4 h-4" />;
-    case 'email': return <Mail className="w-4 h-4" />;
-    case 'automacao': return <Zap className="w-4 h-4" />;
-    default: return <Activity className="w-4 h-4" />;
-  }
-};
-
-const getActivityColor = (type: string) => {
-  switch (type) {
-    case 'cliente': return 'text-blue-600 bg-blue-50';
-    case 'tarefa': return 'text-orange-600 bg-orange-50';
-    case 'evento': return 'text-purple-600 bg-purple-50';
-    case 'documento': return 'text-emerald-600 bg-emerald-50';
-    case 'email': return 'text-indigo-600 bg-indigo-50';
-    case 'automacao': return 'text-amber-600 bg-amber-50';
-    default: return 'text-slate-600 bg-slate-50';
-  }
 };
 
 export default OperationalDashboard;

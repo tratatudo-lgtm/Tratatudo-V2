@@ -20,6 +20,8 @@ import { cn } from '../../lib/utils';
 import { SystemHealth, SystemInfo } from '../../types/hub';
 import { apiFetch } from '../../lib/api';
 
+import { apiGet } from '../../lib/api';
+
 const SystemHealthPage: React.FC = () => {
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [info, setInfo] = useState<SystemInfo | null>(null);
@@ -33,20 +35,15 @@ const SystemHealthPage: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [healthRes, infoRes] = await Promise.all([
-        apiFetch('/api/client/system/health'),
-        apiFetch('/api/client/system/info')
-      ]);
-
       const [healthData, infoData] = await Promise.all([
-        healthRes.json(),
-        infoRes.json()
+        apiGet('/api/client/system/health'),
+        apiGet('/api/client/system/info')
       ]);
 
-      if (healthData.ok) setHealth(healthData.health);
-      if (infoData.ok) setInfo(infoData.info);
-    } catch (err) {
-      setError('Erro ao carregar dados de diagnóstico do sistema');
+      setHealth(healthData.health);
+      setInfo(infoData.info);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao carregar dados de diagnóstico do sistema');
     } finally {
       setLoading(false);
     }

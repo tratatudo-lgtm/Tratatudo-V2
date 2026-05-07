@@ -5,6 +5,8 @@ import { useAuth } from '../../lib/auth/AuthContext';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { apiPost } from '../../lib/api';
+
 interface TopbarProps {
   onMenuClick: () => void;
 }
@@ -14,22 +16,11 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const handleLogout = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
     try {
       toast.loading('A terminar sessão...');
-      const res = await fetch(`${baseUrl}/api/auth/logout`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-      
+      await apiPost('/api/auth/logout');
       toast.dismiss();
-      if (res.ok) {
-        toast.success('Sessão terminada com sucesso.');
-      } else {
-        console.warn('[AUTH] Logout server call failed, clearing local session anyway');
-      }
-      
-      // Even if the API fails, we sign out locally
+      toast.success('Sessão terminada com sucesso.');
       await signOut();
     } catch (error) {
       toast.dismiss();

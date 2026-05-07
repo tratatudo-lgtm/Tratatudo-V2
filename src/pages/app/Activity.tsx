@@ -21,6 +21,8 @@ import { cn } from '../../lib/utils';
 import { AuditLog, PermissionModule } from '../../types/hub';
 import { StatCard } from '../../components/app/StatCard';
 
+import { apiGet } from '../../lib/api';
+
 const ActivityPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,15 +42,10 @@ const ActivityPage: React.FC = () => {
       if (moduleFilter !== 'all') url += `&module=${moduleFilter}`;
       if (actionFilter !== 'all') url += `&action=${actionFilter}`;
       
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.ok) {
-        setLogs(data.logs);
-      } else {
-        setError('Erro ao carregar logs de atividade');
-      }
-    } catch (err) {
-      setError('Erro de ligação ao servidor');
+      const data = await apiGet(url);
+      setLogs(data.logs || []);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao carregar logs de atividade');
     } finally {
       setLoading(false);
     }

@@ -25,6 +25,7 @@ import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
 import { cn, extractArrayResponse } from '../../lib/utils';
 import { toast } from 'sonner';
 import { LoadingState, ErrorState } from '../../components/States';
+import { apiGet } from '../../lib/api';
 
 interface Instance {
   id: string;
@@ -58,28 +59,18 @@ export function AdminInstances() {
   const { logout } = useAdminAuth();
 
   const fetchInstances = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-    const url = `${baseUrl}/api/admin/instances`;
-    
     try {
       setLoading(true);
       setError(null);
       
-      const res = await fetch(url, {
-        credentials: 'include'
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        const instancesData = extractArrayResponse<Instance>(data, 'instances');
-        setInstances(instancesData);
-      } else if (res.status === 401) {
-        await logout();
-      } else {
-        throw new Error('Falha ao carregar instâncias WhatsApp');
-      }
+      const data = await apiGet('/api/admin/instances');
+      const instancesData = extractArrayResponse<Instance>(data, 'instances');
+      setInstances(instancesData);
     } catch (err: any) {
       console.error('[ADMIN] Fetch instances failed:', err);
+      if (err.message && (err.message.includes('401') || err.message.includes('não autorizado'))) {
+        await logout();
+      }
       setError(err.message || 'Não foi possível carregar as instâncias.');
     } finally {
       setLoading(false);
@@ -100,26 +91,16 @@ export function AdminInstances() {
   }, [location.search]);
 
   const fetchClients = async () => {
-    const url = `${import.meta.env.VITE_API_URL}/api/admin/clients`;
-    console.log(`[ADMIN] Fetching clients for modal: ${url}`);
     try {
-      const response = await fetch(url, {
-        credentials: 'include'
-      });
-      console.log(`[ADMIN] Fetch clients status: ${response.status}`);
-      if (!response.ok) {
-        if (response.status === 401) {
-          await logout();
-          return;
-        }
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || errorData.error || 'Falha ao carregar clientes');
-      }
-      const result = await response.json();
+      const result = await apiGet('/api/admin/clients');
       setClients(extractArrayResponse<any>(result, 'clients'));
     } catch (err: any) {
       console.error('[ADMIN] Fetch clients failed:', err);
-      toast.error(err.message || 'Erro ao carregar lista de clientes');
+      if (err.message && (err.message.includes('401') || err.message.includes('não autorizado'))) {
+        await logout();
+      } else {
+        toast.error(err.message || 'Erro ao carregar lista de clientes');
+      }
     }
   };
 
@@ -136,58 +117,13 @@ export function AdminInstances() {
       return;
     }
 
-    try {
-      setIsCreating(true);
-
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-      const response = await fetch(`${baseUrl}/api/admin/instances/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ client_id: selectedClientId })
-      });
-
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok || !result?.ok) {
-        throw new Error(result?.error || 'Falha ao criar instância');
-      }
-
-      toast.success('Instância criada com sucesso.');
-      await fetchInstances();
-      await handleFetchQrCode(result.instance?.instance_name || `client-${selectedClientId}`);
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao criar instância');
-    } finally {
-      setIsCreating(false);
-    }
+    // TODO: Backend endpoint /api/admin/instances/create does not exist yet.
+    toast.info('Criação de instância (Admin) aguarda implementação no backend.');
   };
 
   const handleFetchQrCode = async (instanceName: string) => {
-    try {
-      setIsFetchingQr(true);
-
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-      const response = await fetch(`${baseUrl}/api/admin/instances/qrcode/${encodeURIComponent(instanceName)}`, {
-        credentials: 'include'
-      });
-
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok || !result?.ok) {
-        throw new Error(result?.error || 'Falha ao obter QR Code');
-      }
-
-      if (!result?.qr) {
-        throw new Error('QR Code não disponível.');
-      }
-
-      setQrCode(result.qr);
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao obter QR Code');
-    } finally {
-      setIsFetchingQr(false);
-    }
+    // TODO: Backend endpoint /api/admin/instances/qrcode/:instanceName does not exist yet.
+    toast.info('Geração de QR Code (Admin) aguarda implementação no backend.');
   };
 
   const filteredInstances = instances.filter(inst => 

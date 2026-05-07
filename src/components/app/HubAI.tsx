@@ -16,6 +16,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../lib/auth/AuthContext';
+import { apiPost } from '../../lib/api';
 
 interface Message {
   id: string;
@@ -63,18 +64,10 @@ export function HubAI() {
     setIsLoading(true);
 
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-      const response = await fetch(`${baseUrl}/api/client/ai/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          message: input,
-          history: messages.map(m => ({ role: m.role, content: m.content }))
-        })
+      const data = await apiPost('/api/client/ai/chat', {
+        message: input,
+        history: messages.map(m => ({ role: m.role, content: m.content }))
       });
-
-      const data = await response.json();
 
       if (data && data.ok) {
         const assistantMessage: Message = {

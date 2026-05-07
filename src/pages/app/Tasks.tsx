@@ -27,6 +27,8 @@ import { ActionButton } from '../../components/app/ActionButton';
 import { DataTable } from '../../components/app/DataTable';
 import { EmptyState } from '../../components/app/EmptyState';
 
+import { apiGet } from '../../lib/api';
+
 const Tasks: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,15 +43,10 @@ const Tasks: React.FC = () => {
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch('/api/client/tasks');
-      const data = await res.json();
-      if (data.ok) {
-        setTasks(data.tasks);
-      } else {
-        toast.error('Erro ao carregar tarefas');
-      }
-    } catch (error) {
-      toast.error('Erro de ligação ao servidor');
+      const data = await apiGet('/api/client/tasks');
+      setTasks(data.tasks || []);
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao carregar tarefas');
     } finally {
       setLoading(false);
     }

@@ -27,6 +27,8 @@ import { DataTable } from '../../components/app/DataTable';
 import { EmptyState } from '../../components/app/EmptyState';
 import { StatusBadge } from '../../components/app/StatusBadge';
 
+import { apiGet } from '../../lib/api';
+
 const Emails: React.FC = () => {
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,15 +43,10 @@ const Emails: React.FC = () => {
   const fetchEmails = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch('/api/client/emails');
-      const data = await res.json();
-      if (data.ok) {
-        setEmails(data.emails);
-      } else {
-        toast.error('Erro ao carregar emails');
-      }
-    } catch (error) {
-      toast.error('Erro de ligação ao servidor');
+      const data = await apiGet('/api/client/emails');
+      setEmails(data.emails);
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao carregar emails');
     } finally {
       setLoading(false);
     }

@@ -8,6 +8,25 @@ const rawApiUrl = import.meta.env.VITE_API_URL || '';
 export const API_URL = rawApiUrl.endsWith('/') ? rawApiUrl.slice(0, -1) : rawApiUrl;
 
 /**
+ * Safely parse JSON response, checking Content-Type and handling errors.
+ */
+async function safeJson<T = any>(response: Response): Promise<T> {
+  const contentType = response.headers.get('content-type');
+  
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text();
+    const snippet = text.slice(0, 100).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    throw new Error(`Resposta inválida do servidor (não é JSON). Status: ${response.status} ${response.statusText}. Início da resposta: ${snippet}...`);
+  }
+
+  try {
+    return await response.json();
+  } catch (err) {
+    throw new Error(`Erro ao processar dados (JSON inválido). Status: ${response.status}.`);
+  }
+}
+
+/**
  * Standard fetch wrapper with credentials and base URL
  */
 export async function apiFetch(path: string, options: RequestInit = {}) {
@@ -21,12 +40,15 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     },
   };
 
-  const response = await fetch(url, {
-    ...defaultOptions,
-    ...options,
-  });
-
-  return response;
+  try {
+    const response = await fetch(url, {
+      ...defaultOptions,
+      ...options,
+    });
+    return response;
+  } catch (err) {
+    throw new Error(`Erro de ligação ao servidor. Por favor, verifique a sua internet.`);
+  }
 }
 
 /**
@@ -35,10 +57,10 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 export async function apiGet<T = any>(path: string): Promise<T> {
   const response = await apiFetch(path, { method: 'GET' });
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `Request failed with status ${response.status}`);
+    const error = await safeJson(response).catch(() => ({ error: `Erro ${response.status}: ${response.statusText}` }));
+    throw new Error(error.error || `A requisição falhou com o status ${response.status}`);
   }
-  return response.json();
+  return safeJson<T>(response);
 }
 
 /**
@@ -50,10 +72,10 @@ export async function apiPost<T = any>(path: string, data?: any): Promise<T> {
     body: data ? JSON.stringify(data) : undefined,
   });
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `Request failed with status ${response.status}`);
+    const error = await safeJson(response).catch(() => ({ error: `Erro ${response.status}: ${response.statusText}` }));
+    throw new Error(error.error || `A requisição falhou com o status ${response.status}`);
   }
-  return response.json();
+  return safeJson<T>(response);
 }
 
 /**
@@ -65,10 +87,25 @@ export async function apiPatch<T = any>(path: string, data?: any): Promise<T> {
     body: data ? JSON.stringify(data) : undefined,
   });
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `Request failed with status ${response.status}`);
+    const error = await safeJson(response).catch(() => ({ error: `Erro ${response.status}: ${response.statusText}` }));
+    throw new Error(error.error || `A requisição falhou com o status ${response.status}`);
   }
-  return response.json();
+  return safeJson<T>(response);
+}
+
+/**
+ * Helper for PUT requests
+ */
+export async function apiPut<T = any>(path: string, data?: any): Promise<T> {
+  const response = await apiFetch(path, {
+    method: 'PUT',
+    body: data ? JSON.stringify(data) : undefined,
+  });
+  if (!response.ok) {
+    const error = await safeJson(response).catch(() => ({ error: `Erro ${response.status}: ${response.statusText}` }));
+    throw new Error(error.error || `A requisição falhou com o status ${response.status}`);
+  }
+  return safeJson<T>(response);
 }
 
 /**
@@ -77,8 +114,8 @@ export async function apiPatch<T = any>(path: string, data?: any): Promise<T> {
 export async function apiDelete<T = any>(path: string): Promise<T> {
   const response = await apiFetch(path, { method: 'DELETE' });
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `Request failed with status ${response.status}`);
+    const error = await safeJson(response).catch(() => ({ error: `Erro ${response.status}: ${response.statusText}` }));
+    throw new Error(error.error || `A requisição falhou com o status ${response.status}`);
   }
-  return response.json();
+  return safeJson<T>(response);
 }

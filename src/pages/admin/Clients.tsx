@@ -30,6 +30,7 @@ import { toast } from 'sonner';
 import { cn, extractArrayResponse } from '../../lib/utils';
 import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
 import { LoadingState, ErrorState } from '../../components/States';
+import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from '../../lib/api';
 
 interface Client {
   id: string;
@@ -74,31 +75,22 @@ export function AdminClients() {
     plan: 'starter' as const
   });
   const [processing, setProcessing] = useState(false);
-  const [trialDays, setTrialDays] = useState(3);
 
   const { logout } = useAdminAuth();
-  const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
 
   const fetchClients = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const res = await fetch(`${baseUrl}/api/admin/clients`, {
-        credentials: 'include'
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        const clientsData = extractArrayResponse<Client>(data, 'clients');
-        setClients(clientsData);
-      } else if (res.status === 401) {
-        await logout();
-      } else {
-        throw new Error('Falha ao carregar lista de clientes');
-      }
+      const data = await apiGet('/api/admin/clients');
+      const clientsData = extractArrayResponse<Client>(data, 'clients');
+      setClients(clientsData);
     } catch (err: any) {
       console.error('[ADMIN] Fetch clients failed:', err);
+      if (err.message && (err.message.includes('401') || err.message.includes('não autorizado'))) {
+        await logout();
+      }
       setError(err.message || 'Não foi possível carregar os clientes.');
     } finally {
       setLoading(false);
@@ -115,17 +107,7 @@ export function AdminClients() {
 
     try {
       setProcessing(true);
-      const response = await fetch(`${baseUrl}/api/admin/clients/trial`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newClient),
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || 'Falha ao criar cliente trial');
-      }
+      await apiPost('/api/admin/clients/trial', newClient);
 
       toast.success('Cliente Trial criado com sucesso!');
       await fetchClients();
@@ -144,17 +126,7 @@ export function AdminClients() {
 
     try {
       setProcessing(true);
-      const response = await fetch(`${baseUrl}/api/admin/clients/${editingClient.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingClient),
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || 'Falha ao atualizar cliente');
-      }
+      await apiPut(`/api/admin/clients/${editingClient.id}`, editingClient);
 
       toast.success('Cliente atualizado com sucesso!');
       await fetchClients();
@@ -171,74 +143,33 @@ export function AdminClients() {
     
     try {
       setProcessing(true);
-      const response = await fetch(`${baseUrl}/api/admin/clients/${id}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
-
-      if (!response.ok) throw new Error('Falha ao eliminar cliente');
+      await apiDelete(`/api/admin/clients/${id}`);
 
       toast.success('Cliente eliminado com sucesso.');
       await fetchClients();
-    } catch (err) {
-      toast.error('Erro ao eliminar cliente');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao eliminar cliente');
     } finally {
       setProcessing(false);
     }
   };
 
   const handleProlongTrial = async () => {
-    if (!prolongingClient) return;
-
-    const days = Number(trialDays);
-    if (!Number.isFinite(days) || days <= 0) {
-      toast.error('Número de dias inválido.');
-      return;
-    }
-
-    try {
-      setProcessing(true);
-
-      const response = await fetch(`${baseUrl}/api/admin/clients/${prolongingClient.id}/reactivate-trial`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ days }),
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || 'Falha ao reativar trial');
-      }
-
-      toast.success(`Trial atribuído por ${days} dias.`);
-      setIsProlongModalOpen(false);
-      setProlongingClient(null);
-      setTrialDays(3);
-      await fetchClients();
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao reativar trial');
-    } finally {
-      setProcessing(false);
-    }
+    // TODO: Backend endpoint /api/admin/clients/:id/prolong does not exist yet.
+    toast.info('Funcionalidade de prolongar trial aguarda implementação no backend.');
+    setIsProlongModalOpen(false);
+    setProlongingClient(null);
   };
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
     try {
-      const response = await fetch(`${baseUrl}/api/admin/clients/${id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-        credentials: 'include'
-      });
-
-      if (!response.ok) throw new Error('Falha ao atualizar estado');
+      await apiPatch(`/api/admin/clients/${id}/status`, { status: newStatus });
       
       toast.success(`Cliente ${newStatus === 'active' ? 'reativado' : 'suspenso'} com sucesso.`);
       setClients(prev => prev.map(c => c.id === id ? { ...c, status: newStatus as any } : c));
-    } catch (err) {
-      toast.error('Erro ao atualizar estado do cliente');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao atualizar estado do cliente');
     }
   };
 
@@ -246,41 +177,18 @@ export function AdminClients() {
     if (!confirm('Deseja ativar o modo de produção para este cliente? Isto criará uma instância dedicada.')) return;
     
     try {
-      const response = await fetch(`${baseUrl}/api/admin/clients/${id}/activate-production`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-
-      if (!response.ok) throw new Error('Falha ao ativar produção');
+      await apiPost(`/api/admin/clients/${id}/activate-production`);
       
       toast.success('Produção ativada! Instância dedicada em criação.');
       await fetchClients();
-    } catch (err) {
-      toast.error('Erro ao ativar produção');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao ativar produção');
     }
   };
 
   const handleSyncInstance = async (id: string) => {
-    try {
-      setProcessing(true);
-
-      const response = await fetch(`${baseUrl}/api/admin/clients/${id}/sync`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || 'Falha ao sincronizar instância');
-      }
-
-      toast.success('Instância sincronizada com sucesso.');
-      await fetchClients();
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao sincronizar instância');
-    } finally {
-      setProcessing(false);
-    }
+    // TODO: Backend endpoint /api/admin/clients/:id/sync not confirmed.
+    toast.info('Funcionalidade de sincronizar instância aguarda confirmação do backend.');
   };
 
   const copyToClipboard = (text: string) => {
@@ -456,41 +364,15 @@ export function AdminClients() {
                 <p className="text-sm text-slate-600 text-center">
                   Adicionar dias de teste para <span className="font-bold text-slate-900">{prolongingClient.company_name}</span>
                 </p>
-
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Dias de Trial</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={trialDays}
-                    onChange={(e) => setTrialDays(Number(e.target.value || 0))}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm font-bold"
-                  />
+                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
+                  <AlertCircle className="w-5 h-5 text-blue-500 shrink-0" />
+                  <p className="text-xs text-blue-700 font-medium">Esta funcionalidade aguarda suporte no backend.</p>
                 </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  {[3, 7, 14].map((days) => (
-                    <button
-                      key={days}
-                      type="button"
-                      onClick={() => setTrialDays(days)}
-                      className={`py-3 rounded-xl text-sm font-bold border transition-all ${
-                        trialDays === days
-                          ? 'bg-primary text-white border-primary'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      {days} dias
-                    </button>
-                  ))}
-                </div>
-
                 <button 
                   onClick={handleProlongTrial}
-                  disabled={processing}
-                  className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
                 >
-                  {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Aplicar Trial'}
+                  Fechar
                 </button>
               </div>
             </motion.div>

@@ -26,6 +26,8 @@ import { DataTable } from '../../components/app/DataTable';
 import { EmptyState } from '../../components/app/EmptyState';
 import { StatusBadge } from '../../components/app/StatusBadge';
 
+import { apiGet } from '../../lib/api';
+
 const Automations: React.FC = () => {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,15 +42,10 @@ const Automations: React.FC = () => {
   const fetchAutomations = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch('/api/client/automations');
-      const data = await res.json();
-      if (data.ok) {
-        setAutomations(data.automations);
-      } else {
-        toast.error('Erro ao carregar automações');
-      }
-    } catch (error) {
-      toast.error('Erro de ligação ao servidor');
+      const data = await apiGet('/api/client/automations');
+      setAutomations(data.automations || []);
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao carregar automações');
     } finally {
       setLoading(false);
     }

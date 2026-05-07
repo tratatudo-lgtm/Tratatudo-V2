@@ -17,10 +17,13 @@ import {
   Loader2
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { toast } from 'sonner';
 import { cn, extractObjectResponse } from '../../lib/utils';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { LoadingState, ErrorState } from '../../components/States';
+
+import { apiGet, apiPost } from '../../lib/api';
 
 interface InstanceData {
   instance_name: string;
@@ -47,53 +50,37 @@ export function Instance() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchInstanceData = async () => {
-    const endpoints = [
-      `${import.meta.env.VITE_API_URL}/api/client/instance`,
-      `${import.meta.env.VITE_API_URL}/api/instance`
-    ];
-    
-    let lastError = null;
-    
     try {
       setLoading(true);
-      for (const url of endpoints) {
-        console.log(`[APP] Fetching instance data: ${url}`);
-        try {
-          const res = await fetch(url, {
-            credentials: 'include'
-          });
-          
-          if (res.ok) {
-            const result = await res.json();
-            console.log(`[APP] Instance data received from ${url}:`, result);
-            
-            const instance = extractObjectResponse<InstanceData>(result, 'instance');
-            const stats = result.stats ? {
-              totalMessages: result.stats.totalMessages || result.stats.messages || ((result.stats.sentMessages || result.stats.messages_sent || 0) + (result.stats.receivedMessages || result.stats.messages_received || 0)),
-              sentMessages: result.stats.sentMessages || result.stats.messages_sent || 0,
-              receivedMessages: result.stats.receivedMessages || result.stats.messages_received || 0,
-              totalTickets: result.stats.totalTickets || result.stats.total_tickets || 0,
-              complaints: result.stats.complaints || 0
-            } : {
-              totalMessages: 0,
-              sentMessages: 0,
-              receivedMessages: 0,
-              totalTickets: 0,
-              complaints: 0
-            };
-            
-            setData({ instance, stats });
-            setLoading(false);
-            return;
-          }
-        } catch (e) {
-          lastError = e;
-        }
+      
+      // Try preferred endpoint first
+      let result;
+      try {
+        result = await apiGet('/api/client/instance');
+      } catch (e) {
+        // Fallback to alternative endpoint
+        result = await apiGet('/api/instance');
       }
-      throw lastError || new Error('Falha ao carregar dados da instância');
+      
+      const instance = extractObjectResponse<InstanceData>(result, 'instance');
+      const stats = result.stats ? {
+        totalMessages: result.stats.totalMessages || result.stats.messages || ((result.stats.sentMessages || result.stats.messages_sent || 0) + (result.stats.receivedMessages || result.stats.messages_received || 0)),
+        sentMessages: result.stats.sentMessages || result.stats.messages_sent || 0,
+        receivedMessages: result.stats.receivedMessages || result.stats.messages_received || 0,
+        totalTickets: result.stats.totalTickets || result.stats.total_tickets || 0,
+        complaints: result.stats.complaints || 0
+      } : {
+        totalMessages: 0,
+        sentMessages: 0,
+        receivedMessages: 0,
+        totalTickets: 0,
+        complaints: 0
+      };
+      
+      setData({ instance, stats });
     } catch (err: any) {
       console.error('[APP] Fetch instance data failed:', err);
-      setError(err.message || 'Erro desconhecido');
+      setError(err.message || 'Falha ao carregar dados da instância');
     } finally {
       setLoading(false);
     }
@@ -102,15 +89,11 @@ export function Instance() {
   const syncInstance = async () => {
     try {
       setSyncing(true);
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/client/instance/sync`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-      if (res.ok) {
-        await fetchInstanceData();
-      }
-    } catch (err) {
+      await apiPost('/api/client/instance/sync', {});
+      await fetchInstanceData();
+    } catch (err: any) {
       console.error('[APP] Sync failed:', err);
+      toast.error(err.message || 'Falha ao sincronizar instância');
     } finally {
       setSyncing(false);
     }

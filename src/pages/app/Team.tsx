@@ -25,6 +25,8 @@ import { AREA_CONFIG, ClientUser } from '../../types/hub';
 import { toast } from 'sonner';
 import { apiFetch } from '../../lib/api';
 
+import { apiGet } from '../../lib/api';
+
 const Team: React.FC = () => {
   const [users, setUsers] = useState<ClientUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,16 +43,11 @@ const Team: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch('/api/client/users');
-      const data = await res.json();
-      if (data.ok) {
-        setUsers(data.users);
-      } else {
-        toast.error('Erro ao carregar equipa');
-      }
-    } catch (error) {
+      const data = await apiGet('/api/client/users');
+      setUsers(data.users || []);
+    } catch (error: any) {
       console.error('Fetch error:', error);
-      toast.error('Erro de ligação ao servidor');
+      toast.error(error.message || 'Erro ao carregar equipa');
     } finally {
       setLoading(false);
     }

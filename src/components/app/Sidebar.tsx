@@ -121,16 +121,21 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
               const isActive = location.pathname === itemPath && 
                               (itemQuery ? location.search.includes(itemQuery) : location.search === '');
               return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative",
-                    isActive 
-                      ? "bg-primary text-white shadow-lg shadow-primary/20" 
-                      : "text-slate-600 hover:bg-slate-50 hover:text-primary"
-                  )}
-                >
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    onClick={() => {
+                      if (window.innerWidth < 1024) {
+                        setIsOpen(false);
+                      }
+                    }}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative",
+                      isActive 
+                        ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                        : "text-slate-600 hover:bg-slate-50 hover:text-primary"
+                    )}
+                  >
                   <item.icon className={cn(
                     "w-5 h-5 shrink-0",
                     isActive ? "text-white" : "group-hover:text-primary"

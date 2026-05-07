@@ -26,29 +26,12 @@ import {
   Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { AREA_CONFIG } from '../../types/hub';
+import { AREA_CONFIG, ClientProfile } from '../../types/hub';
 import { toast } from 'sonner';
-import { apiFetch, apiPost } from '../../lib/api';
+import { apiGet, apiPost } from '../../lib/api';
 import { cn } from '../../lib/utils';
-import { useAuth } from '../../lib/auth/AuthContext';
 
-// Tipo adaptado à resposta real da API
-interface ClientProfile {
-  id: number;
-  company_name: string;
-  contact_name: string | null;
-  email: string | null;
-  phone_e164: string | null;
-  nif: string | null;
-  address: string | null;
-  city: string | null;
-  postal_code: string | null;
-  country: string | null;
-  customer_type: string;
-  customer_score: number;
-  notes: string | null;
-  last_interaction_at: string | null;
-}
+import { useAuth } from '../../lib/auth/AuthContext';
 
 const Clients: React.FC = () => {
   const { can } = useAuth();
@@ -82,31 +65,11 @@ const Clients: React.FC = () => {
   const fetchProfiles = async () => {
     try {
       setLoading(true);
-      // CORRIGIDO: endpoint correto
-      const res = await apiFetch('/api/client/client-profiles');
-      const data = await res.json();
-      
-      // A API retorna array diretamente, não { ok, profiles }
-      if (Array.isArray(data)) {
-        // Mapear para o formato esperado pelo componente
-        const mapped = data.map((c: any) => ({
-          ...c,
-          contact_name: c.contact_name || c.company_name,
-          customer_type: c.customer_type || 'Lead',
-          customer_score: c.customer_score || 0,
-          last_interaction_at: c.last_interaction_at || c.updated_at || null,
-        }));
-        setProfiles(mapped);
-      } else if (data.ok && data.profiles) {
-        setProfiles(data.profiles);
-      } else {
-        toast.error('Formato de resposta inesperado');
-        setProfiles([]);
-      }
+      const data = await apiGet('/api/client/profiles');
+      setProfiles(data.profiles || []);
     } catch (error) {
       console.error('Fetch error:', error);
-      toast.error('Erro de ligação ao servidor');
-      setProfiles([]);
+      toast.error('Erro ao carregar clientes');
     } finally {
       setLoading(false);
     }
@@ -114,36 +77,30 @@ const Clients: React.FC = () => {
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.company_name || !formData.email) {
+    if (!formData.company_name || !formData.contact_name || !formData.email) {
       toast.error('Por favor preencha os campos obrigatórios');
       return;
     }
 
     try {
       setIsSubmitting(true);
-      // CORRIGIDO: endpoint correto
-      const res = await apiPost('/api/client/client-profiles', formData);
-      if (res.ok) {
-        toast.success('Cliente criado com sucesso!');
-        setIsAddingClient(false);
-        setFormData({
-          company_name: '',
-          contact_name: '',
-          email: '',
-          phone_e164: '',
-          nif: '',
-          address: '',
-          city: '',
-          postal_code: '',
-          country: 'Portugal',
-          customer_type: 'Lead',
-          notes: ''
-        });
-        fetchProfiles();
-      } else {
-        const errorData = await res.json().catch(() => ({}));
-        toast.error(errorData.error || 'Erro ao criar cliente');
-      }
+      await apiPost('/api/client/profiles', formData);
+      toast.success('Cliente criado com sucesso!');
+      setIsAddingClient(false);
+      setFormData({
+        company_name: '',
+        contact_name: '',
+        email: '',
+        phone_e164: '',
+        nif: '',
+        address: '',
+        city: '',
+        postal_code: '',
+        country: 'Portugal',
+        customer_type: 'Lead',
+        notes: ''
+      });
+      fetchProfiles();
     } catch (error: any) {
       toast.error(error.message || 'Erro ao criar cliente');
     } finally {
@@ -154,14 +111,14 @@ const Clients: React.FC = () => {
   const filteredProfiles = profiles.filter(p => {
     const query = searchQuery.toLowerCase();
     const matchesSearch = 
-      (p.company_name || '').toLowerCase().includes(query) ||
-      (p.contact_name || '').toLowerCase().includes(query) ||
-      (p.email || '').toLowerCase().includes(query) ||
-      (p.phone_e164 || '').includes(searchQuery) ||
-      (p.nif || '').includes(searchQuery);
-
+      p.company_name.toLowerCase().includes(query) ||
+      p.contact_name.toLowerCase().includes(query) ||
+      p.email.toLowerCase().includes(query) ||
+      p.phone_e164.includes(searchQuery) ||
+      (p.nif && p.nif.includes(searchQuery));
+    
     const matchesFilter = filterType === 'all' || p.customer_type === filterType;
-
+    
     return matchesSearch && matchesFilter;
   });
 
@@ -187,7 +144,7 @@ const Clients: React.FC = () => {
             <p className="text-slate-500 text-sm">Centralize e gira todos os seus contactos e histórico.</p>
           </div>
         </div>
-
+        
         {can('clients', 'create') && (
           <button 
             onClick={() => setIsAddingClient(true)}
@@ -239,7 +196,7 @@ const Clients: React.FC = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-
+        
         <div className="flex gap-2">
           <select 
             className="px-4 py-2.5 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-slate-600"
@@ -251,7 +208,7 @@ const Clients: React.FC = () => {
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
-
+          
           <button className="p-2.5 bg-slate-50 text-slate-500 rounded-xl hover:bg-slate-100 transition-all">
             <Filter size={20} />
           </button>
@@ -266,99 +223,153 @@ const Clients: React.FC = () => {
             <p className="text-slate-500 animate-pulse">A carregar clientes...</p>
           </div>
         ) : filteredProfiles.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/50 border-bottom border-slate-100">
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Contacto</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tipo / Score</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Última Interação</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {filteredProfiles.map((profile) => (
-                  <tr 
-                    key={profile.id} 
-                    className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
-                    onClick={() => navigate(`/app/clients/${profile.id}`)}
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">
-                          {(profile.company_name || 'C').substring(0, 2).toUpperCase()}
+          <>
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50 border-bottom border-slate-100">
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Contacto</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tipo / Score</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Última Interação</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredProfiles.map((profile) => (
+                    <tr 
+                      key={profile.id} 
+                      className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
+                      onClick={() => navigate(`/app/clients/${profile.id}`)}
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">
+                            {profile.company_name.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-slate-900">{profile.company_name}</div>
+                            <div className="text-xs text-slate-500">{profile.contact_name}</div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="font-semibold text-slate-900">{profile.company_name}</div>
-                          <div className="text-xs text-slate-500">{profile.contact_name || '-'}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        {profile.email && (
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="space-y-1">
                           <div className="flex items-center gap-1.5 text-sm text-slate-600">
                             <Mail size={14} className="text-slate-400" />
                             <span>{profile.email}</span>
                           </div>
-                        )}
-                        {profile.phone_e164 && (
                           <div className="flex items-center gap-1.5 text-sm text-slate-600">
                             <Phone size={14} className="text-slate-400" />
                             <span>{profile.phone_e164}</span>
                           </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1.5">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium w-fit ${
-                          profile.customer_type === 'Ativo' ? 'bg-emerald-100 text-emerald-700' :
-                          profile.customer_type === 'Lead' ? 'bg-blue-100 text-blue-700' :
-                          profile.customer_type === 'VIP' ? 'bg-purple-100 text-purple-700' :
-                          'bg-slate-100 text-slate-700'
-                        }`}>
-                          {profile.customer_type || 'Lead'}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-indigo-500" 
-                              style={{ width: `${(profile.customer_score || 0) * 10}%` }}
-                            />
-                          </div>
-                          <span className="text-[10px] font-bold text-slate-400">{profile.customer_score || 0}/10</span>
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1.5">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium w-fit ${
+                            profile.customer_type === 'Ativo' ? 'bg-emerald-100 text-emerald-700' :
+                            profile.customer_type === 'Lead' ? 'bg-blue-100 text-blue-700' :
+                            profile.customer_type === 'VIP' ? 'bg-purple-100 text-purple-700' :
+                            'bg-slate-100 text-slate-700'
+                          }`}>
+                            {profile.customer_type || 'N/A'}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-indigo-500" 
+                                style={{ width: `${(profile.customer_score || 0) * 10}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400">{profile.customer_score || 0}/10</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                          <Clock size={14} />
+                          <span>{profile.last_interaction_at ? new Date(profile.last_interaction_at).toLocaleDateString('pt-PT') : 'Sem registo'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/app/clients/${profile.id}`);
+                            }}
+                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                          >
+                            <ChevronRight size={20} />
+                          </button>
+                          <button className="p-2 text-slate-400 hover:text-slate-600 rounded-lg transition-all">
+                            <MoreVertical size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {filteredProfiles.map((profile) => (
+                <div 
+                  key={profile.id} 
+                  className="p-4 active:bg-slate-50 transition-colors space-y-3"
+                  onClick={() => navigate(`/app/clients/${profile.id}`)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">
+                        {profile.company_name.substring(0, 2).toUpperCase()}
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <Clock size={14} />
-                        <span>{profile.last_interaction_at ? new Date(profile.last_interaction_at).toLocaleDateString('pt-PT') : 'Sem registo'}</span>
+                      <div>
+                        <div className="font-semibold text-slate-900 text-sm">{profile.company_name}</div>
+                        <div className="text-[10px] text-slate-500">{profile.contact_name}</div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/app/clients/${profile.id}`);
-                          }}
-                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                        >
-                          <ChevronRight size={20} />
-                        </button>
-                        <button className="p-2 text-slate-400 hover:text-slate-600 rounded-lg transition-all">
-                          <MoreVertical size={18} />
-                        </button>
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                      profile.customer_type === 'Ativo' ? 'bg-emerald-100 text-emerald-700' :
+                      profile.customer_type === 'Lead' ? 'bg-blue-100 text-blue-700' :
+                      profile.customer_type === 'VIP' ? 'bg-purple-100 text-purple-700' :
+                      'bg-slate-100 text-slate-700'
+                    }`}>
+                      {profile.customer_type || 'N/A'}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-600 truncate">
+                      <Mail size={12} className="text-slate-400 shrink-0" />
+                      <span className="truncate">{profile.email}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-600 truncate">
+                      <Phone size={12} className="text-slate-400 shrink-0" />
+                      <span className="truncate">{profile.phone_e164}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-indigo-500" 
+                          style={{ width: `${(profile.customer_score || 0) * 10}%` }}
+                        />
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      <span className="text-[10px] font-bold text-slate-400">{profile.customer_score || 0}/10</span>
+                    </div>
+                    <ChevronRight size={16} className="text-slate-300" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         ) : (
           <div className="p-16 flex flex-col items-center justify-center text-center gap-4">
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
@@ -380,7 +391,7 @@ const Clients: React.FC = () => {
         )}
       </div>
 
-      {/* New Client Modal - mantido igual ao original */}
+      {/* New Client Modal */}
       <AnimatePresence>
         {isAddingClient && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -390,7 +401,6 @@ const Clients: React.FC = () => {
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200"
             >
-              {/* ... (o conteúdo do modal permanece igual ao original) ... */}
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                 <div className="flex items-center gap-3">
                   <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", config.bgLight, config.textMain)}>
@@ -411,6 +421,7 @@ const Clients: React.FC = () => {
 
               <form onSubmit={handleAddClient} className="p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Company Name */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       <Building2 size={14} className="text-slate-400" />
@@ -426,6 +437,7 @@ const Clients: React.FC = () => {
                     />
                   </div>
 
+                  {/* Contact Name */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       <User size={14} className="text-slate-400" />
@@ -441,6 +453,7 @@ const Clients: React.FC = () => {
                     />
                   </div>
 
+                  {/* Email */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       <Mail size={14} className="text-slate-400" />
@@ -456,6 +469,7 @@ const Clients: React.FC = () => {
                     />
                   </div>
 
+                  {/* Phone */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       <Phone size={14} className="text-slate-400" />
@@ -470,6 +484,7 @@ const Clients: React.FC = () => {
                     />
                   </div>
 
+                  {/* NIF */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       <CreditCard size={14} className="text-slate-400" />
@@ -484,6 +499,7 @@ const Clients: React.FC = () => {
                     />
                   </div>
 
+                  {/* Customer Type */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       <Tag size={14} className="text-slate-400" />
@@ -501,12 +517,13 @@ const Clients: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Address Section */}
                 <div className="space-y-4 pt-2">
                   <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                     <MapPin size={14} />
                     Morada e Localização
                   </h4>
-
+                  
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="md:col-span-3 space-y-1.5">
                       <label className="text-xs font-semibold text-slate-500">Morada Completa</label>
@@ -518,7 +535,7 @@ const Clients: React.FC = () => {
                         className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 transition-all outline-none text-sm"
                       />
                     </div>
-
+                    
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-500">Cidade</label>
                       <input
@@ -529,7 +546,7 @@ const Clients: React.FC = () => {
                         className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 transition-all outline-none text-sm"
                       />
                     </div>
-
+                    
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-500">Código Postal</label>
                       <input
@@ -540,7 +557,7 @@ const Clients: React.FC = () => {
                         className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 transition-all outline-none text-sm"
                       />
                     </div>
-
+                    
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-500">País</label>
                       <div className="relative">
@@ -556,6 +573,7 @@ const Clients: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Notes */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                     <FileText size={14} className="text-slate-400" />

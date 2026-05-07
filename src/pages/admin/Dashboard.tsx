@@ -40,6 +40,7 @@ import {
 import { cn, extractArrayResponse } from '../../lib/utils';
 import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
 import { LoadingState, ErrorState } from '../../components/States';
+import { apiGet } from '../../lib/api';
 
 interface DashboardStats {
   total_clients: number;
@@ -80,48 +81,32 @@ export function AdminDashboard() {
   const { logout } = useAdminAuth();
 
   const fetchDashboardData = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-    
     try {
       setLoading(true);
       setError(null);
       
       // Fetch Stats
-      const statsRes = await fetch(`${baseUrl}/api/admin/dashboard/stats`, {
-        credentials: 'include'
-      });
-      
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setStats(statsData);
-      } else if (statsRes.status === 401) {
-        await logout();
-      } else {
-        throw new Error('Falha ao carregar estatísticas do dashboard');
-      }
+      const statsData = await apiGet('/api/admin/dashboard/stats');
+      setStats(statsData);
 
       // Fetch Alerts
-      const alertsRes = await fetch(`${baseUrl}/api/admin/alerts`, {
-        credentials: 'include'
-      });
-      if (alertsRes.ok) {
-        const alertsData = await alertsRes.json();
+      try {
+        const alertsData = await apiGet('/api/admin/alerts');
         setAlerts(extractArrayResponse<AdminAlert>(alertsData, 'alerts'));
+      } catch (alertErr) {
+        console.warn('[ADMIN] Failed to fetch alerts:', alertErr);
       }
 
       // Fetch Recent Activity
-      const activityRes = await fetch(`${baseUrl}/api/admin/activity`, {
-        credentials: 'include'
-      });
-      if (activityRes.ok) {
-        const activityData = await activityRes.json();
-        setActivities(extractArrayResponse<RecentActivity>(activityData, 'activities'));
-      } else {
-        setActivities([]);
-      }
+      // TODO: Backend endpoint /api/admin/activity missing. 
+      // This is prepared in UI but requires backend implementation.
+      setActivities([]);
 
     } catch (err: any) {
       console.error('[ADMIN] Dashboard fetch failed:', err);
+      if (err.message && (err.message.includes('401') || err.message.includes('não autorizado'))) {
+        await logout();
+      }
       setError(err.message || 'Não foi possível carregar os dados do dashboard.');
     } finally {
       setLoading(false);

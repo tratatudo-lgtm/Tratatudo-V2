@@ -29,6 +29,8 @@ import { ActionButton } from '../../components/app/ActionButton';
 import { DataTable } from '../../components/app/DataTable';
 import { EmptyState } from '../../components/app/EmptyState';
 
+import { apiGet } from '../../lib/api';
+
 const FinancialDocuments: React.FC = () => {
   const [documents, setDocuments] = useState<FinancialDocument[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,15 +45,10 @@ const FinancialDocuments: React.FC = () => {
   const fetchDocuments = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch('/api/client/financial-documents');
-      const data = await res.json();
-      if (data.ok) {
-        setDocuments(data.documents);
-      } else {
-        toast.error('Erro ao carregar documentos financeiros');
-      }
-    } catch (error) {
-      toast.error('Erro de ligação ao servidor');
+      const data = await apiGet('/api/client/financial-documents');
+      setDocuments(data.documents);
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao carregar documentos financeiros');
     } finally {
       setLoading(false);
     }

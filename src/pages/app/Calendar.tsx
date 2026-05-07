@@ -28,6 +28,8 @@ import { ActionButton } from '../../components/app/ActionButton';
 import { DataTable } from '../../components/app/DataTable';
 import { EmptyState } from '../../components/app/EmptyState';
 
+import { apiGet } from '../../lib/api';
+
 const Calendar: React.FC = () => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,15 +43,10 @@ const Calendar: React.FC = () => {
   const fetchEvents = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch('/api/client/calendar-events');
-      const data = await res.json();
-      if (data.ok) {
-        setEvents(data.events);
-      } else {
-        toast.error('Erro ao carregar eventos');
-      }
-    } catch (error) {
-      toast.error('Erro de ligação ao servidor');
+      const data = await apiGet('/api/client/calendar-events');
+      setEvents(data.events);
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao carregar eventos');
     } finally {
       setLoading(false);
     }

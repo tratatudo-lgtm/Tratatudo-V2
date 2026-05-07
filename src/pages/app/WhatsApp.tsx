@@ -24,6 +24,8 @@ import { Conversation, WAMessage, ClientInstance, WhatsAppStats } from '../../ty
 import { toast } from 'sonner';
 import { apiFetch } from '../../lib/api';
 
+import { apiGet } from '../../lib/api';
+
 const WhatsApp: React.FC = () => {
   const { can } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -50,7 +52,9 @@ const WhatsApp: React.FC = () => {
   }, [selectedConversation]);
 
   useEffect(() => {
-    scrollToBottom();
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
   }, [messages]);
 
   const scrollToBottom = () => {
@@ -60,25 +64,19 @@ const WhatsApp: React.FC = () => {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
-      const [convRes, instRes, statsRes] = await Promise.all([
-        apiFetch('/api/client/whatsapp/conversations'),
-        apiFetch('/api/client/whatsapp/instances'),
-        apiFetch('/api/client/whatsapp/stats')
-      ]);
-
       const [convData, instData, statsData] = await Promise.all([
-        convRes.json(),
-        instRes.json(),
-        statsRes.json()
+        apiGet('/api/client/whatsapp/conversations'),
+        apiGet('/api/client/whatsapp/instances'),
+        apiGet('/api/client/whatsapp/stats')
       ]);
 
-      if (convData.ok) setConversations(convData.conversations);
-      if (instData.ok) setInstances(instData.instances);
-      if (statsData.ok) setStats(statsData.stats);
+      setConversations(convData.conversations || []);
+      setInstances(instData.instances || []);
+      setStats(statsData.stats);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching WhatsApp data:', error);
-      toast.error('Erro ao carregar dados do WhatsApp');
+      toast.error(error.message || 'Erro ao carregar dados do WhatsApp');
     } finally {
       setLoading(false);
     }
@@ -87,11 +85,8 @@ const WhatsApp: React.FC = () => {
   const fetchMessages = async (phone: string) => {
     try {
       setLoadingMessages(true);
-      const res = await apiFetch(`/api/client/whatsapp/conversations/${phone}/messages`);
-      const data = await res.json();
-      if (data.ok) {
-        setMessages(data.messages);
-      }
+      const data = await apiGet(`/api/client/whatsapp/conversations/${phone}/messages`);
+      setMessages(data.messages || []);
     } catch (error) {
       console.error('Error fetching messages:', error);
     } finally {

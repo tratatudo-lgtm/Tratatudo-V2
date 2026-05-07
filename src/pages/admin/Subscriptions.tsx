@@ -19,7 +19,8 @@ import {
 } from 'lucide-react';
 import { cn, extractArrayResponse } from '../../lib/utils';
 import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
-import { LoadingState, ErrorState, EmptyState } from '../../components/States';
+import { LoadingState, ErrorState } from '../../components/States';
+import { apiGet } from '../../lib/api';
 
 interface Subscription {
   id: string;
@@ -41,28 +42,18 @@ export function AdminSubscriptions() {
   const { logout } = useAdminAuth();
 
   const fetchSubscriptions = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-    const url = `${baseUrl}/api/admin/subscriptions`;
-    
     try {
       setLoading(true);
       setError(null);
       
-      const res = await fetch(url, {
-        credentials: 'include'
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        const subsData = extractArrayResponse<Subscription>(data, 'subscriptions');
-        setSubscriptions(subsData);
-      } else if (res.status === 401) {
-        await logout();
-      } else {
-        throw new Error('Falha ao carregar subscrições');
-      }
+      const data = await apiGet('/api/admin/subscriptions');
+      const subsData = extractArrayResponse<Subscription>(data, 'subscriptions');
+      setSubscriptions(subsData);
     } catch (err: any) {
       console.error('[ADMIN] Fetch subscriptions failed:', err);
+      if (err.message && (err.message.includes('401') || err.message.includes('não autorizado'))) {
+        await logout();
+      }
       setError(err.message || 'Não foi possível carregar as subscrições.');
     } finally {
       setLoading(false);

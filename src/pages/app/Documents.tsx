@@ -25,6 +25,8 @@ import { ActionButton } from '../../components/app/ActionButton';
 import { DataTable } from '../../components/app/DataTable';
 import { EmptyState } from '../../components/app/EmptyState';
 
+import { apiGet } from '../../lib/api';
+
 const Documents: React.FC = () => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,15 +41,10 @@ const Documents: React.FC = () => {
   const fetchDocuments = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch('/api/client/documents');
-      const data = await res.json();
-      if (data.ok) {
-        setDocuments(data.documents);
-      } else {
-        toast.error('Erro ao carregar documentos');
-      }
-    } catch (error) {
-      toast.error('Erro de ligação ao servidor');
+      const data = await apiGet('/api/client/documents');
+      setDocuments(data.documents);
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao carregar documentos');
     } finally {
       setLoading(false);
     }

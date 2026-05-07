@@ -26,6 +26,8 @@ import { toast } from 'sonner';
 import { HubTicket, TicketMessage, TicketActivity, AREA_CONFIG } from '../../types/hub';
 import { StatusBadge } from '../../components/app/StatusBadge';
 
+import { apiGet, apiPost } from '../../lib/api';
+
 const TicketDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -40,22 +42,18 @@ const TicketDetail: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [ticketRes, messagesRes, historyRes] = await Promise.all([
-        fetch(`/api/client/tickets/${id}`, { credentials: 'include' }),
-        fetch(`/api/client/tickets/${id}/messages`, { credentials: 'include' }),
-        fetch(`/api/client/tickets/${id}/history`, { credentials: 'include' })
+      const [ticketData, messagesData, historyData] = await Promise.all([
+        apiGet(`/api/client/tickets/${id}`),
+        apiGet(`/api/client/tickets/${id}/messages`),
+        apiGet(`/api/client/tickets/${id}/history`)
       ]);
 
-      const ticketData = await ticketRes.json();
-      const messagesData = await messagesRes.json();
-      const historyData = await historyRes.json();
-
-      if (ticketData.ok) setTicket(ticketData.ticket);
-      if (messagesData.ok) setMessages(messagesData.messages);
-      if (historyData.ok) setHistory(historyData.history);
-    } catch (error) {
+      setTicket(ticketData.ticket);
+      setMessages(messagesData.messages || []);
+      setHistory(historyData.history || []);
+    } catch (error: any) {
       console.error('Error fetching ticket detail:', error);
-      toast.error('Erro ao carregar detalhes do ticket');
+      toast.error(error.message || 'Erro ao carregar detalhes do ticket');
     } finally {
       setLoading(false);
     }

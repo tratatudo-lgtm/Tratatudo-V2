@@ -19,8 +19,9 @@ import {
   ArrowRight,
   Download
 } from 'lucide-react';
-import { cn, extractArrayResponse } from '../../lib/utils';
 import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
+import { cn, extractArrayResponse } from '../../lib/utils';
+import { apiGet } from '../../lib/api';
 
 interface SystemLog {
   id: string;
@@ -40,36 +41,26 @@ export function AdminLogs() {
 
   const { logout } = useAdminAuth();
 
-  useEffect(() => {
-    const fetchLogs = async () => {
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-      const url = `${baseUrl}/api/admin/logs`;
+  const fetchLogs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
       
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const response = await fetch(url, {
-          credentials: 'include'
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          const logsData = extractArrayResponse<SystemLog>(data, 'logs');
-          setLogs(logsData);
-        } else if (response.status === 401) {
-          await logout();
-        } else {
-          throw new Error('Falha ao carregar logs do sistema');
-        }
-      } catch (err: any) {
-        console.error('[ADMIN] Fetch logs failed:', err);
-        setError(err.message || 'Não foi possível carregar os logs.');
-      } finally {
-        setLoading(false);
+      const data = await apiGet('/api/admin/logs');
+      const logsData = extractArrayResponse<SystemLog>(data, 'logs');
+      setLogs(logsData);
+    } catch (err: any) {
+      console.error('[ADMIN] Fetch logs failed:', err);
+      if (err.message && (err.message.includes('401') || err.message.includes('não autorizado'))) {
+        await logout();
       }
-    };
+      setError(err.message || 'Não foi possível carregar os logs.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchLogs();
   }, []);
 

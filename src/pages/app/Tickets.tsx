@@ -24,7 +24,7 @@ import { FilterDropdown } from '../../components/app/FilterDropdown';
 import { ActionButton } from '../../components/app/ActionButton';
 import { DataTable } from '../../components/app/DataTable';
 import { EmptyState } from '../../components/app/EmptyState';
-import { apiFetch } from '../../lib/api';
+import { apiGet } from '../../lib/api';
 
 interface TicketStats {
   total: number;
@@ -63,16 +63,13 @@ const Tickets: React.FC = () => {
       if (categoryFilter !== 'all') queryParams.append('category', categoryFilter);
       if (search) queryParams.append('search', search);
 
-      const [ticketsRes, statsRes] = await Promise.all([
-        apiFetch(`/api/client/tickets?${queryParams.toString()}`),
-        apiFetch('/api/client/tickets/stats')
+      const [ticketsData, statsData] = await Promise.all([
+        apiGet(`/api/client/tickets?${queryParams.toString()}`),
+        apiGet('/api/client/tickets/stats')
       ]);
 
-      const ticketsData = await ticketsRes.json();
-      const statsData = await statsRes.json();
-
-      if (ticketsData.ok) setTickets(ticketsData.tickets);
-      if (statsData.ok) setStats(statsData.stats);
+      setTickets(ticketsData.tickets || []);
+      setStats(statsData.stats || null);
     } catch (error) {
       console.error('Error fetching tickets:', error);
       toast.error('Erro ao carregar tickets');
@@ -269,7 +266,7 @@ const Tickets: React.FC = () => {
         </div>
       </div>
 
-      {/* Data Table */}
+      {/* Data Table / Mobile Cards */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-12 flex flex-col items-center justify-center space-y-4">
@@ -277,10 +274,55 @@ const Tickets: React.FC = () => {
             <p className="text-slate-500 animate-pulse">A carregar tickets...</p>
           </div>
         ) : tickets.length > 0 ? (
-          <DataTable 
-            columns={columns} 
-            data={tickets} 
-          />
+          <>
+            {/* Desktop Table */}
+            <div className="hidden md:block">
+              <DataTable 
+                columns={columns} 
+                data={tickets} 
+              />
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {tickets.map((ticket) => (
+                <Link 
+                  key={ticket.id} 
+                  to={`/app/tickets/${ticket.id}`}
+                  className="p-4 active:bg-slate-50 transition-colors block space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">{ticket.tracking_code}</span>
+                      <span className="font-bold text-slate-900 text-sm line-clamp-1">{ticket.title}</span>
+                    </div>
+                    <StatusBadge status={ticket.status} />
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                    <div className="flex items-center gap-1.5">
+                      <User size={12} className="text-slate-400" />
+                      <span className="truncate max-w-[120px]">{ticket.client_name || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock size={12} className="text-slate-400" />
+                      <span>{new Date(ticket.created_at).toLocaleDateString('pt-PT')}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${getPriorityColor(ticket.priority)}`}>
+                      {ticket.priority}
+                    </span>
+                    <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                      <span>Ver detalhes</span>
+                      <ArrowRight size={12} />
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </>
         ) : (
           <EmptyState 
             icon={Ticket}

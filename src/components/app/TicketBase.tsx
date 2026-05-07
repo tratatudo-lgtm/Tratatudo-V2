@@ -20,7 +20,7 @@ import { LoadingState, ErrorState } from '../../components/States';
 import { toast } from 'sonner';
 import { OperationalArea, HubTicket, AREA_CONFIG } from '../../types/hub';
 import { usePermissions } from '../../lib/usePermissions';
-import { apiFetch, apiPost, apiPatch } from '../../lib/api';
+import { apiGet, apiPost, apiPatch } from '../../lib/api';
 
 interface Ticket extends HubTicket {}
 
@@ -218,13 +218,7 @@ export function TicketBase({ area }: { area: OperationalArea }) {
       if (kind) params.append('kind', kind);
       
       const url = `/api/client/tickets${params.toString() ? `?${params.toString()}` : ''}`;
-      const response = await apiFetch(url);
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || `Erro ${response.status}`);
-      }
-
+      const data = await apiGet(url);
       const rawTickets = extractArrayResponse<any>(data, 'tickets');
       setTickets(rawTickets.map(t => ({ ...t, type: area })));
     } catch (err: any) {
@@ -239,8 +233,7 @@ export function TicketBase({ area }: { area: OperationalArea }) {
     try {
       setLoadingMessages(true);
       setAnalysis(null);
-      const response = await apiFetch(`/api/client/tickets/${ticketId}/messages`);
-      const data = await response.json();
+      const data = await apiGet(`/api/client/tickets/${ticketId}/messages`);
       setMessages(extractArrayResponse<TicketMessage>(data, 'messages'));
     } catch (err: any) {
       console.error(`[HUB] Messages failed:`, err);
@@ -451,43 +444,72 @@ export function TicketBase({ area }: { area: OperationalArea }) {
 
       {/* List */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          {filteredTickets.length === 0 ? (
-            <div className="p-12 text-center text-slate-500">Nenhum registo encontrado.</div>
-          ) : (
-            <table className="w-full text-left min-w-[800px]">
-              <thead>
-                <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-widest">
-                  <th className="px-6 py-4">Código</th>
-                  <th className="px-6 py-4">Assunto</th>
-                  <th className="px-6 py-4">Estado</th>
-                  <th className="px-6 py-4">Prioridade</th>
-                  <th className="px-6 py-4 text-right">Ação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
-                {filteredTickets.map((req) => (
-                  <tr key={req.id} onClick={() => can('tickets', 'view') && setSelectedId(req.id)} className="hover:bg-slate-50 cursor-pointer transition-colors">
-                    <td className="px-6 py-4 font-mono font-bold text-slate-900">{req.tracking_code}</td>
-                    <td className="px-6 py-4 font-medium text-slate-700 truncate max-w-xs">{req.title}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className={cn("w-2 h-2 rounded-full", ['novo', 'nova', 'novo lead', 'aberto'].includes((req.status || '').toLowerCase()) ? "bg-blue-500" : "bg-orange-500")}></div>
-                        <span className="font-bold capitalize">{req.status}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded uppercase", req.priority === 'urgente' ? "bg-red-600 text-white" : "bg-slate-100 text-slate-600")}>
-                        {req.priority}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right"><ChevronRight className="w-4 h-4 ml-auto text-slate-300" /></td>
+        {filteredTickets.length === 0 ? (
+          <div className="p-12 text-center text-slate-500">Nenhum registo encontrado.</div>
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-widest">
+                    <th className="px-6 py-4">Código</th>
+                    <th className="px-6 py-4">Assunto</th>
+                    <th className="px-6 py-4">Estado</th>
+                    <th className="px-6 py-4">Prioridade</th>
+                    <th className="px-6 py-4 text-right">Ação</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {filteredTickets.map((req) => (
+                    <tr key={req.id} onClick={() => can('tickets', 'view') && setSelectedId(req.id)} className="hover:bg-slate-50 cursor-pointer transition-colors">
+                      <td className="px-6 py-4 font-mono font-bold text-slate-900">{req.tracking_code}</td>
+                      <td className="px-6 py-4 font-medium text-slate-700 truncate max-w-xs">{req.title}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className={cn("w-2 h-2 rounded-full", ['novo', 'nova', 'novo lead', 'aberto'].includes((req.status || '').toLowerCase()) ? "bg-blue-500" : "bg-orange-500")}></div>
+                          <span className="font-bold capitalize">{req.status}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded uppercase", req.priority === 'urgente' ? "bg-red-600 text-white" : "bg-slate-100 text-slate-600")}>
+                          {req.priority}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right"><ChevronRight className="w-4 h-4 ml-auto text-slate-300" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {filteredTickets.map((req) => (
+                <div 
+                  key={req.id} 
+                  onClick={() => can('tickets', 'view') && setSelectedId(req.id)}
+                  className="p-4 active:bg-slate-50 transition-colors space-y-3"
+                >
+                  <div className="flex justify-between items-start">
+                    <span className="font-mono font-bold text-slate-900 text-sm">{req.tracking_code}</span>
+                    <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded uppercase", req.priority === 'urgente' ? "bg-red-600 text-white" : "bg-slate-100 text-slate-600")}>
+                      {req.priority}
+                    </span>
+                  </div>
+                  <p className="font-medium text-slate-700 text-sm line-clamp-2">{req.title}</p>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <div className={cn("w-2 h-2 rounded-full", ['novo', 'nova', 'novo lead', 'aberto'].includes((req.status || '').toLowerCase()) ? "bg-blue-500" : "bg-orange-500")}></div>
+                      <span className="text-xs font-bold capitalize text-slate-600">{req.status}</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Detail Panel */}

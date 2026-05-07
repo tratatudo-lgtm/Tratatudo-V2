@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { apiFetch, apiPost, apiGet } from '../api';
 
 interface AdminUser {
   email: string;
@@ -23,20 +24,12 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshSession = useCallback(async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/session`, {
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.authenticated && data.email) {
-          setAdmin({ 
-            email: data.email,
-            role: data.role || 'admin'
-          });
-        } else {
-          setAdmin(null);
-        }
+      const data = await apiGet('/api/admin/auth/session');
+      if (data.authenticated && data.email) {
+        setAdmin({ 
+          email: data.email,
+          role: data.role || 'admin'
+        });
       } else {
         setAdmin(null);
       }
@@ -55,19 +48,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Erro ao iniciar sessão' }));
-        throw new Error(error.error || 'Erro ao iniciar sessão');
-      }
-
-      const data = await response.json();
+      const data = await apiPost('/api/admin/auth/login', { email, password });
       if (data.ok && data.email) {
         setAdmin({ 
           email: data.email,
@@ -86,23 +67,16 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/admin/auth/logout`, { 
-        method: 'POST',
-        credentials: 'include'
-      });
+      await apiPost('/api/admin/auth/logout');
       setAdmin(null);
     } catch (error) {
       console.error('Error signing out admin:', error);
+      setAdmin(null);
     }
   };
 
   const fetchWithAuth = useCallback(async (path: string, options: RequestInit = {}) => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-    const response = await fetch(`${baseUrl}${path}`, {
-      ...options,
-      credentials: 'include',
-    });
-    return response;
+    return apiFetch(path, options);
   }, []);
 
   return (

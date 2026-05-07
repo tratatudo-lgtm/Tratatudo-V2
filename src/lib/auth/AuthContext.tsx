@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 import { UserRole, PermissionAction, PermissionModule, ROLE_PERMISSIONS } from '../../types/hub';
+import { apiFetch, apiPost } from '../api';
 
 interface User {
   id: string;
@@ -8,6 +9,10 @@ interface User {
   client_id: string;
   company_name: string;
   role: UserRole;
+  is_global_admin?: boolean;
+  can_act_as_admin?: boolean;
+  can_act_as_client?: boolean;
+  can_access_restaurant_portal?: boolean;
   finePermissions?: { module: string; actions: string[] }[];
 }
 
@@ -44,26 +49,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const refreshSession = useCallback(async () => {
-    const url = `${import.meta.env.VITE_API_URL}/api/auth/session`;
-    
     try {
-      const response = await fetch(url, {
-        method: 'GET',
-        credentials: 'include'
-      });
+      const response = await apiFetch('/api/auth/session');
       
       if (response.ok) {
-        const data = await response.json();
-        if (data.authenticated) {
-          setUser({ 
-            id: data.userId,
-            phone_e164: data.phone_e164,
-            client_id: data.id,
-            company_name: data.company_name,
-            role: data.role || 'visualizador',
-            finePermissions: data.finePermissions || []
-          });
-          return true;
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          if (data.authenticated) {
+            setUser({ 
+              id: data.userId,
+              phone_e164: data.phone_e164,
+              client_id: data.clientId || data.id,
+              company_name: data.company_name,
+              role: data.role || 'visualizador',
+              is_global_admin: data.is_global_admin,
+              can_act_as_admin: data.can_act_as_admin,
+              can_act_as_client: data.can_act_as_client,
+              can_access_restaurant_portal: data.can_access_restaurant_portal,
+              finePermissions: data.finePermissions || []
+            });
+            return true;
+          }
         }
       }
       setUser(null);
@@ -83,13 +90,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, { 
-        method: 'POST',
-        credentials: 'include'
-      });
+      await apiPost('/api/auth/logout');
       setUser(null);
     } catch (error) {
       console.error('Error signing out:', error);
+      setUser(null);
     }
   };
 

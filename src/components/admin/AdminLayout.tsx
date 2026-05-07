@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -19,15 +19,6 @@ import {
 import { cn } from '../../lib/utils';
 import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
 
-interface AdminTopAlert {
-  id: string;
-  type: 'error' | 'warning' | 'info' | 'success';
-  title: string;
-  message: string;
-  created_at: string;
-  is_read?: boolean;
-}
-
 const navigation = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: 'Clientes', href: '/admin/clients', icon: Users },
@@ -40,39 +31,9 @@ const navigation = [
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [alertsOpen, setAlertsOpen] = useState(false);
-  const [alerts, setAlerts] = useState<AdminTopAlert[]>([]);
-  const [alertsLoading, setAlertsLoading] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { admin, logout } = useAdminAuth();
-
-  const fetchAlerts = async () => {
-    try {
-      setAlertsLoading(true);
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.tratatudo.pt';
-      const response = await fetch(`${baseUrl}/api/admin/alerts`, {
-        credentials: 'include'
-      });
-
-      if (response.status === 401) {
-        await logout();
-        return;
-      }
-
-      const result = await response.json().catch(() => ({}));
-      const nextAlerts = Array.isArray(result?.alerts) ? result.alerts : [];
-      setAlerts(nextAlerts);
-    } catch {
-      setAlerts([]);
-    } finally {
-      setAlertsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAlerts();
-  }, [location.pathname]);
 
   const handleLogout = async () => {
     await logout();
@@ -181,72 +142,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 relative">
-            <button
-              onClick={() => {
-                const next = !alertsOpen;
-                setAlertsOpen(next);
-                if (!alertsOpen) fetchAlerts();
-              }}
-              className="p-2.5 bg-slate-50 text-slate-600 rounded-xl border border-slate-200 hover:bg-slate-100 transition-colors relative"
-            >
+          <div className="flex items-center gap-3">
+            <button className="p-2.5 bg-slate-50 text-slate-600 rounded-xl border border-slate-200 hover:bg-slate-100 transition-colors relative">
               <Bell className="w-5 h-5" />
-              {alerts.length > 0 && (
-                <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white rounded-full border-2 border-white text-[9px] font-black flex items-center justify-center">
-                  {alerts.length > 9 ? '9+' : alerts.length}
-                </span>
-              )}
+              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
             </button>
-
-            {alertsOpen && (
-              <div className="absolute right-0 top-14 w-[320px] max-w-[85vw] bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-black text-slate-900">Notificações</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      {alerts.length} alerta(s)
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setAlertsOpen(false)}
-                    className="text-xs font-bold text-slate-400 hover:text-slate-900"
-                  >
-                    Fechar
-                  </button>
-                </div>
-
-                <div className="max-h-[420px] overflow-y-auto">
-                  {alertsLoading ? (
-                    <div className="p-6 text-sm text-slate-500">A carregar notificações...</div>
-                  ) : alerts.length === 0 ? (
-                    <div className="p-6 text-sm text-slate-500">Sem alertas ativos.</div>
-                  ) : (
-                    alerts.map((alert) => (
-                      <div key={alert.id} className="p-4 border-b border-slate-50 last:border-b-0">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-slate-900">{alert.title}</p>
-                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{alert.message}</p>
-                            <p className="text-[10px] font-bold text-slate-400 mt-2">
-                              {new Date(alert.created_at).toLocaleString('pt-PT', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </p>
-                          </div>
-                          <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-slate-100 text-slate-500 shrink-0">
-                            {alert.type}
-                          </span>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-
             <div className="h-10 w-px bg-slate-200 mx-2 hidden sm:block" />
             <div className="flex items-center gap-3">
               <div className="flex flex-col items-end hidden sm:flex">

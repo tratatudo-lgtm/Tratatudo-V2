@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { cn, extractArrayResponse } from '../../lib/utils';
 import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
 import { LoadingState, ErrorState } from '../../components/States';
+import { apiGet } from '../../lib/api';
 
 interface Message {
   id: string;
@@ -39,26 +40,21 @@ export function AdminMessages() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   
-  const { logout, fetchWithAuth } = useAdminAuth();
+  const { logout } = useAdminAuth();
 
   const fetchMessages = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const res = await fetchWithAuth('/api/admin/messages');
-      
-      if (res.ok) {
-        const data = await res.json();
-        const messagesData = extractArrayResponse<Message>(data);
-        setMessages(messagesData);
-      } else if (res.status === 401) {
-        await logout();
-      } else {
-        throw new Error('Falha ao carregar fluxo de mensagens');
-      }
+      const data = await apiGet('/api/admin/messages');
+      const messagesData = extractArrayResponse<Message>(data);
+      setMessages(messagesData);
     } catch (err: any) {
       console.error('[ADMIN] Fetch messages failed:', err);
+      if (err.message && (err.message.includes('401') || err.message.includes('não autorizado'))) {
+        await logout();
+      }
       setError(err.message || 'Não foi possível carregar as mensagens.');
     } finally {
       setLoading(false);

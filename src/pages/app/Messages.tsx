@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   Filter, 
@@ -21,6 +21,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { LoadingState, ErrorState, EmptyState } from '../../components/States';
+import { apiGet, apiPost } from '../../lib/api';
+import { toast } from 'sonner';
 
 interface Conversation {
   phone_e164: string;
@@ -51,89 +53,54 @@ export function Messages() {
   const [sending, setSending] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const [chatSummary, setChatSummary] = useState<any>(null);
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const clientId = user?.client_id;
 
-  const fetchConversations = useCallback(async () => {
-    const endpoints = [
-      `${import.meta.env.VITE_API_URL}/api/client/messages`,
-      `${import.meta.env.VITE_API_URL}/api/messages`,
-      `${import.meta.env.VITE_API_URL}/api/messages/conversations`
-    ];
-    
-    let lastError = null;
-    
+  const fetchConversations = async () => {
     try {
       setLoading(true);
-      for (const url of endpoints) {
-        console.log(`[APP] Fetching conversations: ${url}`);
-        try {
-          const res = await fetch(url, {
-            credentials: 'include'
-          });
-          
-          if (res.ok) {
-            const data = await res.json();
-            const extracted = extractArrayResponse<Conversation>(data, 'messages');
-            setConversations(extracted);
-            // Don't auto-select on mobile to keep list open
-            if (extracted.length > 0 && !selectedPhone && window.innerWidth > 1024) {
-              setSelectedPhone(extracted[0].phone_e164);
-            }
-            setLoading(false);
-            return;
-          }
-        } catch (e) {
-          lastError = e;
-        }
+      setError(null);
+      
+      // Try primary endpoint using robust helper
+      const data = await apiGet('/api/client/messages');
+      const extracted = extractArrayResponse<Conversation>(data, 'messages');
+      setConversations(extracted);
+      
+      // Don't auto-select on mobile to keep list open
+      if (extracted.length > 0 && !selectedPhone && window.innerWidth > 1024) {
+        setSelectedPhone(extracted[0].phone_e164);
       }
-      throw lastError || new Error('Falha ao carregar conversas');
     } catch (err: any) {
       console.error('[APP] Fetch conversations failed:', err);
-      setError(`MESSAGES: ${err?.message || 'Erro desconhecido'}`);
+      setError(err.message || 'Erro ao carregar conversas');
     } finally {
       setLoading(false);
     }
-  }, [selectedPhone]);
+  };
 
-  const fetchHistory = useCallback(async (phone: string) => {
-    const url = `${import.meta.env.VITE_API_URL}/api/client/messages/history/${encodeURIComponent(phone)}`;
-    console.log(`[APP] Fetching history for ${phone}: ${url}`);
+  const fetchHistory = async (phone: string) => {
     try {
       setLoadingHistory(true);
       setChatSummary(null); // Reset summary when changing conversation
-      const res = await fetch(url, {
-        credentials: 'include'
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || errorData.error || 'Falha ao carregar histórico');
-      }
-      const data = await res.json();
+      const data = await apiGet(`/api/client/messages/history/${encodeURIComponent(phone)}`);
       setHistory(extractArrayResponse<Message>(data, 'messages'));
     } catch (err: any) {
       console.error(`[APP] Fetch history failed for ${phone}:`, err);
+      toast.error('Falha ao carregar histórico');
     } finally {
       setLoadingHistory(false);
     }
-  }, []);
+  };
 
   const summarizeChat = async () => {
     if (!selectedPhone || summarizing) return;
     try {
       setSummarizing(true);
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/client/ai/summarize-chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: selectedPhone }),
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setChatSummary(data);
-      }
+      const data = await apiPost('/api/client/ai/summarize-chat', { phone: selectedPhone });
+      setChatSummary(data);
     } catch (err) {
       console.error("[APP] Chat summary failed:", err);
+      toast.error('Falha ao resumir conversa');
     } finally {
       setSummarizing(false);
     }
@@ -145,53 +112,26 @@ export function Messages() {
 
     try {
       setSending(true);
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/client/messages/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: selectedPhone, text: newMessage }),
-        credentials: 'include'
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Falha ao enviar mensagem');
-      }
-
-      const data = await res.json();
+      const data = await apiPost('/api/client/messages/send', { phone: selectedPhone, text: newMessage });
       setHistory(prev => [...prev, data.message]);
       setNewMessage('');
     } catch (err: any) {
       console.error('[APP] Send message failed:', err);
-      alert(err.message);
+      toast.error(err.message || 'Falha ao enviar mensagem');
     } finally {
       setSending(false);
     }
   };
 
   useEffect(() => {
-    if (authLoading || !user) return;
-    setError(null);
     fetchConversations();
-
-    const interval = window.setInterval(() => {
-      fetchConversations();
-    }, 8000);
-
-    return () => window.clearInterval(interval);
-  }, [authLoading, user?.client_id, fetchConversations]);
+  }, []);
 
   useEffect(() => {
-    if (authLoading || !user) return;
-    if (!selectedPhone) return;
-
-    fetchHistory(selectedPhone);
-
-    const interval = window.setInterval(() => {
+    if (selectedPhone) {
       fetchHistory(selectedPhone);
-    }, 5000);
-
-    return () => window.clearInterval(interval);
-  }, [authLoading, user?.client_id, selectedPhone, fetchHistory]);
+    }
+  }, [selectedPhone]);
 
   useEffect(() => {
     if (!clientId) return;

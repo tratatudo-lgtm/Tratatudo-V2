@@ -17,8 +17,6 @@ import { NotificationProvider } from './components/NotificationProvider';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { AdminLogin } from './pages/admin/Login';
-import { TestAPI } from './pages/TestAPI';
-import { TestToken } from './pages/TestToken';   // <-- NOVA IMPORTAÇÃO
 
 // App Pages
 import { Dashboard } from './pages/app/Dashboard';
@@ -59,7 +57,19 @@ import { AdminInstances } from './pages/admin/Instances';
 import { AdminTickets } from './pages/admin/Tickets';
 import { AdminMessages } from './pages/admin/Messages';
 import { AdminSubscriptions } from './pages/admin/Subscriptions';
-import { AdminLogs } from './pages/admin/Logs';
+
+// Restaurant Portal Pages
+import { RestaurantLayout } from './components/restaurant/RestaurantLayout';
+import { RestaurantProtectedRoute } from './components/restaurant/RestaurantProtectedRoute';
+import { RestaurantDashboard } from './pages/restaurant/Dashboard';
+import { RestaurantOrders } from './pages/restaurant/Orders';
+import { RestaurantReservations } from './pages/restaurant/Reservations';
+import { RestaurantConversations } from './pages/restaurant/Conversations';
+import { RestaurantCustomers } from './pages/restaurant/Customers';
+import { RestaurantMenu } from './pages/restaurant/Menu';
+import { RestaurantPayments } from './pages/restaurant/Payments';
+import { RestaurantComplaints } from './pages/restaurant/Complaints';
+import { RestaurantSettings } from './pages/restaurant/Settings';
 
 // Error Boundary
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
@@ -120,8 +130,6 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/test" element={<TestAPI />} />
-                <Route path="/test-token" element={<TestToken />} />   {/* <-- NOVA ROTA */}
 
                 {/* App Routes (Client Hub) */}
                 <Route 
@@ -165,6 +173,29 @@ function App() {
                   <Route path="settings" element={<ProtectedRoute module="settings"><Settings /></ProtectedRoute>} />
                 </Route>
 
+                {/* Restaurant Portal Routes */}
+                <Route 
+                  path="/app/restaurant" 
+                  element={
+                    <RestaurantProtectedRoute>
+                      <RestaurantLayout>
+                        <Outlet />
+                      </RestaurantLayout>
+                    </RestaurantProtectedRoute>
+                  }
+                >
+                  <Route index element={<Navigate to="dashboard" replace />} />
+                  <Route path="dashboard" element={<RestaurantDashboard />} />
+                  <Route path="orders" element={<RestaurantOrders />} />
+                  <Route path="reservations" element={<RestaurantReservations />} />
+                  <Route path="conversations" element={<RestaurantConversations />} />
+                  <Route path="customers" element={<RestaurantCustomers />} />
+                  <Route path="menu" element={<RestaurantMenu />} />
+                  <Route path="payments" element={<RestaurantPayments />} />
+                  <Route path="tickets" element={<RestaurantComplaints />} />
+                  <Route path="settings" element={<RestaurantSettings />} />
+                </Route>
+
                 {/* Admin Routes */}
                 <Route 
                   path="/admin" 
@@ -183,7 +214,6 @@ function App() {
                   <Route path="tickets" element={<AdminTickets />} />
                   <Route path="messages" element={<AdminMessages />} />
                   <Route path="subscriptions" element={<AdminSubscriptions />} />
-                  <Route path="logs" element={<AdminLogs />} />
                 </Route>
 
                 {/* Fallback */}

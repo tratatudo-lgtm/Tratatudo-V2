@@ -95,7 +95,8 @@ export type PermissionModule =
   | 'tickets' 
   | 'whatsapp' 
   | 'billing' 
-  | 'settings';
+  | 'settings'
+  | 'restaurant';
 
 export type PermissionMap = Partial<Record<PermissionModule, PermissionAction[]>>;
 
@@ -128,7 +129,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionMap> = {
     tickets: ['view', 'create', 'edit', 'delete', 'assign', 'manage'],
     whatsapp: ['view', 'create', 'manage'],
     billing: ['view', 'manage'],
-    settings: ['view', 'manage']
+    settings: ['view', 'manage'],
+    restaurant: ['view', 'manage']
   },
   gestor: {
     dashboard: ['view'],
@@ -143,7 +145,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionMap> = {
     tickets: ['view', 'create', 'edit', 'assign'],
     whatsapp: ['view', 'create'],
     billing: ['view'],
-    settings: ['view']
+    settings: ['view'],
+    restaurant: ['view']
   },
   operador: {
     dashboard: ['view'],

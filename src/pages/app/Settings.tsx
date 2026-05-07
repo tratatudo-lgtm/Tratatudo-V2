@@ -21,8 +21,9 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { cn, extractObjectResponse } from '../../lib/utils';
-import { LoadingState, ErrorState } from '../../components/States';
+import { apiGet, apiPatch } from '../../lib/api';
+import { cn } from '../../lib/utils';
+import { LoadingState } from '../../components/States';
 
 interface ClientSettings {
   client_id: string;
@@ -46,46 +47,20 @@ export function Settings() {
   });
 
   const fetchSettings = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || '';
-    const endpoints = [
-      `${baseUrl}/api/client/settings`,
-      `${baseUrl}/api/settings`
-    ];
-    
-    let lastError = null;
-    
     try {
       setLoading(true);
-      for (const url of endpoints) {
-        console.log(`[APP] Fetching client settings: ${url}`);
-        try {
-          const res = await fetch(url, {
-            credentials: 'include'
-          });
-          
-          if (res.ok) {
-            const result = await res.json();
-            console.log(`[APP] Client settings received from ${url}:`, result);
-            
-            const data = extractObjectResponse<ClientSettings>(result, 'settings');
-            if (data) {
-              setSettings(data);
-              setFormData({
-                company_name: data.company_name || '',
-                bot_instructions: data.bot_instructions || ''
-              });
-              setLoading(false);
-              return;
-            }
-          }
-        } catch (e) {
-          lastError = e;
-        }
+      const data = await apiGet('/api/client/settings');
+      
+      if (data.settings) {
+        setSettings(data.settings);
+        setFormData({
+          company_name: data.settings.company_name || '',
+          bot_instructions: data.settings.bot_instructions || ''
+        });
       }
-      throw lastError || new Error('Falha ao carregar definições');
     } catch (err: any) {
       console.error('[APP] Fetch client settings failed:', err);
-      setError(err.message || 'Erro desconhecido');
+      setError(err.message || 'Erro ao carregar definições');
     } finally {
       setLoading(false);
     }
@@ -96,39 +71,25 @@ export function Settings() {
   }, []);
 
   const handleSave = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || '';
-    const url = `${baseUrl}/api/client/settings`;
-    console.log(`[APP] Saving client settings: ${url}`);
     try {
       setSaving(true);
       setError(null);
       setSuccess(false);
 
-      const res = await fetch(url, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company_name: formData.company_name,
-          bot_instructions: formData.bot_instructions
-        }),
-        credentials: 'include'
+      const data = await apiPatch('/api/client/settings', {
+        company_name: formData.company_name,
+        bot_instructions: formData.bot_instructions
       });
 
-      console.log(`[APP] Save client settings status: ${res.status}`);
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || errorData.error || 'Falha ao guardar alterações');
+      if (data.settings) {
+        setSettings(data.settings);
       }
-      
-      const result = await res.json();
-      const updated = extractObjectResponse<ClientSettings>(result, 'settings') || result;
-      setSettings(updated);
       setSuccess(true);
       
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
       console.error('[APP] Save client settings failed:', err);
-      setError(err.message || 'Erro desconhecido');
+      setError(err.message || 'Erro ao guardar alterações');
     } finally {
       setSaving(false);
     }
@@ -150,31 +111,33 @@ export function Settings() {
   return (
     <div className="space-y-8 pb-20">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold text-slate-900">Definições</h1>
           <p className="text-slate-500 text-sm">Gira as configurações da tua conta e personaliza o comportamento do teu bot.</p>
         </div>
         
-        {success && (
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl border border-emerald-100 flex items-center gap-2 text-sm font-bold"
-          >
-            <Check className="w-4 h-4" /> Guardado com sucesso
-          </motion.div>
-        )}
+        <div className="flex flex-col sm:flex-row gap-3">
+          {success && (
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl border border-emerald-100 flex items-center gap-2 text-sm font-bold"
+            >
+              <Check className="w-4 h-4" /> Guardado com sucesso
+            </motion.div>
+          )}
 
-        {error && (
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-red-50 text-red-600 px-4 py-2 rounded-xl border border-red-100 flex items-center gap-2 text-sm font-bold"
-          >
-            <AlertCircle className="w-4 h-4" /> {error}
-          </motion.div>
-        )}
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="bg-red-50 text-red-600 px-4 py-2 rounded-xl border border-red-100 flex items-center gap-2 text-sm font-bold"
+            >
+              <AlertCircle className="w-4 h-4" /> {error}
+            </motion.div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

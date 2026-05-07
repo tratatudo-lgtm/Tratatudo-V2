@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ClientProfile, AREA_CONFIG } from '../../types/hub';
-import { apiFetch, apiPatch } from '../../lib/api';
+import { apiGet, apiPatch } from '../../lib/api';
 import { toast } from 'sonner';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { cn } from '../../lib/utils';
@@ -60,19 +60,14 @@ const ClientDetail: React.FC = () => {
   const fetchClientData = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch(`/api/client/profiles/${id}`);
-      const data = await res.json();
-      if (data.ok) {
-        setProfile(data.profile);
-        setStats(data.stats);
-        setEditData(data.profile);
-      } else {
-        toast.error('Erro ao carregar dados do cliente');
-        navigate('/app/clients');
-      }
-    } catch (error) {
+      const data = await apiGet(`/api/client/profiles/${id}`);
+      setProfile(data.profile);
+      setStats(data.stats);
+      setEditData(data.profile);
+    } catch (error: any) {
       console.error('Fetch error:', error);
-      toast.error('Erro de ligação ao servidor');
+      toast.error(error.message || 'Erro ao carregar dados do cliente');
+      navigate('/app/clients');
     } finally {
       setLoading(false);
     }
@@ -82,17 +77,12 @@ const ClientDetail: React.FC = () => {
     if (!id) return;
     try {
       setIsSaving(true);
-      const res = await apiPatch(`/api/client/profiles/${id}`, editData);
-      const data = await res.json();
-      if (data.ok) {
-        setProfile(data.profile);
-        setIsEditing(false);
-        toast.success('Dados atualizados com sucesso');
-      } else {
-        toast.error(data.error || 'Erro ao atualizar dados');
-      }
-    } catch (error) {
-      toast.error('Erro ao guardar alterações');
+      const data = await apiPatch(`/api/client/profiles/${id}`, editData);
+      setProfile(data.profile);
+      setIsEditing(false);
+      toast.success('Dados atualizados com sucesso');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao guardar alterações');
     } finally {
       setIsSaving(false);
     }
@@ -270,7 +260,8 @@ const TabTickets: React.FC<{ tickets: any[]; kind: string }> = ({ tickets, kind 
 
   return (
     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
+      {/* Desktop View */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/50 border-b border-slate-100">
@@ -325,6 +316,48 @@ const TabTickets: React.FC<{ tickets: any[]; kind: string }> = ({ tickets, kind 
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile View */}
+      <div className="md:hidden divide-y divide-slate-50">
+        {tickets.map((ticket) => (
+          <div key={ticket.id} className="p-4 space-y-3">
+            <div className="flex justify-between items-start">
+              <span className="font-mono text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                {ticket.tracking_code}
+              </span>
+              <span className="text-[10px] text-slate-400 font-bold">
+                {new Date(ticket.created_at).toLocaleDateString('pt-PT')}
+              </span>
+            </div>
+            <div>
+              <div className="font-bold text-slate-900 text-sm">{ticket.title}</div>
+              <div className="text-xs text-slate-500">{ticket.category}</div>
+            </div>
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-600">
+                  {ticket.status}
+                </span>
+                <span className={cn(
+                  "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider",
+                  ticket.priority === 'urgente' ? 'bg-rose-100 text-rose-700' :
+                  ticket.priority === 'alta' ? 'bg-orange-100 text-orange-700' :
+                  ticket.priority === 'média' ? 'bg-blue-100 text-blue-700' :
+                  'bg-slate-100 text-slate-600'
+                )}>
+                  {ticket.priority}
+                </span>
+              </div>
+              <button 
+                onClick={() => navigate(`/app/tickets/${ticket.id}`)}
+                className="flex items-center gap-1 text-indigo-600 text-xs font-bold"
+              >
+                Ver <ExternalLink size={14} />
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
