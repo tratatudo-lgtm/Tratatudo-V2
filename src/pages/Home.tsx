@@ -1,5 +1,5 @@
-import React from 'react';
-import { motion } from 'motion/react';
+import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowRight, 
   CheckCircle2, 
@@ -23,513 +23,611 @@ import {
   Search,
   Settings,
   Layers,
-  Bot
+  Bot,
+  ChevronDown,
+  Star,
+  Quote,
+  Activity,
+  Send,
+  PieChart,
+  Smartphone as Phone,
+  Globe,
+  Rocket,
+  Shield,
+  Coins
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Header } from '../components/Header';
-import { Footer } from '../components/Footer';
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true },
-  transition: { duration: 0.5 }
+  transition: { duration: 0.6 }
 };
 
-const staggerContainer = {
-  initial: {},
-  whileInView: {
-    transition: {
-      staggerChildren: 0.1
-    }
-  },
-  viewport: { once: true }
-};
+const GlowEffect = ({ color = "indigo" }: { color?: string }) => (
+  <div className={`absolute -z-10 w-[500px] h-[500px] bg-${color}-500/20 blur-[120px] rounded-full pointer-events-none`} />
+);
 
 export function Home() {
+  const [isWhiteLabelMode, setIsWhiteLabelMode] = useState(false);
+  const [faqOpen, setFaqOpen] = useState<number | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('modo') === 'wl') {
+      setIsWhiteLabelMode(true);
+    }
+  }, []);
+
+  const toggleFaq = (index: number) => {
+    setFaqOpen(faqOpen === index ? null : index);
+  };
+
   return (
-    <div className="overflow-hidden bg-white">
-      {/* 1. HERO SECTION */}
-      <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(45%_40%_at_50%_50%,rgba(37,99,235,0.08)_0%,transparent_100%)]" />
-        <div className="container mx-auto px-4">
-          <div className="max-w-5xl mx-auto text-center space-y-8">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-bold border border-primary/20"
-            >
-              <Brain className="w-4 h-4" />
-              <span>Plataforma de Gestão Inteligente com IA</span>
-            </motion.div>
-            
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.6 }}
-              className="text-5xl lg:text-7xl font-display font-extrabold text-slate-900 leading-[1.1] tracking-tight"
-            >
-              O sistema que organiza a sua empresa e <span className="text-primary">automatiza clientes com IA</span>
-            </motion.h1>
-            
-            <motion.p 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.6 }}
-              className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed"
-            >
-              CRM, WhatsApp, tarefas, documentos, financeiro e inteligência artificial — tudo numa única plataforma para escalar a sua operação sem aumentar a equipa.
-            </motion.p>
-            
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.6 }}
-              className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
-            >
-              <Link
-                to="/experimentar"
-                className="w-full sm:w-auto bg-primary text-white px-10 py-5 rounded-full text-lg font-bold hover:bg-primary-dark transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-2 group"
-              >
-                Testar grátis
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
-              <Link
-                to="/contacto"
-                className="w-full sm:w-auto bg-white text-slate-900 border border-slate-200 px-10 py-5 rounded-full text-lg font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
-              >
-                Ver demonstração
-              </Link>
-            </motion.div>
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white overflow-hidden">
+      
+      {/* --- HERO SECTION --- */}
+      <section id="hero" className="relative pt-32 pb-20 px-4 overflow-hidden">
+        {/* Background Glows */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2">
+          <GlowEffect color="indigo" />
+        </div>
+        <div className="absolute top-1/4 -right-1/4">
+          <GlowEffect color="purple" />
+        </div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 0.8 }}
-              className="pt-16 relative"
+        <div className="max-w-7xl mx-auto flex flex-col items-center text-center">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="inline-flex items-center gap-2 bg-slate-900/50 border border-slate-800 px-4 py-1.5 rounded-full text-xs text-indigo-400 mb-8 backdrop-blur-md"
+          >
+            <div className="flex gap-0.5 text-amber-400">
+              {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 fill-current" />)}
+            </div>
+            <span className="font-medium">+500 Empresas Ativas no TrataTudo</span>
+          </motion.div>
+
+          <motion.h1 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight max-w-5xl leading-[1.1] mb-8"
+          >
+            <span className="bg-gradient-to-b from-white via-white to-slate-400 bg-clip-text text-transparent">
+              {isWhiteLabelMode ? (
+                "Tenha o Seu Próprio Software SaaS em 24h"
+              ) : (
+                "Centralize, Automatize e Fature Mais"
+              )}
+            </span>
+            <br />
+            <span className="text-white drop-shadow-[0_0_15px_rgba(99,102,241,0.3)]">
+              {isWhiteLabelMode ? (
+                "Lucre com a Sua Própria Marca"
+              ) : (
+                "Gira o seu Negócio com IA"
+              )}
+            </span>
+          </motion.h1>
+
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+            className="text-lg md:text-xl text-slate-400 max-w-3xl leading-relaxed mb-12"
+          >
+            {isWhiteLabelMode ? (
+              "Esqueça os custos com programadores. Receba uma plataforma de CRM e Automação de WhatsApp robusta, pronta a revender com o seu logótipo e domínio."
+            ) : (
+              "Organize clientes, automatize o atendimento via WhatsApp e delegue tarefas para a nossa IA. A solução completa para PMEs que querem escala e eficiência real."
+            )}
+          </motion.p>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+            className="flex flex-col sm:flex-row gap-4 w-full max-w-md sm:max-w-none justify-center px-4 mb-20"
+          >
+            <a
+              href="https://wa.me/923364360?text=Quero%20testar%20a%20plataforma%20TrataTudo"
+              target="_blank"
+              rel="noreferrer"
+              className="group relative inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-10 py-5 rounded-2xl transition-all duration-300 shadow-[0_0_20px_rgba(79,70,229,0.4)] overflow-hidden"
             >
-              <div className="absolute -inset-4 bg-primary/5 blur-3xl rounded-full -z-10" />
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-slate-200 bg-white p-2">
-                <img 
-                  src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=1200&h=800" 
-                  alt="Dashboard TrataTudo AI" 
-                  className="rounded-2xl w-full"
-                  referrerPolicy="no-referrer"
-                />
-                
-                {/* Floating elements to show integration */}
-                <div className="absolute top-10 left-10 hidden lg:flex flex-col gap-3">
-                  <div className="bg-white p-4 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-3 animate-bounce" style={{ animationDuration: '3s' }}>
-                    <div className="w-10 h-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center">
-                      <MessageCircle className="w-6 h-6" />
+              <span className="relative z-10 flex flex-col items-center">
+                <span>Começar Teste Grátis</span>
+                <span className="text-[10px] opacity-70 font-normal uppercase tracking-wider">Sem cartão de crédito</span>
+              </span>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+            </a>
+            <button
+              onClick={() => {
+                setIsWhiteLabelMode(!isWhiteLabelMode);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="inline-flex items-center justify-center bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold px-10 py-5 rounded-2xl border border-slate-700 transition-all duration-300"
+            >
+              {isWhiteLabelMode ? "Ver Recursos para PMEs" : "Quero Criar a Minha Marca SaaS"}
+            </button>
+          </motion.div>
+
+          {/* DASHBOARD SIMULATION */}
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 1 }}
+            className="relative w-full max-w-5xl mx-auto mt-10 md:mt-20"
+          >
+            <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-3xl blur opacity-20" />
+            <div className="relative bg-slate-900/80 backdrop-blur-2xl border border-slate-800 rounded-2xl p-4 md:p-8 shadow-2xl overflow-hidden aspect-[16/9] md:aspect-auto text-left">
+              <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-red-500" />
+                  <div className="w-3 h-3 rounded-full bg-amber-500" />
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                </div>
+                <div className="hidden md:flex items-center gap-6 text-xs text-slate-500 font-medium">
+                  <span>Dashboard</span>
+                  <span>CRM</span>
+                  <span>WhatsApp</span>
+                  <span>IA</span>
+                </div>
+                <div className="w-20 h-2 bg-slate-800 rounded-full" />
+              </div>
+              
+              <div className="grid grid-cols-12 gap-4 md:gap-6">
+                <div className="col-span-12 md:col-span-4 space-y-4">
+                  <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 h-32 flex flex-col justify-between">
+                    <div className="flex justify-between items-start">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                        <TrendingUp className="w-4 h-4" />
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-400 tracking-tight">+24%</span>
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-slate-900">Nova Mensagem</p>
-                      <p className="text-[10px] text-slate-500">IA a responder...</p>
+                      <div className="text-2xl font-bold">1,280€</div>
+                      <div className="text-[10px] text-slate-500">Vendas hoje via WhatsApp</div>
+                    </div>
+                  </div>
+                  <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 h-32 flex flex-col justify-between">
+                    <div className="flex justify-between items-start">
+                      <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400">
+                        <Bot className="w-4 h-4" />
+                      </div>
+                      <span className="text-[10px] font-bold text-indigo-400 tracking-tight">Active</span>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold">98</div>
+                      <div className="text-[10px] text-slate-500">Leads Qualificados pela IA</div>
                     </div>
                   </div>
                 </div>
-
-                <div className="absolute bottom-10 right-10 hidden lg:flex flex-col gap-3">
-                  <div className="bg-white p-4 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-3 animate-bounce" style={{ animationDuration: '4s' }}>
-                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">
-                      <LayoutDashboard className="w-6 h-6" />
+                <div className="col-span-12 md:col-span-8">
+                  <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50 h-full">
+                    <div className="flex justify-between items-center mb-6">
+                      <h4 className="text-xs font-bold text-slate-300">Fluxo de Mensagens</h4>
+                      <div className="flex gap-2">
+                        <div className="w-8 h-4 bg-indigo-500/20 rounded border border-indigo-500/50" />
+                        <div className="w-8 h-4 bg-slate-700 rounded" />
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-900">CRM Atualizado</p>
-                      <p className="text-[10px] text-slate-500">Lead qualificada</p>
+                    <div className="flex items-end justify-between h-40 gap-1 md:gap-3">
+                      {[40, 70, 45, 90, 65, 80, 50, 75, 100, 60, 85, 45].map((h, i) => (
+                        <motion.div 
+                          key={i}
+                          initial={{ height: 0 }}
+                          animate={{ height: `${h}%` }}
+                          transition={{ delay: 0.5 + (i * 0.05), duration: 1 }}
+                          className={`flex-1 rounded-t-sm ${i === 8 ? 'bg-indigo-500' : 'bg-slate-700 opacity-50'}`}
+                        />
+                      ))}
                     </div>
                   </div>
                 </div>
               </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
 
-      {/* 2. SECÇÃO PROBLEMA */}
-      <section className="py-24 bg-slate-50">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center space-y-6 mb-16">
-            <h2 className="text-4xl lg:text-5xl font-display font-bold text-slate-900 leading-tight">
-              A maioria das empresas perde clientes todos os dias
-            </h2>
-            <p className="text-xl text-slate-600">
-              O caos operacional é o maior inimigo do crescimento.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              { title: "Mensagens sem resposta", desc: "Clientes que esperam horas ou dias acabam por comprar à concorrência." },
-              { title: "Clientes esquecidos", desc: "Sem um CRM ativo, as oportunidades de negócio perdem-se no histórico do WhatsApp." },
-              { title: "Pedidos perdidos", desc: "Informação espalhada por cadernos, emails e conversas que ninguém encontra." },
-              { title: "Falta de organização", desc: "Equipas que não sabem quem está a tratar de quê, gerando confusão e erros." },
-              { title: "Follow-up inexistente", desc: "A falta de acompanhamento sistemático faz com que 80% das vendas não se concretizem." },
-              { title: "Processos espalhados", desc: "Várias ferramentas que não comunicam entre si, duplicando o trabalho manual." }
-            ].map((item, i) => (
-              <motion.div
-                key={i}
-                {...fadeIn}
-                transition={{ delay: i * 0.1 }}
-                className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all"
+              {/* Floating Chat Bubble */}
+              <motion.div 
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 3, repeat: Infinity }}
+                className="absolute right-10 top-20 hidden lg:flex bg-white text-slate-900 border border-slate-200 p-3 rounded-2xl shadow-2xl items-start gap-3 w-64"
               >
-                <div className="w-10 h-10 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
-                  <X className="w-6 h-6" />
+                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white shrink-0">
+                  <MessageCircle className="w-4 h-4" />
                 </div>
-                <h4 className="text-xl font-bold text-slate-900 mb-2">{item.title}</h4>
-                <p className="text-slate-600 text-sm leading-relaxed">{item.desc}</p>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold">Cliente: "Quero agendar!"</p>
+                  <p className="text-[10px] text-slate-500">IA TrataTudo: "Claro! Tenho 15:00 ou 16:30 disponível. Qual prefere?"</p>
+                </div>
               </motion.div>
-            ))}
-          </div>
-
-          <div className="mt-16 text-center">
-            <p className="text-3xl font-display font-bold text-slate-900 italic">
-              “Não é falta de clientes. <span className="text-primary">É falta de sistema.</span>”
-            </p>
-          </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* 3. SECÇÃO SOLUÇÃO */}
-      <section className="py-24">
-        <div className="container mx-auto px-4">
-          <div className="text-center max-w-3xl mx-auto mb-20 space-y-4">
-            <h2 className="text-primary font-bold uppercase tracking-widest text-sm">A Solução</h2>
-            <h3 className="text-4xl lg:text-5xl font-display font-bold text-slate-900">O TrataTudo AI resolve tudo num único sistema</h3>
-            <p className="text-slate-600 text-lg">Uma plataforma completa que centraliza a sua operação e automatiza o crescimento.</p>
+      {/* --- PROBLEM SECTION --- */}
+      <section id="problema" className="py-24 px-4 relative overflow-hidden">
+        <div className="absolute top-1/2 left-0 -translate-y-1/2">
+           <GlowEffect color="red" />
+        </div>
+        
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <motion.h2 
+              {...fadeIn}
+              className="text-3xl md:text-5xl font-bold text-white mb-6 leading-tight"
+            >
+              Sente que o seu negócio está a crescer, mas a sua organização ficou para trás?
+            </motion.h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                icon: <MessageCircle className="w-8 h-8" />,
-                title: "WhatsApp Inteligente",
-                desc: "Atendimento automático 24/7 com IA que entende o contexto e qualifica leads em tempo real."
+                title: "Caos no WhatsApp",
+                desc: "Leads perdidos em conversas infinitas, falta de histórico e equipas de vendas perdidas sem saber quem atender agora.",
+                tag: "leads perdidos"
               },
               {
-                icon: <LayoutDashboard className="w-8 h-8" />,
-                title: "CRM e Gestão de Clientes",
-                desc: "Ficha completa de cada cliente com histórico, scoring de risco e ações recomendadas automaticamente."
+                title: "Gestão de Retalhos",
+                desc: "Usa uma app para tarefas, um Excel para financeiro e o papel para notas. Nada comunica entre si e a conta não bate.",
+                tag: "erro humano"
               },
               {
-                icon: <Users className="w-8 h-8" />,
-                title: "Tarefas e Equipa",
-                desc: "Gestão de equipa multi-agente com atribuição de tarefas, prazos e acompanhamento de produtividade."
-              },
-              {
-                icon: <FileText className="w-8 h-8" />,
-                title: "Documentos e Organização",
-                desc: "Arquivo digital centralizado e organizado por cliente, acessível de qualquer lugar com segurança."
-              },
-              {
-                icon: <CreditCard className="w-8 h-8" />,
-                title: "Financeiro e Controlo",
-                desc: "Gestão de faturas, pagamentos e cobranças integrada no fluxo de trabalho diário."
-              },
-              {
-                icon: <Zap className="w-8 h-8" />,
-                title: "IA Operacional e Automação",
-                desc: "Automações que disparam ações baseadas no comportamento do cliente, recuperando vendas perdidas."
+                title: "Fadiga Operacional",
+                desc: "Perde horas todos os dias em tarefas repetitivas que poderiam ser facilmente automatizadas por Inteligência Artificial.",
+                tag: "tempo perdido"
               }
-            ].map((feat, i) => (
+            ].map((item, idx) => (
               <motion.div
-                key={i}
+                key={idx}
+                whileHover={{ scale: 1.02 }}
                 {...fadeIn}
-                transition={{ delay: i * 0.1 }}
-                className="bg-white p-8 rounded-3xl border border-slate-100 hover:border-primary/20 hover:shadow-xl transition-all group"
+                transition={{ delay: idx * 0.1 }}
+                className="group p-8 rounded-3xl bg-slate-900/50 backdrop-blur-md border border-slate-800/80 hover:border-slate-700 transition-all duration-300"
               >
-                <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center text-primary mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
-                  {feat.icon}
+                <div className="w-12 h-12 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <AlertTriangle className="w-6 h-6" />
                 </div>
-                <h4 className="text-xl font-bold text-slate-900 mb-4">{feat.title}</h4>
-                <p className="text-slate-600 leading-relaxed">{feat.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 4. SECÇÃO COMO FUNCIONA */}
-      <section className="py-24 bg-slate-900 text-white overflow-hidden relative">
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(37,99,235,0.1),transparent_70%)]" />
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center max-w-3xl mx-auto mb-20 space-y-4">
-            <h2 className="text-primary font-bold uppercase tracking-widest text-sm">Fluxo Inteligente</h2>
-            <h3 className="text-4xl lg:text-5xl font-display font-bold">Como a magia acontece</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-            {[
-              { step: "01", title: "O cliente envia uma mensagem", desc: "Seja por WhatsApp ou formulário, o TrataTudo capta o contacto instantaneamente." },
-              { step: "02", title: "O sistema responde ou regista", desc: "A IA analisa a intenção e responde ou cria um ticket de atendimento automático." },
-              { step: "03", title: "O pedido entra no dashboard", desc: "Toda a informação é organizada e atribuída ao departamento ou agente correto." },
-              { step: "04", title: "A IA analisa o contexto", desc: "O sistema identifica se é uma venda, uma reclamação ou um cliente em risco." },
-              { step: "05", title: "O sistema sugere ação", desc: "Recebe notificações inteligentes com o que deve fazer para fechar o negócio." },
-              { step: "06", title: "Resolva em 1 clique", desc: "A empresa resolve o pedido ou contacta o cliente diretamente pela plataforma." }
-            ].map((item, i) => (
-              <motion.div
-                key={i}
-                {...fadeIn}
-                transition={{ delay: i * 0.1 }}
-                className="relative p-8 bg-white/5 rounded-3xl border border-white/10 hover:bg-white/10 transition-all"
-              >
-                <div className="text-5xl font-display font-black text-primary/20 mb-4">{item.step}</div>
-                <h4 className="text-xl font-bold mb-2">{item.title}</h4>
-                <p className="text-slate-400 text-sm leading-relaxed">{item.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 5. SECÇÃO FUNCIONALIDADES PREMIUM */}
-      <section className="py-24">
-        <div className="container mx-auto px-4">
-          <div className="text-center max-w-3xl mx-auto mb-20 space-y-4">
-            <h2 className="text-primary font-bold uppercase tracking-widest text-sm">Funcionalidades</h2>
-            <h3 className="text-4xl lg:text-5xl font-display font-bold text-slate-900">Tudo o que a sua empresa precisa</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: <LayoutDashboard />, title: "CRM Completo", desc: "Gestão total de leads e clientes." },
-              { icon: <MessageCircle />, title: "WhatsApp Integrado", desc: "Central de mensagens multi-agente." },
-              { icon: <CheckCircle2 />, title: "Gestão de Tickets", desc: "Pedidos, reclamações e vendas." },
-              { icon: <CheckSquare />, title: "Tarefas e Calendário", desc: "Organização de equipa e prazos." },
-              { icon: <FileText />, title: "Documentos e Arquivos", desc: "Gestão documental inteligente." },
-              { icon: <CreditCard />, title: "Financeiro", desc: "Controlo de faturas e pagamentos." },
-              { icon: <Zap />, title: "Automações", desc: "Fluxos de trabalho automáticos." },
-              { icon: <Brain />, title: "IA por Cliente", desc: "Análise individual de comportamento." },
-              { icon: <AlertTriangle />, title: "Clientes em Risco", desc: "Alertas de churn e inatividade." },
-              { icon: <TrendingUp />, title: "Scoring e Ação", desc: "Priorização inteligente de contactos." },
-              { icon: <RefreshCw />, title: "Recuperação Automática", desc: "Follow-up inteligente sem esforço." },
-              { icon: <ShieldCheck />, title: "Segurança Enterprise", desc: "Dados protegidos e RGPD." }
-            ].map((item, i) => (
-              <motion.div
-                key={i}
-                {...fadeIn}
-                transition={{ delay: i * 0.05 }}
-                className="p-6 rounded-2xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-lg transition-all"
-              >
-                <div className="text-primary mb-4">{item.icon}</div>
-                <h4 className="font-bold text-slate-900 mb-2">{item.title}</h4>
-                <p className="text-xs text-slate-600">{item.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 6. SECÇÃO RESULTADOS */}
-      <section className="py-24 bg-primary text-white">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div className="space-y-8">
-              <h2 className="text-4xl lg:text-6xl font-display font-bold leading-tight">Resultados reais para a sua operação</h2>
-              <p className="text-xl text-white/80 leading-relaxed">
-                O TrataTudo não é apenas software. É uma vantagem competitiva que transforma a forma como a sua empresa trabalha.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                {[
-                  { label: "Trabalho Manual", value: "-70%", desc: "Redução em tarefas repetitivas." },
-                  { label: "Velocidade", value: "Instantânea", desc: "Respostas imediatas com IA." },
-                  { label: "Receita Protegida", value: "+40%", desc: "Recuperação de clientes inativos." },
-                  { label: "Controlo Total", value: "100%", desc: "Visibilidade sobre toda a equipa." }
-                ].map((stat, i) => (
-                  <div key={i} className="space-y-2">
-                    <p className="text-4xl font-display font-black">{stat.value}</p>
-                    <p className="font-bold">{stat.label}</p>
-                    <p className="text-sm text-white/60">{stat.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="relative">
-              <div className="absolute -inset-4 bg-white/10 blur-3xl rounded-full" />
-              <div className="relative bg-white/10 backdrop-blur-md p-8 rounded-[2rem] border border-white/20 space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-primary font-bold">TT</div>
-                  <div>
-                    <p className="font-bold">IA TrataTudo</p>
-                    <p className="text-xs text-white/60">Ação recomendada agora</p>
-                  </div>
-                </div>
-                <p className="text-lg italic">
-                  “Detetei 3 clientes que não compram há 30 dias. Sugiro enviar campanha de recuperação automática.”
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  {item.title}
+                </h3>
+                <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                  {item.desc}
                 </p>
-                <button className="w-full py-4 bg-white text-primary rounded-xl font-bold hover:bg-slate-50 transition-all">
-                  Executar Automação
-                </button>
-              </div>
-            </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-red-400 opacity-60">#{item.tag}</span>
+              </motion.div>
+            ))}
           </div>
+          
+          <motion.div 
+            {...fadeIn}
+            className="mt-16 text-center"
+          >
+            <p className="text-indigo-400 font-semibold text-lg flex items-center justify-center gap-2">
+              <Zap className="w-5 h-5 fill-current" />
+              A Solução: A TrataTudo foi criada para eliminar o "ruído".
+            </p>
+          </motion.div>
         </div>
       </section>
 
-      {/* 7. SECÇÃO PARA QUEM É */}
-      <section className="py-24">
-        <div className="container mx-auto px-4">
-          <div className="text-center max-w-3xl mx-auto mb-20 space-y-4">
-            <h2 className="text-primary font-bold uppercase tracking-widest text-sm">Segmentos</h2>
-            <h3 className="text-4xl lg:text-5xl font-display font-bold text-slate-900">Soluções para quem quer crescer</h3>
+      {/* --- BENEFITS SECTION --- */}
+      <section id="beneficios" className="py-24 px-4 bg-slate-950 relative border-y border-slate-900">
+        <div className="absolute bottom-0 right-0">
+          <GlowEffect color="indigo" />
+        </div>
+
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center max-w-2xl mx-auto mb-20">
+            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">Tudo o que precisa para dominar o seu mercado</h2>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
-              { icon: <Building2 />, name: "Empresas Locais" },
-              { icon: <Users />, name: "Restaurantes" },
-              { icon: <Zap />, name: "Postos de Combustível" },
-              { icon: <ShieldCheck />, name: "Clínicas" },
-              { icon: <Smartphone />, name: "Serviços" },
-              { icon: <Building2 />, name: "Juntas de Freguesia" },
-              { icon: <LayoutDashboard />, name: "PME" },
-              { icon: <Globe />, name: "E-commerce" }
-            ].map((item, i) => (
+              {
+                icon: <Send className="w-6 h-6 text-indigo-400" />,
+                title: "Vendas Automáticas",
+                desc: "Integre o seu WhatsApp e crie fluxos inteligentes que qualificam leads 24h por dia, 7 dias por semana."
+              },
+              {
+                icon: <Users className="w-6 h-6 text-purple-400" />,
+                title: "Visão 360º",
+                desc: "CRM completo com histórico, documentos e tarefas associadas a cada perfil num único dashboard unificado."
+              },
+              {
+                icon: <Bot className="w-6 h-6 text-cyan-400" />,
+                title: "IA Inteligente",
+                desc: "Resumos automáticos de conversas, sugestões de resposta em tempo real e análise de sentimentos inteligente."
+              },
+              {
+                icon: <CreditCard className="w-6 h-6 text-emerald-400" />,
+                title: "Financeiro Blindado",
+                desc: "Emissão de documentos, controlo de pagamentos e fluxos de caixa integrados na mesma interface de trabalho."
+              }
+            ].map((benefit, idx) => (
               <motion.div
-                key={i}
-                {...fadeIn}
-                transition={{ delay: i * 0.05 }}
-                className="flex flex-col items-center text-center gap-4 p-8 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-xl transition-all"
+                key={idx}
+                whileHover={{ y: -5 }}
+                className="p-8 rounded-3xl bg-slate-900/30 border border-slate-800/50 hover:bg-slate-900/50 transition-all duration-300"
               >
-                <div className="text-primary">{item.icon}</div>
-                <p className="font-bold text-slate-900">{item.name}</p>
+                <div className="mb-6">{benefit.icon}</div>
+                <h3 className="text-lg font-bold text-white mb-3 tracking-tight">{benefit.title}</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">{benefit.desc}</p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* 8. SECÇÃO PLANOS / PREÇOS */}
-      <section className="py-24 bg-slate-50">
-        <div className="container mx-auto px-4">
-          <div className="text-center max-w-3xl mx-auto mb-20 space-y-4">
-            <h2 className="text-primary font-bold uppercase tracking-widest text-sm">Preços</h2>
-            <h3 className="text-4xl lg:text-5xl font-display font-bold text-slate-900">O investimento que se paga sozinho</h3>
+      {/* --- HOW IT WORKS --- */}
+      <section id="como-funciona" className="py-24 px-4 overflow-hidden text-center">
+        <div className="max-w-6xl mx-auto text-center">
+          <div className="text-center mb-20">
+            <h2 className="text-3xl md:text-5xl font-bold text-white">O Caminho Mais Curto Para a Eficiência</h2>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {/* Starter */}
-            <motion.div {...fadeIn} className="bg-white p-10 rounded-[2rem] border border-slate-200 flex flex-col">
-              <div className="mb-8">
-                <h4 className="text-xl font-bold text-slate-900 mb-2">Starter</h4>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-display font-black text-slate-900">149€</span>
-                  <span className="text-slate-500 text-sm">/mês</span>
+          
+          <div className="grid md:grid-cols-3 gap-12 relative">
+            {/* Connection Line */}
+            <div className="hidden md:block absolute top-12 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+            
+            {[
+              {
+                step: "01",
+                title: "Ligue o seu Ecossistema",
+                desc: "Conecte o seu WhatsApp comercial e importe os seus contactos em segundos.",
+                icon: <Smartphone className="w-6 h-6" />
+              },
+              {
+                step: "02",
+                title: "Configure o seu Fluxo",
+                desc: "Defina as regras de automação, crie tarefas para a equipa e ative o assistente de IA.",
+                icon: <Settings className="w-6 h-6" />
+              },
+              {
+                step: "03",
+                title: "Escale com Dados",
+                desc: "Acompanhe o desempenho em tempo real e deixe a TrataTudo gerir os processos chatos.",
+                icon: <BarChart3 className="w-6 h-6" />
+              }
+            ].map((step, idx) => (
+              <motion.div
+                key={idx}
+                {...fadeIn}
+                transition={{ delay: idx * 0.2 }}
+                className="relative flex flex-col items-center text-center"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center font-black text-xl mb-6 relative z-10">
+                  {step.icon}
                 </div>
-                <p className="text-slate-500 text-sm mt-4 italic">Para começar a organizar.</p>
-              </div>
-              <ul className="space-y-4 mb-10 flex-grow">
-                {["WhatsApp Integrado", "CRM Base", "Gestão de Clientes", "1 Operador", "Suporte Email"].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 text-sm text-slate-600">
-                    <CheckCircle2 className="w-5 h-5 text-green-500" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <Link to="/experimentar" className="w-full py-4 border border-slate-200 rounded-xl font-bold text-slate-900 hover:bg-slate-50 transition-all text-center">
-                Começar Agora
-              </Link>
-            </motion.div>
-
-            {/* Pro */}
-            <motion.div {...fadeIn} transition={{ delay: 0.1 }} className="bg-slate-900 p-10 rounded-[2rem] border-4 border-primary flex flex-col relative scale-105 shadow-2xl">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
-                Recomendado
-              </div>
-              <div className="mb-8">
-                <h4 className="text-xl font-bold text-white mb-2">Pro</h4>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-display font-black text-white">249€</span>
-                  <span className="text-slate-400 text-sm">/mês</span>
-                </div>
-                <p className="text-slate-400 text-sm mt-4 italic">Poder total com IA.</p>
-              </div>
-              <ul className="space-y-4 mb-10 flex-grow">
-                {["Tudo do Starter", "IA Operacional", "Automações Avançadas", "Dashboard Completo", "Clientes em Risco", "Até 5 Operadores", "Suporte Prioritário"].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 text-sm text-slate-300">
-                    <CheckCircle2 className="w-5 h-5 text-primary" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <Link to="/experimentar" className="w-full py-4 bg-primary text-white rounded-xl font-bold hover:bg-primary-dark transition-all text-center shadow-lg shadow-primary/20">
-                Escolher Plano Pro
-              </Link>
-            </motion.div>
-
-            {/* Enterprise */}
-            <motion.div {...fadeIn} transition={{ delay: 0.2 }} className="bg-white p-10 rounded-[2rem] border border-slate-200 flex flex-col">
-              <div className="mb-8">
-                <h4 className="text-xl font-bold text-slate-900 mb-2">Enterprise</h4>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-display font-black text-slate-900">Sob consulta</span>
-                </div>
-                <p className="text-slate-500 text-sm mt-4 italic">Soluções à medida.</p>
-              </div>
-              <ul className="space-y-4 mb-10 flex-grow">
-                {["Tudo do Pro", "Solução Personalizada", "Integrações via API", "Suporte Dedicado 24/7", "Operadores Ilimitados", "Formação de Equipa"].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 text-sm text-slate-600">
-                    <CheckCircle2 className="w-5 h-5 text-green-500" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <Link to="/contacto" className="w-full py-4 border border-slate-200 rounded-xl font-bold text-slate-900 hover:bg-slate-50 transition-all text-center">
-                Contactar Vendas
-              </Link>
-            </motion.div>
+                <h3 className="text-xl font-bold text-white mb-3">{step.title}</h3>
+                <p className="text-slate-400 text-sm leading-relaxed max-w-xs">{step.desc}</p>
+                <div className="mt-4 text-[40px] font-black text-slate-800/30 select-none">{step.step}</div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* 9. CALL TO ACTION FINAL */}
-      <section className="py-24">
-        <div className="container mx-auto px-4">
-          <div className="bg-primary rounded-[3rem] p-12 lg:p-24 text-center text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-96 h-96 bg-black/10 rounded-full blur-3xl" />
-            
-            <div className="relative z-10 max-w-4xl mx-auto space-y-8">
-              <h2 className="text-4xl lg:text-6xl font-display font-extrabold">
-                Comece hoje a organizar a sua empresa e recuperar clientes automaticamente
-              </h2>
-              <p className="text-xl text-white/80">
-                Junte-se a centenas de empresas que já escalaram a sua operação com o TrataTudo AI.
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link
-                  to="/experimentar"
-                  className="w-full sm:w-auto bg-white text-primary px-10 py-5 rounded-full text-xl font-bold hover:bg-slate-50 transition-all shadow-2xl"
-                >
-                  Testar grátis
-                </Link>
-                <Link
-                  to="/contacto"
-                  className="w-full sm:w-auto bg-primary-dark text-white border border-white/20 px-10 py-5 rounded-full text-xl font-bold hover:bg-primary/80 transition-all"
-                >
-                  Pedir demonstração
-                </Link>
+      {/* --- WHITE LABEL SECTION --- */}
+      <section id="white-label" className="relative py-24 px-4 overflow-hidden bg-indigo-950/20 border-y border-indigo-500/10">
+        <div className="absolute inset-0 z-0">
+          <GlowEffect color="indigo" />
+        </div>
+        
+        <div className="max-w-5xl mx-auto text-center relative z-10">
+          <motion.div {...fadeIn}>
+            <span className="inline-block bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-black px-4 py-1 rounded-full uppercase tracking-[0.2em] mb-6">
+              Oportunidade de Negócio
+            </span>
+            <h2 className="text-4xl md:text-6xl font-bold text-white mb-8 tracking-tight">
+              Transforme a nossa Tecnologia no <br /><span className="text-indigo-400">Seu Império de Software.</span>
+            </h2>
+            <p className="text-lg md:text-xl text-slate-300 mb-12 max-w-3xl mx-auto leading-relaxed">
+              Já pensou em ser dono de um SaaS (Software as a Service) sem gastar milhares de euros em programadores? Com o modelo White Label, recebe uma plataforma robusta para vender com a sua marca e faturar recorrentemente.
+            </p>
+          </motion.div>
+          
+          <div className="grid sm:grid-cols-2 gap-6 text-left max-w-3xl mx-auto mb-16 text-left">
+            {[
+              { title: "Negócio 'Turn-key'", desc: "Tudo configurado para começar a faturar recorrentemente no dia 1.", icon: <Rocket className="w-5 h-5 text-indigo-400" /> },
+              { title: "Lucro Elevado", desc: "Defina os seus próprios preços e planos. A margem é 100% sua.", icon: <Coins className="w-5 h-5 text-indigo-400" /> },
+              { title: "Zero Preocupações", desc: "Nós tratamos dos servidores, segurança e atualizações constantes.", icon: <Shield className="w-5 h-5 text-indigo-400" /> },
+              { title: "Domínio Próprio", desc: "Venda no seu próprio subdomínio ou domínio personalizado.", icon: <Globe className="w-5 h-5 text-indigo-400" /> }
+            ].map((item, idx) => (
+              <div key={idx} className="bg-slate-950/60 backdrop-blur-xl p-6 rounded-2xl border border-white/5 flex gap-4 items-start hover:border-indigo-500/30 transition-all duration-300 group">
+                <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                  {item.icon}
+                </div>
+                <div>
+                  <strong className="text-white block mb-1 font-bold">{item.title}</strong>
+                  <span className="text-xs text-slate-400 leading-relaxed italic">{item.desc}</span>
+                </div>
               </div>
-              <p className="text-sm text-white/60 italic">“É como ter um sistema que nunca para.”</p>
+            ))}
+          </div>
+
+          <a
+            href="https://wa.me/923364360?text=Quero%20saber%20mais%20sobre%20o%20modelo%20White%20Label"
+            target="_blank"
+            rel="noreferrer"
+            className="group relative inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-10 py-5 rounded-2xl transition-all duration-300 shadow-[0_0_25px_rgba(16,185,129,0.3)]"
+          >
+            <span className="flex items-center gap-2">
+              Falar com Consultor de Revenda
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </span>
+          </a>
+        </div>
+      </section>
+
+      {/* --- SOCIAL PROOF --- */}
+      <section id="autoridade" className="py-24 px-4 max-w-7xl mx-auto">
+        <div className="grid gap-12 md:grid-cols-3 text-center mb-24">
+          {[
+            { label: "Empresas Ativas", value: "+500", icon: <Building2 className="w-8 h-8 text-slate-600 mx-auto mb-4" /> },
+            { label: "Mensagens este mês", value: "+3 Milhões", icon: <Send className="w-8 h-8 text-slate-600 mx-auto mb-4" /> },
+            { label: "Uptime Seguro", value: "99.8%", icon: <ShieldCheck className="w-8 h-8 text-slate-600 mx-auto mb-4" /> }
+          ].map((stat, idx) => (
+            <div key={idx} className="relative">
+              <span className="block text-5xl md:text-7xl font-black text-white/10 absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none select-none">{stat.value}</span>
+              <div className="relative pt-4">
+                <span className="block text-4xl font-black text-white mb-2">{stat.value}</span>
+                <span className="text-sm text-indigo-400 font-bold uppercase tracking-widest">{stat.label}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-8">
+          <div className="bg-slate-900/40 p-8 rounded-[2rem] border border-slate-800 flex flex-col justify-between items-start gap-8 text-left">
+            <Quote className="w-10 h-10 text-indigo-500/20" />
+            <p className="text-lg text-slate-300 leading-relaxed font-medium">
+              "Antes da TrataTudo, o nosso WhatsApp era uma confusão. Perdiamos 30% dos leads por falta de resposta. Hoje, a IA qualifica o cliente e a equipa só entra para fechar. O ROI foi imediato."
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center font-bold text-white">RS</div>
+              <div>
+                <strong className="text-white block font-bold text-base">Ricardo S.</strong>
+                <span className="text-xs text-indigo-400 font-bold uppercase">Diretor Comercial</span>
+              </div>
+            </div>
+          </div>
+          <div className="bg-slate-900/40 p-8 rounded-[2rem] border border-slate-800 flex flex-col justify-between items-start gap-8 text-left">
+            <Quote className="w-10 h-10 text-emerald-500/20" />
+            <p className="text-lg text-slate-300 leading-relaxed font-medium">
+              "Lançar a minha própria marca de software era um sonho impossível. Com a TrataTudo, lancei a 'SmartFlow' em 48h. Já tenho 20 clientes recorrentes e a margem é incrível."
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center font-bold text-white text-emerald-400">SM</div>
+              <div>
+                <strong className="text-white block font-bold text-base">Sofia M.</strong>
+                <span className="text-xs text-emerald-400 font-bold uppercase tracking-wide">Consultora Digital</span>
+              </div>
             </div>
           </div>
         </div>
       </section>
+
+      {/* --- FAQ SECTION --- */}
+      <section id="faq" className="py-24 px-4 bg-slate-950/50 backdrop-blur-sm border-t border-slate-900">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-16">
+             <h2 className="text-3xl md:text-5xl font-bold text-white">Questões Respondidas</h2>
+          </div>
+          <div className="space-y-4">
+            {[
+              {
+                q: "Para que tipo de negócio serve?",
+                a: "A TrataTudo foi criada especificamente para prestadores de serviços, agências, imobiliárias, clínicas e qualquer pequena ou média empresa que utilize o WhatsApp como canal principal de vendas."
+              },
+              {
+                q: "É preciso saber programar para a versão White Label?",
+                a: "Absolutamente zero. A plataforma é 100% configurada através de um painel de administração intuitivo. Nós tratamos de todo o código e manutenção dos servidores em background."
+              },
+              {
+                q: "Como funciona a revenda e a margem de lucro?",
+                a: "Paga um valor fixo muito reduzido por conta criada e revende aos seus clientes pelo preço que pretender. A margem média dos nossos parceiros White Label ronda os 300% a 500%."
+              },
+              {
+                q: "Quanto tempo demora a lançar a minha marca?",
+                a: "Após a configuração e envio dos seus dados de marca (logótipo e domínio), a sua infraestrutura personalizada é configurada e entregue em poucas horas."
+              }
+            ].map((faq, idx) => (
+              <div key={idx} className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                <button
+                  onClick={() => toggleFaq(idx)}
+                  className="w-full text-left p-6 font-bold text-white flex justify-between items-center hover:bg-slate-800/50 transition-colors"
+                >
+                  <span className="text-base md:text-lg">{faq.q}</span>
+                  <motion.div
+                    animate={{ rotate: faqOpen === idx ? 180 : 0 }}
+                    className="text-indigo-400"
+                  >
+                    <ChevronDown className="w-6 h-6" />
+                  </motion.div>
+                </button>
+                <AnimatePresence>
+                  {faqOpen === idx && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="p-6 pt-0 text-slate-400 text-sm md:text-base leading-relaxed border-t border-slate-800/40">
+                        {faq.a}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* --- FINAL CTA --- */}
+      <section id="cta-final" className="py-32 px-4 text-center relative overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <GlowEffect color="indigo" />
+        </div>
+        
+        <div className="relative z-10 max-w-4xl mx-auto">
+          <motion.h2 
+            {...fadeIn}
+            className="text-4xl md:text-6xl font-black text-white mb-8 tracking-tight"
+          >
+            Chegou a hora de tratar de <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 underline decoration-indigo-500/30">tudo o que importa.</span>
+          </motion.h2>
+          <p className="text-xl text-slate-400 mb-12 max-w-2xl mx-auto leading-relaxed">
+            Seja para organizar as suas vendas ou para faturar alto com o seu próprio SaaS, o futuro começa com o primeiro passo.
+          </p>
+          
+          <div className="bg-indigo-600/10 border border-indigo-500/20 text-indigo-300 font-bold text-xs md:text-sm px-6 py-3 rounded-full inline-flex items-center gap-2 mb-10">
+            <Rocket className="w-4 h-4" />
+            Oferta exclusiva: Ganhe 20% de desconto na primeira anuidade se começar hoje.
+          </div>
+          
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a
+              href="https://wa.me/923364360?text=Quero%20aproveitar%20o%20desconto%20da%20landing%20page"
+              target="_blank"
+              rel="noreferrer"
+              className="bg-indigo-600 hover:bg-indigo-500 text-white font-black px-12 py-6 rounded-2xl shadow-2xl shadow-indigo-600/30 transition-all duration-300 text-lg flex items-center gap-3 active:scale-95"
+            >
+              Quero Começar Agora
+              <ArrowRight className="w-6 h-6" />
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* --- MOBILE STICKY CTA --- */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 md:hidden z-50">
+        <motion.div 
+          initial={{ y: 100 }}
+          animate={{ y: 0 }}
+          className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-4"
+        >
+          <div className="text-left shrink-0">
+            <span className="block text-[10px] text-indigo-400 font-black uppercase tracking-widest">Teste Grátis</span>
+            <span className="text-sm text-white font-black">TrataTudo SaaS</span>
+          </div>
+          <a
+            href="https://wa.me/923364360?text=Quero%20comecar%20pelo%20mobile"
+            target="_blank"
+            rel="noreferrer"
+            className="bg-indigo-600 text-white font-black text-xs px-6 py-3 rounded-xl active:scale-95 transition-transform shrink-0"
+          >
+            Resgatar Oferta
+          </a>
+        </motion.div>
+      </div>
 
     </div>
   );
 }
-
-const X = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-  </svg>
-);
-
-const Globe = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-  </svg>
-);
