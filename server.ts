@@ -309,9 +309,21 @@ async function startServer() {
 
   app.get("/api/admin/logs", requireAdminSession, async (req, res) => {
     try {
-      const { data, error } = await supabase.from("logs").select("*").order("created_at", { ascending: false }).limit(200);
-      if (error) return res.status(500).json({ ok: false, error: error.message });
-      res.json({ ok: true, data: data || [] });
+      const fs = require('fs');
+      const logFiles = [
+        { file: '/home/ubuntu/.pm2/logs/dashboard-out.log', source: 'api', level: 'info' },
+        { file: '/home/ubuntu/.pm2/logs/dashboard-error.log', source: 'api', level: 'error' },
+      ];
+      const logs: any[] = [];
+      let id = 1;
+      for (const { file, source, level } of logFiles) {
+        if (!fs.existsSync(file)) continue;
+        const lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).slice(-100).reverse();
+        for (const line of lines) {
+          logs.push({ id: String(id++), level, source, message: line.slice(0, 200), created_at: new Date().toISOString() });
+        }
+      }
+      res.json({ ok: true, data: logs.slice(0, 200) });
     } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
   });
 
