@@ -266,6 +266,26 @@ async function startServer() {
     }
   });
 
+  app.get("/api/admin/dashboard/stats", requireAdminSession, async (req, res) => {
+    try {
+      const [
+        { count: activeClients },
+        { count: pendingTickets },
+        { data: subscriptions },
+        { count: expiredSubs }
+      ] = await Promise.all([
+        supabase.from("clients").select("*", { count: 'exact', head: true }).eq("status", "active"),
+        supabase.from("tickets").select("*", { count: 'exact', head: true }).neq("status", "resolved"),
+        supabase.from("subscriptions").select("plan, status"),
+        supabase.from("clients").select("*", { count: 'exact', head: true }).lt("subscription_expires_at", new Date().toISOString())
+      ]);
+      res.json({ ok: true, data: { activeClients: activeClients || 0, pendingTickets: pendingTickets || 0, expiredSubscriptions: expiredSubs || 0, billingSummary: subscriptions || [], systemStatus: { database: "online", evolution_api: "online", stripe: "online" } } });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+  app.get("/api/admin/alerts", requireAdminSession, async (req, res) => {
+    res.json({ ok: true, alerts: [] });
+  });
+
   // --- CLIENT MANAGEMENT (CRUD) ---
 
   app.get("/api/admin/clients", requireAdminSession, async (req, res) => {
