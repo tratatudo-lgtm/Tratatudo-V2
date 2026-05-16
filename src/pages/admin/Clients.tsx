@@ -1,54 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Users, 
-  Search, 
-  Filter, 
-  Edit2, 
-  ShieldAlert, 
-  CheckCircle2, 
-  XCircle,
-  Mail,
-  Phone,
-  Calendar,
-  Loader2,
-  AlertCircle,
-  Plus,
-  X,
-  MessageSquare,
-  ClipboardList,
-  Clock,
-  Zap,
-  ShieldCheck,
-  RefreshCw,
-  Copy,
-  Bot,
-  Layers,
-  Trash2
+  Search, Plus, Clock, ShieldCheck, Phone, Mail, Monitor, 
+  Copy, Zap, ShieldAlert, MessageSquare, ClipboardList, 
+  RefreshCw, Edit2, Trash2, Layers, Bot, X, Loader2, AlertCircle 
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn, extractArrayResponse } from '../../lib/utils';
-import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
-import { LoadingState, ErrorState } from '../../components/States';
-import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from '../../lib/api';
+import { apiGet, apiPost, apiPut, apiDelete, apiPatch } from '../../lib/api'; // Ajusta os caminhos se necessário
+import { extractArrayResponse } from '../../lib/utils';
+import { cn } from '../../lib/utils';
 
+// 1. INTERFACE REESTRUTURADA PARA O BACKEND MULTITENANT
 interface Client {
   id: string;
-  client_id: string;
+  client_id?: string;
   company_name: string;
-  contact_name?: string;
-  email: string;
   phone: string;
-  status: 'active' | 'suspended' | 'pending' | 'trial';
+  phone_e164: string;
+  email: string | null;
+  status: 'active' | 'suspended' | 'trial' | 'pending';
   plan: 'starter' | 'pro' | 'enterprise';
-  trial_start: string | null;
-  trial_end: string | null;
-  production_activated_at: string | null;
-  bot_instructions: string;
-  created_at: string;
-  instance: {
+  trial_end?: string;
+  production_activated_at?: string;
+  master_prompt?: string;
+  bot_instructions?: string;
+  bot_instructions_compact?: string;
+  instance?: {
     instance_name: string;
-    status: string;
     is_hub: boolean;
   } | null;
 }
@@ -58,39 +36,44 @@ export function AdminClients() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState(new URLSearchParams(window.location.search).get('search') || '');
-  
+  const [filtroStatus, setFiltroStatus] = useState<'all' | 'active' | 'suspended' | 'trial'>('all');
+
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isProlongModalOpen, setIsProlongModalOpen] = useState(false);
+  const [isBotConfigModalOpen, setIsBotConfigModalOpen] = useState(false); // Modal focado em IA
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [prolongingClient, setProlongingClient] = useState<Client | null>(null);
-  
+  const [botClient, setBotClient] = useState<Client | null>(null); // State para o bot ativo
+
   // Form States
-  const [newClient, setNewClient] = useState({ 
-    phone_e164: '', 
-    company_name: '', 
-    contact_name: '', 
-    email: '', 
+  const [newClient, setNewClient] = useState({
+    phone_e164: '',
+    company_name: '',
+    contact_name: '',
+    email: '',
     bot_instructions: '',
     plan: 'starter' as const
   });
-  const [processing, setProcessing] = useState(false);
+  
+  // States dedicados para os 3 Prompts da Evolution API
+  const [botConfig, setBotConfig] = useState({
+    master_prompt: '',
+    bot_instructions: '',
+    bot_instructions_compact: ''
+  });
 
-  const { logout } = useAdminAuth();
+  const [processing, setProcessing] = useState(false);
 
   const fetchClients = async () => {
     try {
       setLoading(true);
       setError(null);
-      
       const data = await apiGet('/api/admin/clients');
       const clientsData = extractArrayResponse<Client>(data, 'clients');
       setClients(clientsData);
     } catch (err: any) {
       console.error('[ADMIN] Fetch clients failed:', err);
-      if (err.message && (err.message.includes('401') || err.message.includes('não autorizado'))) {
-        await logout();
-      }
       setError(err.message || 'Não foi possível carregar os clientes.');
     } finally {
       setLoading(false);
@@ -104,11 +87,9 @@ export function AdminClients() {
   const handleCreateTrial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (processing) return;
-
     try {
       setProcessing(true);
       await apiPost('/api/admin/clients/trial', newClient);
-
       toast.success('Cliente Trial criado com sucesso!');
       await fetchClients();
       setIsCreateModalOpen(false);
@@ -120,15 +101,14 @@ export function AdminClients() {
     }
   };
 
+  // Atualização cadastral básica
   const handleUpdateClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingClient || processing) return;
-
     try {
       setProcessing(true);
       await apiPut(`/api/admin/clients/${editingClient.id}`, editingClient);
-
-      toast.success('Cliente atualizado com sucesso!');
+      toast.success('Dados cadastrais atualizados!');
       await fetchClients();
       setEditingClient(null);
     } catch (err: any) {
@@ -138,13 +118,29 @@ export function AdminClients() {
     }
   };
 
+  // ROTA CRÍTICA: Gravar Configurações de IA na Evolution API
+  const handleSaveBotConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!botClient || processing) return;
+    try {
+      setProcessing(true);
+      await apiPut(`/api/admin/clients/${botClient.id}/bot-config`, botConfig);
+      toast.success('Engine de IA e Prompts da Evolution API sincronizados!');
+      await fetchClients();
+      setIsBotConfigModalOpen(false);
+      setBotClient(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao atualizar prompts de IA');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleDeleteClient = async (id: string) => {
     if (!confirm('Tem a certeza que deseja eliminar este cliente? Esta ação é irreversível.')) return;
-    
     try {
       setProcessing(true);
       await apiDelete(`/api/admin/clients/${id}`);
-
       toast.success('Cliente eliminado com sucesso.');
       await fetchClients();
     } catch (err: any) {
@@ -154,18 +150,10 @@ export function AdminClients() {
     }
   };
 
-  const handleProlongTrial = async () => {
-    // TODO: Backend endpoint /api/admin/clients/:id/prolong does not exist yet.
-    toast.info('Funcionalidade de prolongar trial aguarda implementação no backend.');
-    setIsProlongModalOpen(false);
-    setProlongingClient(null);
-  };
-
   const handleToggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
     try {
       await apiPatch(`/api/admin/clients/${id}/status`, { status: newStatus });
-      
       toast.success(`Cliente ${newStatus === 'active' ? 'reativado' : 'suspenso'} com sucesso.`);
       setClients(prev => prev.map(c => c.id === id ? { ...c, status: newStatus as any } : c));
     } catch (err: any) {
@@ -175,10 +163,8 @@ export function AdminClients() {
 
   const handleActivateProduction = async (id: string) => {
     if (!confirm('Deseja ativar o modo de produção para este cliente? Isto criará uma instância dedicada.')) return;
-    
     try {
       await apiPost(`/api/admin/clients/${id}/activate-production`);
-      
       toast.success('Produção ativada! Instância dedicada em criação.');
       await fetchClients();
     } catch (err: any) {
@@ -186,279 +172,231 @@ export function AdminClients() {
     }
   };
 
-  const handleSyncInstance = async (id: string) => {
-    // TODO: Backend endpoint /api/admin/clients/:id/sync not confirmed.
-    toast.info('Funcionalidade de sincronizar instância aguarda confirmação do backend.');
+  const openBotConfig = (client: Client) => {
+    setBotClient(client);
+    setBotConfig({
+      master_prompt: client.master_prompt || '',
+      bot_instructions: client.bot_instructions || '',
+      bot_instructions_compact: client.bot_instructions_compact || ''
+    });
+    setIsBotConfigModalOpen(true);
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success('Copiado para a área de transferência');
+    toast.success('Hostname copiado');
   };
 
-  const filteredClients = clients.filter(client => 
-    client.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (client.client_id || client.id).toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredClients = clients.filter(client => {
+    const matchesSearch = client.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (client.client_id || client.id).toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filtroStatus === 'all' || client.status === filtroStatus;
+    return matchesSearch && matchesStatus;
+  });
 
-  const getTrialStatus = (client: Client) => {
-    if (!client.trial_end) return null;
-    const now = new Date();
-    const end = new Date(client.trial_end);
-    if (end < now) return 'expired';
-    if (client.status === 'suspended') return 'paused';
-    return 'active';
-  };
+  const totalContas = clients.length;
+  const ativasContas = clients.filter(c => c.status === 'active').length;
+  const trialContas = clients.filter(c => c.status === 'trial' || c.instance?.is_hub).length;
+  const suspensasContas = clients.filter(c => c.status === 'suspended').length;
 
-  if (loading && clients.length === 0) return <LoadingState message="A carregar clientes..." className="h-[60vh]" />;
-  if (error && clients.length === 0) return <ErrorState message={error} />;
+  if (loading && clients.length === 0) return <div className="p-20 text-center text-indigo-400 font-mono">A ler infraestrutura de rede segura...</div>;
+  if (error && clients.length === 0) return <div className="p-20 text-center text-red-400 font-mono">Erro: {error}</div>;
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-20">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8 max-w-7xl mx-auto pb-20 px-4 sm:px-6 text-slate-100 antialiased">
+      {/* 1. HEADER DA PÁGINA */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2 border-b border-slate-900">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Gestão de Clientes</h1>
-          <p className="text-slate-500 font-medium">Controlo total de Trials, Produção e Suporte</p>
+          <div className="flex items-center gap-2 text-xs font-mono font-bold text-indigo-400 uppercase tracking-widest mb-1">
+            <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" /> TrataTudo Core Engine
+          </div>
+          <h1 className="text-3xl font-black text-white tracking-tight sm:text-4xl">Gestão de Clientes</h1>
+          <p className="text-slate-400 text-sm mt-1">Monitorização de instâncias e provisionamento de inteligência artificial.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-primary text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> Criar Trial
-          </button>
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Pesquisar cliente..." 
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          <div className="relative flex-1 sm:flex-none">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Pesquisar por empresa, id..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all w-64 shadow-sm"
+              className="bg-slate-900/60 border border-slate-800/80 rounded-xl py-2.5 pl-10 pr-4 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 w-full sm:w-64"
             />
           </div>
-          <button className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
-            <Filter className="w-5 h-5" />
+          <button onClick={() => setIsCreateModalOpen(true)} className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-indigo-500 transition-all flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Criar Novo Trial
           </button>
         </div>
       </div>
 
-      {/* Modals */}
+      {/* 2. BLOCOS DE MÉTRICAS */}
+      <section className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl">
+          <span className="text-[10px] font-bold uppercase text-slate-500 block">Total Licenças</span>
+          <span className="text-2xl font-black text-white mt-2 block">{totalContas}</span>
+        </div>
+        <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl">
+          <span className="text-[10px] font-bold uppercase text-slate-500 block">Operações Ativas</span>
+          <span className="text-2xl font-black text-emerald-400 mt-2 block">{ativasContas}</span>
+        </div>
+        <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl">
+          <span className="text-[10px] font-bold uppercase text-slate-500 block">Em Período Trial</span>
+          <span className="text-2xl font-black text-blue-400 mt-2 block">{trialContas}</span>
+        </div>
+        <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl">
+          <span className="text-[10px] font-bold uppercase text-slate-500 block">Contas Suspensas</span>
+          <span className="text-2xl font-black text-red-400 mt-2 block">{suspensasContas}</span>
+        </div>
+      </section>
+
+      {/* 3. FILTROS AVANÇADOS */}
+      <div className="bg-slate-900/60 border border-slate-900 p-2 rounded-xl inline-flex gap-1 max-w-full overflow-x-auto">
+        {(['all', 'active', 'trial', 'suspended'] as const).map((status) => (
+          <button
+            key={status}
+            onClick={() => setFiltroStatus(status)}
+            className={cn(
+              "px-4 py-2 rounded-lg text-xs font-bold transition-all capitalize",
+              filtroStatus === status ? "bg-slate-800 text-white border border-slate-700" : "text-slate-400 hover:text-slate-200"
+            )}
+          >
+            {status === 'all' ? 'Todos' : status}
+          </button>
+        ))}
+      </div>
+
+      {/* 4. TABELA DE COMPONENTES OPERACIONAIS */}
+      <div className="bg-slate-900/20 border border-slate-900 rounded-[2rem] overflow-hidden backdrop-blur-md">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-900/40 border-b border-slate-900 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                <th className="px-8 py-4.5">Empresa / Contacto</th>
+                <th className="px-8 py-4.5">Ambiente Operacional</th>
+                <th className="px-8 py-4.5">Licenciamento / Ciclo</th>
+                <th className="px-8 py-4.5">Estado de Gateway</th>
+                <th className="px-8 py-4.5 text-right">Controlo de Infraestrutura</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-900/40 text-sm">
+              {filteredClients.map((client) => {
+                const isTrial = client.status === 'trial' || client.instance?.is_hub === true;
+                return (
+                  <tr key={client.id} className="group hover:bg-slate-900/30 transition-colors">
+                    <td className="px-8 py-5.5">
+                      <div className="flex items-center gap-4">
+                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border", isTrial ? "text-blue-400 bg-blue-500/5" : "text-emerald-400 bg-emerald-500/5")}>
+                          {isTrial ? <Clock className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-white group-hover:text-indigo-400 transition-colors">{client.company_name}</p>
+                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">{client.phone} • {client.email || 'sem e-mail'}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5.5">
+                      <div className="flex flex-col font-mono text-xs text-slate-400">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">{isTrial ? 'Trial Shared Hub' : 'Instância Dedicada'}</span>
+                        <span className="flex items-center gap-1 mt-1"><Monitor className="w-3 h-3" /> {client.instance?.instance_name || 'Ausente'}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5.5">
+                      <div className="flex flex-col font-mono text-xs">
+                        <span className="font-bold text-white uppercase tracking-tight flex items-center gap-1"><Zap className="w-3 h-3 text-amber-400" /> {client.plan}</span>
+                        {client.trial_end && <span className="text-[10px] text-slate-500 mt-1">Expira: {new Date(client.trial_end).toLocaleDateString('pt-PT')}</span>}
+                      </div>
+                    </td>
+                    <td className="px-8 py-5.5">
+                      <span className={cn("inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase border", client.status === 'active' ? "text-emerald-400 bg-emerald-500/5 border-emerald-500/10" : "text-red-400 bg-red-500/5 border-red-500/10")}>
+                        <span className={cn("h-1.5 w-1.5 rounded-full", client.status === 'active' ? "bg-emerald-400 animate-pulse" : "bg-red-400")} />
+                        {client.status}
+                      </span>
+                    </td>
+                    <td className="px-8 py-5.5 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {/* BOTÃO CRÍTICO: CONFIGURAR IA DO BOT (Evolution API) */}
+                        <button onClick={() => openBotConfig(client)} className="p-2 bg-indigo-950/40 border border-indigo-900/30 text-indigo-400 rounded-xl hover:bg-indigo-600 hover:text-white transition-all" title="Configurar Prompts do Agente IA">
+                          <Bot className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleToggleStatus(client.id, client.status)} className="p-2 bg-slate-900/40 border border-slate-800 text-slate-400 rounded-xl hover:text-red-400 transition-all">
+                          <ShieldAlert className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setEditingClient(client)} className="p-2 bg-slate-900/40 border border-slate-800 text-slate-400 rounded-xl hover:text-white transition-all">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteClient(client.id)} className="p-2 bg-slate-900/40 border border-slate-800 text-slate-500 rounded-xl hover:text-red-400 transition-all">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 5. MODAL: CONFIGURAÇÃO DO BOT / EVOLUTION API (OS 3 PROMPTS) */}
       <AnimatePresence>
-        {isCreateModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden"
-            >
-              <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+        {isBotConfigModalOpen && botClient && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md">
+            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} className="bg-slate-900 border border-slate-800 rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden text-slate-200">
+              <div className="p-6 border-b border-slate-800/60 flex justify-between items-center bg-slate-900/40">
                 <div>
-                  <h3 className="font-black text-slate-900 text-xl">Novo Cliente Trial</h3>
-                  <p className="text-xs text-slate-500 font-medium mt-1">O trial inicial é de 3 dias no Hub "TrataTudo bot"</p>
+                  <h3 className="font-black text-white text-lg">Injetar Engine de IA (Evolution API)</h3>
+                  <p className="text-[11px] text-indigo-400 font-mono mt-0.5">{botClient.company_name}</p>
                 </div>
-                <button onClick={() => setIsCreateModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-                  <X className="w-5 h-5 text-slate-400" />
+                <button onClick={() => setIsBotConfigModalOpen(false)} className="p-1.5 bg-slate-950 border border-slate-800 text-slate-400 hover:text-white rounded-xl transition-all">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-              <form onSubmit={handleCreateTrial} className="p-8 space-y-5 max-h-[70vh] overflow-y-auto">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Empresa</label>
-                    <input 
-                      type="text" 
-                      placeholder="Nome da Empresa Lda"
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm font-bold"
-                      value={newClient.company_name}
-                      onChange={e => setNewClient({...newClient, company_name: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Telefone (E164)</label>
-                    <input 
-                      type="text" 
-                      placeholder="+351912345678"
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm font-bold"
-                      value={newClient.phone_e164}
-                      onChange={e => setNewClient({...newClient, phone_e164: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Contacto Responsável</label>
-                    <input 
-                      type="text" 
-                      placeholder="Nome do Contacto"
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm font-bold"
-                      value={newClient.contact_name}
-                      onChange={e => setNewClient({...newClient, contact_name: e.target.value})}
-                    />
-                  </div>
+              
+              <form onSubmit={handleSaveBotConfig} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                <div className="bg-indigo-500/5 border border-indigo-500/10 p-3 rounded-xl flex gap-3 text-left">
+                  <AlertCircle className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-indigo-300 leading-relaxed">Estes parâmetros alimentam o comportamento em tempo real do assistente do cliente. Nunca utilizes dados de outros tenants aqui.</p>
                 </div>
+
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Email</label>
-                  <input 
-                    type="email" 
-                    placeholder="email@empresa.com"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm font-bold"
-                    value={newClient.email}
-                    onChange={e => setNewClient({...newClient, email: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Plano Inicial</label>
-                  <select 
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm font-bold"
-                    value={newClient.plan}
-                    onChange={e => setNewClient({...newClient, plan: e.target.value as any})}
-                  >
-                    <option value="starter">Starter</option>
-                    <option value="pro">Pro</option>
-                    <option value="enterprise">Enterprise</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Instruções do Bot (Prompt)</label>
-                  <textarea 
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">1. Master Prompt (Contexto Global)</label>
+                  <textarea
                     rows={4}
-                    placeholder="Descreva como o bot deve agir..."
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm font-medium"
-                    value={newClient.bot_instructions}
-                    onChange={e => setNewClient({...newClient, bot_instructions: e.target.value})}
+                    placeholder="Tu és o assistente virtual da empresa X..."
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:border-indigo-500 text-xs font-mono text-slate-300"
+                    value={botConfig.master_prompt}
+                    onChange={e => setBotConfig({...botConfig, master_prompt: e.target.value})}
                   />
                 </div>
-                <div className="pt-4">
-                  <button 
-                    type="submit"
-                    disabled={processing}
-                    className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : "Criar Trial no Hub"}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
 
-        {isProlongModalOpen && prolongingClient && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden"
-            >
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h3 className="font-black text-slate-900">Prolongar Trial</h3>
-                <button onClick={() => setIsProlongModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-                  <X className="w-5 h-5 text-slate-400" />
-                </button>
-              </div>
-              <div className="p-8 space-y-6">
-                <p className="text-sm text-slate-600 text-center">
-                  Adicionar dias de teste para <span className="font-bold text-slate-900">{prolongingClient.company_name}</span>
-                </p>
-                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
-                  <AlertCircle className="w-5 h-5 text-blue-500 shrink-0" />
-                  <p className="text-xs text-blue-700 font-medium">Esta funcionalidade aguarda suporte no backend.</p>
-                </div>
-                <button 
-                  onClick={handleProlongTrial}
-                  className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
-                >
-                  Fechar
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {editingClient && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden"
-            >
-              <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h3 className="font-black text-slate-900 text-xl">Editar Cliente</h3>
-                <button onClick={() => setEditingClient(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-                  <X className="w-5 h-5 text-slate-400" />
-                </button>
-              </div>
-              <form onSubmit={handleUpdateClient} className="p-8 space-y-5 max-h-[70vh] overflow-y-auto">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Empresa</label>
-                    <input 
-                      type="text" 
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm font-bold"
-                      value={editingClient.company_name}
-                      onChange={e => setEditingClient({...editingClient, company_name: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Email</label>
-                    <input 
-                      type="email" 
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm font-bold"
-                      value={editingClient.email || ''}
-                      onChange={e => setEditingClient({...editingClient, email: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Telefone</label>
-                    <input 
-                      type="text" 
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm font-bold"
-                      value={editingClient.phone || ''}
-                      onChange={e => setEditingClient({...editingClient, phone: e.target.value})}
-                    />
-                  </div>
-                </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Plano</label>
-                  <select 
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm font-bold"
-                    value={editingClient.plan}
-                    onChange={e => setEditingClient({...editingClient, plan: e.target.value as any})}
-                  >
-                    <option value="starter">Starter</option>
-                    <option value="pro">Pro</option>
-                    <option value="enterprise">Enterprise</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Instruções do Bot (Prompt)</label>
-                  <textarea 
-                    rows={6}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all text-sm font-medium"
-                    value={editingClient.bot_instructions || ''}
-                    onChange={e => setEditingClient({...editingClient, bot_instructions: e.target.value})}
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">2. Bot Instructions (Regras de Negócio e Fluxos)</label>
+                  <textarea
+                    rows={4}
+                    placeholder="Regra 1: Nunca dês preços sem o NIF. Regra 2: Agenda chamadas na segunda-feira..."
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:border-indigo-500 text-xs font-mono text-slate-300"
+                    value={botConfig.bot_instructions}
+                    onChange={e => setBotConfig({...botConfig, bot_instructions: e.target.value})}
                   />
                 </div>
-                <div className="flex gap-3 pt-4">
-                  <button 
-                    type="button"
-                    onClick={() => setEditingClient(null)}
-                    className="flex-1 px-6 py-4 border border-slate-200 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all"
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    type="submit"
-                    disabled={processing}
-                    className="flex-2 bg-primary text-white px-8 py-4 rounded-2xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : "Guardar Alterações"}
+
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">3. Bot Instructions Compact (Memória Flash / Restrições Rápidas)</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Seja extremamente curto. Limite de 2 parágrafos por mensagem."
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:border-indigo-500 text-xs font-mono text-slate-300"
+                    value={botConfig.bot_instructions_compact}
+                    onChange={e => setBotConfig({...botConfig, bot_instructions_compact: e.target.value})}
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setIsBotConfigModalOpen(false)} className="flex-1 px-5 py-3 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl font-bold text-xs">Cancelar</button>
+                  <button type="submit" disabled={processing} className="flex-1 bg-indigo-600 text-white px-5 py-3 rounded-xl font-bold text-xs shadow-lg hover:bg-indigo-500 flex items-center justify-center gap-2">
+                    {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Gravar e Sincronizar Instância"}
                   </button>
                 </div>
               </form>
@@ -467,249 +405,39 @@ export function AdminClients() {
         )}
       </AnimatePresence>
 
-      {/* Clients Table */}
-      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Empresa / Contacto</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Ambiente / Instância</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Plano / Trial</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações Operacionais</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {filteredClients.map((client) => {
-                const trialStatus = getTrialStatus(client);
-                const isTrial = client.status === 'trial' || client.instance?.is_hub === true;
-                
-                return (
-                  <motion.tr 
-                    key={client.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="group hover:bg-slate-50/50 transition-colors"
-                  >
-                    <td className="px-8 py-6">
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "w-12 h-12 rounded-2xl flex items-center justify-center transition-all",
-                          isTrial ? "bg-blue-50 text-blue-500" : "bg-emerald-50 text-emerald-500"
-                        )}>
-                          {isTrial ? <Clock className="w-6 h-6" /> : <ShieldCheck className="w-6 h-6" />}
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-slate-900">{client.company_name}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                              <Phone className="w-3 h-3" /> {client.phone}
-                            </span>
-                            <span className="text-[10px] font-bold text-slate-400">•</span>
-                            <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                              <Mail className="w-3 h-3" /> {client.email}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <span className={cn(
-                            "text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md",
-                            isTrial ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
-                          )}>
-                            {isTrial ? 'Trial / Hub' : 'Produção / Dedicada'}
-                          </span>
-                          {client.instance?.is_hub && (
-                            <span className="text-[8px] font-black bg-slate-900 text-white px-1.5 py-0.5 rounded uppercase tracking-tighter">Hub</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 group/inst">
-                          <span className="text-xs font-bold text-slate-500 truncate max-w-[120px]">
-                            {client.instance?.instance_name || 'Sem instância'}
-                          </span>
-                          {client.instance?.instance_name && (
-                            <button 
-                              onClick={() => copyToClipboard(client.instance!.instance_name)}
-                              className="opacity-0 group-hover/inst:opacity-100 p-1 hover:bg-slate-200 rounded transition-all"
-                            >
-                              <Copy className="w-3 h-3 text-slate-400" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs font-black text-slate-900 uppercase tracking-tight flex items-center gap-1">
-                          <Zap className="w-3 h-3 text-primary" /> {client.plan}
-                        </span>
-                        {client.trial_end && (
-                          <div className="flex flex-col">
-                            <span className={cn(
-                              "text-[10px] font-bold",
-                              trialStatus === 'expired' ? "text-red-500" : "text-slate-400"
-                            )}>
-                              Expira: {new Date(client.trial_end).toLocaleDateString()}
-                            </span>
-                            <span className={cn(
-                              "text-[8px] font-black uppercase tracking-widest mt-0.5",
-                              trialStatus === 'active' ? "text-emerald-500" : 
-                               trialStatus === 'expired' ? "text-red-500" : "text-amber-500"
-                            )}>
-                              {trialStatus === 'active' ? 'Ativo' : 
-                               trialStatus === 'expired' ? 'Expirado' : 'Pausado'}
-                            </span>
-                          </div>
-                        )}
-                        {client.production_activated_at && (
-                          <span className="text-[10px] font-bold text-slate-400">
-                            Ativo desde: {new Date(client.production_activated_at).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <span className={cn(
-                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                        client.status === 'active' ? "bg-emerald-50 text-emerald-600" : 
-                        client.status === 'suspended' ? "bg-red-50 text-red-600" : 
-                        client.status === 'trial' ? "bg-blue-50 text-blue-600" : "bg-orange-50 text-orange-600"
-                      )}>
-                        {client.status === 'active' ? <CheckCircle2 className="w-3 h-3" /> : 
-                         client.status === 'suspended' ? <XCircle className="w-3 h-3" /> : 
-                         client.status === 'trial' ? <Clock className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                        {isTrial && client.status !== 'trial' ? 'Trial ' : ''}
-                        {client.status === 'active' ? 'Ativo' : 
-                         client.status === 'suspended' ? 'Suspenso' : 
-                         client.status === 'trial' ? 'Trial' : 'Pendente'}
-                      </span>
-                    </td>
-                    <td className="px-8 py-6 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {/* Primary Actions */}
-                        {isTrial && (
-                          <>
-                            <button 
-                              onClick={() => { setProlongingClient(client); setIsProlongModalOpen(true); }}
-                              className="p-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600 hover:border-blue-100 transition-all shadow-sm"
-                              title="Prolongar Trial"
-                            >
-                              <Clock className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleActivateProduction(client.id)}
-                              className="px-3 py-2 bg-emerald-500 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all"
-                              title="Ativar Produção"
-                            >
-                              Ativar Prod
-                            </button>
-                          </>
-                        )}
-                        
-                        {/* Secondary Actions Menu */}
-                        <div className="h-6 w-px bg-slate-100 mx-1" />
-                        
-                        <button 
-                          onClick={() => handleToggleStatus(client.id, client.status)}
-                          className={cn(
-                            "p-2 rounded-xl border transition-all shadow-sm",
-                            client.status === 'active' 
-                              ? "bg-white border-red-100 text-red-500 hover:bg-red-50" 
-                              : "bg-white border-emerald-100 text-emerald-500 hover:bg-emerald-50"
-                          )}
-                          title={client.status === 'active' ? 'Suspender' : 'Ativar'}
-                        >
-                          <ShieldAlert className="w-4 h-4" />
-                        </button>
-                        
-                        <button 
-                          onClick={() => window.location.href = `/admin/messages?client=${client.client_id || client.id}`}
-                          className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-primary transition-all shadow-sm"
-                          title="Ver Mensagens"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                        </button>
-                        
-                        <button 
-                          onClick={() => window.location.href = `/admin/tickets?client=${client.client_id || client.id}`}
-                          className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-orange-500 transition-all shadow-sm"
-                          title="Ver Tickets"
-                        >
-                          <ClipboardList className="w-4 h-4" />
-                        </button>
-
-                        <button 
-                          onClick={() => handleSyncInstance(client.id)}
-                          className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-indigo-500 transition-all shadow-sm"
-                          title="Sincronizar Instância"
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                        </button>
-
-                        <button 
-                          onClick={() => setEditingClient(client)}
-                          className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm"
-                          title="Editar Cliente"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-
-                        <button 
-                          onClick={() => handleDeleteClient(client.id)}
-                          className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all shadow-sm"
-                          title="Eliminar Cliente"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        {filteredClients.length === 0 && (
-          <div className="p-20 text-center">
-            <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="w-8 h-8" />
-            </div>
-            <p className="text-slate-500 font-medium">Nenhum cliente encontrado com estes critérios.</p>
+      {/* MODAL: EDITAR CADASTRO BÁSICO */}
+      <AnimatePresence>
+        {editingClient && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md">
+            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} className="bg-slate-900 border border-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden text-slate-200">
+              <div className="p-6 border-b border-slate-800/60 flex justify-between items-center bg-slate-900/40">
+                <h3 className="font-black text-white text-lg">Modificar Cadastro Geral</h3>
+                <button onClick={() => setEditingClient(null)} className="p-1.5 bg-slate-950 border border-slate-800 text-slate-400 hover:text-white rounded-xl transition-all"><X className="w-4 h-4" /></button>
+              </div>
+              <form onSubmit={handleUpdateClient} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Nome da Entidade</label>
+                  <input type="text" className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white" value={editingClient.company_name} onChange={e => setEditingClient({...editingClient, company_name: e.target.value})} required />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Email Principal</label>
+                    <input type="email" className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white" value={editingClient.email || ''} onChange={e => setEditingClient({...editingClient, email: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Contacto</label>
+                    <input type="text" className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white" value={editingClient.phone || ''} onChange={e => setEditingClient({...editingClient, phone: e.target.value})} />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setEditingClient(null)} className="flex-1 px-5 py-3 bg-slate-950 text-slate-400 rounded-xl font-bold text-xs">Cancelar</button>
+                  <button type="submit" className="flex-1 bg-indigo-600 text-white rounded-xl font-bold text-xs">Gravar Metadados</button>
+                </div>
+              </form>
+            </motion.div>
           </div>
         )}
-      </div>
-
-      {/* Trial Isolation Info Card */}
-      <div className="bg-blue-50 border border-blue-100 rounded-[2rem] p-8 flex flex-col md:flex-row items-center gap-6">
-        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm shrink-0">
-          <Layers className="w-8 h-8 text-blue-500" />
-        </div>
-        <div className="flex-1 text-center md:text-left">
-          <h4 className="text-lg font-black text-slate-900 tracking-tight">Isolamento Lógico em Trial</h4>
-          <p className="text-sm text-slate-600 mt-1 leading-relaxed">
-            Mesmo utilizando o <span className="font-bold text-blue-600">Hub TrataTudo bot</span>, cada cliente trial possui um contexto 100% isolado. 
-            Prompts, mensagens, tickets e dados operacionais são filtrados por <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-blue-200 text-xs">client_id</span>, garantindo total privacidade e segurança.
-          </p>
-        </div>
-        <div className="flex gap-3 shrink-0">
-          <div className="flex flex-col items-center gap-1">
-            <div className="bg-white p-2 rounded-lg shadow-sm">
-              <Bot className="w-5 h-5 text-blue-500" />
-            </div>
-            <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Prompt Único</span>
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            <div className="bg-white p-2 rounded-lg shadow-sm">
-              <ShieldCheck className="w-5 h-5 text-emerald-500" />
-            </div>
-            <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Dados Seguros</span>
-          </div>
-        </div>
-      </div>
+      </AnimatePresence>
     </div>
   );
 }
