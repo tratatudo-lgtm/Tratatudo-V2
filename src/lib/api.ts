@@ -32,12 +32,10 @@ async function safeJson<T = any>(response: Response): Promise<T> {
 export async function apiFetch(path: string, options: RequestInit = {}) {
   const url = path.startsWith('http') ? path : `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
   
-  const token = localStorage.getItem('tratatudo_admin_token');
   const defaultOptions: RequestInit = {
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: 'Bearer ' + token } : {}),
       ...options.headers,
     },
   };

@@ -1,76 +1,104 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Search, Plus, Clock, ShieldCheck, Monitor, Zap, ShieldAlert, 
-  Bot, X, Loader2, AlertCircle, Edit2, Trash2, Mail, Phone, ArrowUpRight
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  Search, 
+  Plus, 
+  Clock, 
+  ShieldCheck, 
+  Zap, 
+  Bot, 
+  Trash2, 
+  Edit2, 
+  ShieldAlert, 
+  X, 
+  Loader2,
+  ChevronRight,
+  Phone,
+  Mail,
+  Building2,
+  Calendar,
+  Settings2,
+  CheckCircle2,
+  AlertTriangle,
+  Send,
+  MoreVertical
 } from 'lucide-react';
 import { toast } from 'sonner';
+
 import { apiGet, apiPost, apiPut, apiDelete, apiPatch } from '../../lib/api';
-import { extractArrayResponse } from '../../lib/utils';
-import { cn } from '../../lib/utils';
+import { extractArrayResponse, cn } from '../../lib/utils';
+import { LoadingState, ErrorState } from '../../components/States';
+
+// --- TYPES ---
 
 interface Client {
   id: string;
-  client_id?: string;
+  client_id: string;
   company_name: string;
-  phone: string;
+  contact_name?: string;
+  email?: string;
   phone_e164: string;
-  email: string | null;
-  status: 'active' | 'suspended' | 'trial' | 'pending';
+  status: 'active' | 'suspended' | 'pending' | 'trial';
   plan: 'starter' | 'pro' | 'enterprise';
-  trial_end?: string;
-  production_activated_at?: string;
-  master_prompt?: string;
+  trial_start: string | null;
+  trial_end: string | null;
+  production_activated_at: string | null;
   bot_instructions?: string;
+  master_prompt?: string;
   bot_instructions_compact?: string;
+  created_at: string;
   instance?: {
     instance_name: string;
+    status: string;
     is_hub: boolean;
   } | null;
 }
+
+type FilterType = 'all' | 'active' | 'trial' | 'suspended';
 
 export function AdminClients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState(new URLSearchParams(window.location.search).get('search') || '');
-  const [filtroStatus, setFiltroStatus] = useState<'all' | 'active' | 'suspended' | 'trial'>('all');
-
-  // Modals / Drawers
+  const [filter, setFilter] = useState<FilterType>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // UI States
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null); 
-  const [isBotConfigOpen, setIsBotConfigOpen] = useState(false);
-  const [isEditRegisterOpen, setIsEditRegisterOpen] = useState(false);
+  const [isBotConfigModalOpen, setIsBotConfigModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [processing, setProcessing] = useState(false);
 
   // Form States
-  const [newClient, setNewClient] = useState({
+  const [createForm, setCreateForm] = useState({
     phone_e164: '',
     company_name: '',
     contact_name: '',
     email: '',
     bot_instructions: '',
-    plan: 'starter' as const
+    plan: 'starter' as 'starter' | 'pro' | 'enterprise'
   });
 
-  const [botConfig, setBotConfig] = useState({
+  const [botConfigForm, setBotConfigForm] = useState({
     master_prompt: '',
     bot_instructions: '',
     bot_instructions_compact: ''
   });
 
-  const [processing, setProcessing] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<Client>>({});
+
+  // --- API HANDLERS ---
 
   const fetchClients = async () => {
     try {
       setLoading(true);
-      setError(null);
       const data = await apiGet('/api/admin/clients');
       const clientsData = extractArrayResponse<Client>(data, 'clients');
       setClients(clientsData);
     } catch (err: any) {
-      console.error('[ADMIN] Fetch clients failed:', err);
-      setError(err.message || 'Não foi possível carregar os clientes.');
-    } finaly {
+      setError(err.message || 'Erro ao carregar clientes');
+    } finally {
       setLoading(false);
     }
   };
@@ -81,399 +109,642 @@ export function AdminClients() {
 
   const handleCreateTrial = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (processing) return;
+    setProcessing(true);
     try {
-      setProcessing(true);
-      await apiPost('/api/admin/clients/trial', newClient);
-      toast.success('Cliente Trial criado com sucesso!');
-      await fetchClients();
+      await apiPost('/api/admin/clients/trial', createForm);
+      toast.success('Trial criado com sucesso!');
       setIsCreateModalOpen(false);
-      setNewClient({ phone_e164: '', company_name: '', contact_name: '', email: '', bot_instructions: '', plan: 'starter' });
+      setCreateForm({
+        phone_e164: '',
+        company_name: '',
+        contact_name: '',
+        email: '',
+        bot_instructions: '',
+        plan: 'starter'
+      });
+      fetchClients();
     } catch (err: any) {
-      toast.error(err.message);
-    } finaly {
+      toast.error(err.message || 'Erro ao criar trial');
+    } finally {
       setProcessing(false);
     }
   };
 
-  const handleUpdateClient = async (e: React.FormEvent) => {
+  const handleUpdateBotConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClient || processing) return;
+    if (!selectedClient) return;
+    setProcessing(true);
     try {
-      setProcessing(true);
-      await apiPut(`/api/admin/clients/${selectedClient.id}`, selectedClient);
-      toast.success('Dados cadastrais atualizados!');
-      await fetchClients();
-      setIsEditRegisterOpen(false);
+      await apiPut(`/api/admin/clients/${selectedClient.id}/bot-config`, botConfigForm);
+      toast.success('Configuração de IA sincronizada!');
+      setIsBotConfigModalOpen(false);
+      fetchClients();
+      // Update selected client locally
+      setSelectedClient(prev => prev ? { ...prev, ...botConfigForm } : null);
     } catch (err: any) {
-      toast.error(err.message);
-    } finaly {
+      toast.error(err.message || 'Erro ao atualizar IA');
+    } finally {
       setProcessing(false);
     }
   };
 
-  const handleSaveBotConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedClient || processing) return;
-    try {
-      setProcessing(true);
-      await apiPut(`/api/admin/clients/${selectedClient.id}/bot-config`, botConfig);
-      toast.success('Engine de IA e Prompts sincronizados!');
-      await fetchClients();
-      setIsBotConfigOpen(false);
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao atualizar prompts de IA');
-    } finaly {
-      setProcessing(false);
-    }
-  };
-
-  const handleDeleteClient = async (id: string) => {
-    if (!confirm('Tem a certeza que deseja eliminar este cliente? Esta ação é irreversível.')) return;
-    try {
-      setProcessing(true);
-      await apiDelete(`/api/admin/clients/${id}`);
-      toast.success('Cliente eliminado com sucesso.');
-      setSelectedClient(null);
-      await fetchClients();
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao eliminar cliente');
-    } finaly {
-      setProcessing(false);
-    }
-  };
-
-  const handleToggleStatus = async (id: string, currentStatus: string) => {
+  const handleUpdateStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
     try {
       await apiPatch(`/api/admin/clients/${id}/status`, { status: newStatus });
-      toast.success(`Cliente ${newStatus === 'active' ? 'reativado' : 'suspenso'}.`);
-      setClients(prev => prev.map(c => c.id === id ? { ...c, status: newStatus as any } : c));
+      toast.success(`Status alterado para ${newStatus}`);
+      fetchClients();
       if (selectedClient?.id === id) {
         setSelectedClient(prev => prev ? { ...prev, status: newStatus as any } : null);
       }
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao atualizar estado do cliente (403/Erro de Permissão)');
+      toast.error(err.message || 'Erro ao alterar status');
     }
   };
 
   const handleActivateProduction = async (id: string) => {
-    if (!confirm('Deseja ativar o modo de produção para este cliente? Isto criará uma instância dedicada.')) return;
+    if (!confirm('Ativar Modo Produção agora? Esta ação iniciará o provisionamento de uma instância dedicada.')) return;
+    setProcessing(true);
     try {
-      setProcessing(true);
       await apiPost(`/api/admin/clients/${id}/activate-production`);
-      toast.success('Produção ativada! Instância dedicada em criação.');
-      await fetchClients();
+      toast.success('Modo Produção ativado! Provisionando...');
+      fetchClients();
       setSelectedClient(null);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao ativar produção');
-    } finaly {
+    } finally {
       setProcessing(false);
     }
   };
 
-  const openBotConfig = (client: Client) => {
-    setBotConfig({
-      master_prompt: client.master_prompt || '',
-      bot_instructions: client.bot_instructions || '',
-      bot_instructions_compact: client.bot_instructions_compact || ''
-    });
-    setIsBotConfigOpen(true);
+  const handleDeleteTenant = async (id: string) => {
+    if (!confirm('Eliminar permanentemente este tenant? Todos os dados serão removidos.')) return;
+    try {
+      await apiDelete(`/api/admin/clients/${id}`);
+      toast.success('Tenant eliminado');
+      fetchClients();
+      setSelectedClient(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao eliminar tenant');
+    }
   };
 
-  const filteredClients = clients.filter(client => {
-    const matchesSearch = client.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.client_id || client.id).toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filtroStatus === 'all' || client.status === filtroStatus;
-    return matchesSearch && matchesStatus;
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClient) return;
+    setProcessing(true);
+    try {
+      await apiPut(`/api/admin/clients/${selectedClient.id}`, editForm);
+      toast.success('Cadastro atualizado');
+      setIsEditModalOpen(false);
+      fetchClients();
+      setSelectedClient(prev => prev ? { ...prev, ...editForm } : null);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao atualizar cadastro');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // --- HELPERS ---
+
+  const filteredClients = clients.filter(c => {
+    const matchesSearch = c.company_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          c.phone_e164.includes(searchTerm);
+    const matchesFilter = filter === 'all' || 
+                         (filter === 'active' && c.status === 'active') ||
+                         (filter === 'trial' && (c.status === 'trial' || c.status === 'pending')) ||
+                         (filter === 'suspended' && c.status === 'suspended');
+    return matchesSearch && matchesFilter;
   });
 
-  if (loading && clients.length === 0) return <div className="p-20 text-center text-indigo-400 font-mono">A ler infraestrutura de rede segura...</div>;
-  if (error && clients.length === 0) return <div className="p-20 text-center text-red-400 font-mono">Erro: {error}</div>;
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'active': return { label: 'Ativo', classes: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20', icon: CheckCircle2 };
+      case 'suspended': return { label: 'Suspenso', classes: 'bg-rose-500/10 text-rose-500 border-rose-500/20', icon: AlertTriangle };
+      case 'trial': return { label: 'Trial', classes: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20', icon: Clock };
+      default: return { label: 'Pendente', classes: 'bg-slate-500/10 text-slate-400 border-slate-500/20', icon: Loader2 };
+    }
+  };
+
+  if (loading && clients.length === 0) return <LoadingState message="Sincronizando base de clientes..." />;
+  if (error && clients.length === 0) return <ErrorState message={error} />;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-20 px-4 text-slate-100 antialiased">
+    <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30">
       
-      {/* HEADER */}
-      <div className="flex flex-col gap-4 pb-4 border-b border-slate-900">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-mono font-bold text-indigo-400 uppercase tracking-widest">
-            <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" /> TrataTudo Core Engine
+      {/* 1. HEADER & SEARCH */}
+      <header className="sticky top-0 z-30 bg-slate-950/80 backdrop-blur-md border-b border-white/5 px-4 py-4 md:px-8">
+        <div className="max-w-6xl mx-auto flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                <h1 className="text-xs font-black text-slate-500 uppercase tracking-widest">TrataTudo Core Engine</h1>
+              </div>
+              <h2 className="text-2xl font-black tracking-tight">Gestão de Clientes</h2>
+            </div>
+            <button 
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 md:px-5 md:py-2.5 rounded-2xl transition-all shadow-lg shadow-indigo-600/20 flex items-center gap-2 group active:scale-95"
+            >
+              <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+              <span className="hidden md:inline font-bold">Novo Trial</span>
+            </button>
           </div>
-          <h1 className="text-2xl font-black text-white tracking-tight mt-1">Gestão de Clientes</h1>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3 w-full">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Pesquisar empresa..."
+
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+            <input 
+              type="text" 
+              placeholder="Pesquisar por empresa ou telefone..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-slate-900/60 border border-slate-800/80 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 w-full"
+              className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all placeholder:text-slate-600"
             />
           </div>
-          <button onClick={() => setIsCreateModalOpen(true)} className="bg-indigo-600 text-white py-3 px-5 rounded-xl font-bold text-sm hover:bg-indigo-500 transition-all flex items-center justify-center gap-2 active:scale-95">
-            <Plus className="w-4 h-4" /> Novo Trial
-          </button>
+
+          {/* Segmented Filter */}
+          <div className="flex bg-white/5 p-1 rounded-xl border border-white/5 self-start overflow-x-auto no-scrollbar max-w-full">
+            {(['all', 'active', 'trial', 'suspended'] as FilterType[]).map((type) => (
+              <button
+                key={type}
+                onClick={() => setFilter(type)}
+                className={cn(
+                  "px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-all whitespace-nowrap",
+                  filter === type 
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" 
+                    : "text-slate-400 hover:text-slate-200"
+                )}
+              >
+                {type === 'all' ? 'Todos' : type}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* FILTROS DE ESTADO QUICK-SELECT */}
-      <div className="bg-slate-900/60 border border-slate-900 p-1 rounded-xl flex gap-1 overflow-x-auto w-full no-scrollbar">
-        {(['all', 'active', 'trial', 'suspended'] as const).map((status) => (
-          <button
-            key={status}
-            onClick={() => setFiltroStatus(status)}
-            className={cn(
-              "px-4 py-2 rounded-lg text-xs font-bold transition-all capitalize flex-1 text-center whitespace-nowrap",
-              filtroStatus === status ? "bg-slate-800 text-white border border-slate-700" : "text-slate-400"
-            )}
-          >
-            {status === 'all' ? 'Todos' : status}
-          </button>
-        ))}
-      </div>
+      {/* 2. CLIENT LIST (MOBILE-FIRST CARDS) */}
+      <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <AnimatePresence mode="popLayout">
+            {filteredClients.map((client) => {
+              const status = getStatusConfig(client.status);
+              const isTrial = client.status === 'trial' || client.status === 'pending';
+              
+              return (
+                <motion.div
+                  key={client.id}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  onClick={() => setSelectedClient(client)}
+                  className="group bg-white/5 hover:bg-white/[0.08] border border-white/10 hover:border-indigo-500/30 rounded-3xl p-5 transition-all cursor-pointer relative overflow-hidden active:scale-[0.98]"
+                >
+                  {/* Card Background Glow */}
+                  <div className="absolute -right-10 -top-10 w-32 h-32 bg-indigo-600/5 blur-3xl rounded-full group-hover:bg-indigo-600/10 transition-colors" />
 
-      {/* LISTAGEM RESPONSIVA (OTIMIZADA PARA TELEMÓVEL) */}
-      <div className="space-y-3">
-        {filteredClients.map((client) => {
-          const isTrial = client.status === 'trial' || client.instance?.is_hub === true;
-          return (
-            <div 
-              key={client.id}
-              onClick={() => setSelectedClient(client)}
-              className="bg-slate-900/40 border border-slate-900/80 rounded-2xl p-4 flex items-center justify-between gap-4 active:bg-slate-800/40 transition-all cursor-pointer group"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border shrink-0", isTrial ? "text-blue-400 bg-blue-500/5" : "text-emerald-400 bg-emerald-500/5")}>
-                  {isTrial ? <Clock className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-white group-hover:text-indigo-400 transition-colors truncate">{client.company_name}</p>
-                  <p className="text-xs text-slate-500 font-mono truncate mt-0.5">{client.phone}</p>
-                </div>
-              </div>
+                  <div className="flex items-start justify-between mb-4 relative z-10">
+                    <div className={cn(
+                      "w-12 h-12 rounded-2xl flex items-center justify-center p-3",
+                      isTrial ? "bg-indigo-500/10 text-indigo-400" : "bg-emerald-500/10 text-emerald-400"
+                    )}>
+                      {isTrial ? <Clock className="w-full h-full" /> : <ShieldCheck className="w-full h-full" />}
+                    </div>
+                    <div className={cn(
+                      "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
+                      status.classes
+                    )}>
+                      {status.label}
+                    </div>
+                  </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <span className={cn("px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border", 
-                  client.status === 'active' ? "text-emerald-400 bg-emerald-500/5 border-emerald-500/10" : 
-                  client.status === 'trial' ? "text-blue-400 bg-blue-500/5 border-blue-500/10" : "text-red-400 bg-red-500/5 border-red-500/10"
-                )}>
-                  {client.status}
-                </span>
-                <ArrowUpRight className="w-4 h-4 text-slate-600 group-hover:text-indigo-400 transition-colors" />
-              </div>
+                  <div className="relative z-10">
+                    <h3 className="text-lg font-black text-white leading-tight mb-1 group-hover:text-indigo-400 transition-colors">
+                      {client.company_name}
+                    </h3>
+                    <div className="flex items-center gap-2 text-slate-400 text-sm font-medium">
+                      <Phone className="w-3.5 h-3.5 text-slate-500" />
+                      {client.phone_e164}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between text-xs font-bold">
+                    <div className="flex items-center gap-2 text-slate-500">
+                      <Zap className="w-3.5 h-3.5 text-indigo-400" />
+                      <span className="uppercase tracking-tighter">{client.plan}</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
+
+        {filteredClients.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-4 border border-white/5">
+              <Bot className="w-10 h-10 text-slate-700" />
             </div>
-          );
-        })}
-      </div>
+            <h3 className="text-xl font-bold text-slate-300">Nenhum tenant encontrado</h3>
+            <p className="text-slate-500 max-w-xs mt-2">Ajuste os filtros ou crie um novo trial para começar.</p>
+          </div>
+        )}
+      </main>
 
-      {/* 📱 DRAWER LATERAL: CENTRAL DE CONTROLO DO CLIENTE (MOBILE FIRST) */}
+      {/* 3. CLIENT DETAIL DRAWER */}
       <AnimatePresence>
-        {selectedClient && !isBotConfigOpen && !isEditRegisterOpen && (
-          <div className="fixed inset-0 z-40 flex justify-end bg-slate-950/80 backdrop-blur-sm" onClick={() => setSelectedClient(null)}>
+        {selectedClient && (
+          <>
+            {/* Backdrop */}
             <motion.div 
-              initial={{ x: "100%" }} 
-              animate={{ x: 0 }} 
-              exit={{ x: "100%" }} 
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-slate-900 border-l border-slate-800 w-full max-w-md h-full flex flex-col shadow-2xl overflow-hidden text-slate-200"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedClient(null)}
+              className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40"
+            />
+            {/* Drawer */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed right-0 top-0 bottom-0 w-full md:w-[450px] bg-slate-900 border-l border-white/10 z-50 flex flex-col shadow-2xl"
             >
-              {/* Header do Drawer */}
-              <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/60">
-                <div>
-                  <span className="text-[10px] font-mono bg-slate-800 text-indigo-400 px-2 py-0.5 rounded border border-slate-700 font-bold uppercase">{selectedClient.plan}</span>
-                  <h3 className="font-black text-white text-xl mt-1.5 truncate max-w-[280px]">{selectedClient.company_name}</h3>
+              <div className="p-6 md:p-8 border-b border-white/5 flex items-center justify-between bg-slate-900/50 backdrop-blur-xl">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-indigo-600/10 rounded-2xl flex items-center justify-center text-indigo-400">
+                    <Building2 className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black tracking-tight">{selectedClient.company_name}</h3>
+                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest mt-0.5">ID: {selectedClient.client_id}</p>
+                  </div>
                 </div>
-                <button onClick={() => setSelectedClient(null)} className="p-2 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl"><X className="w-5 h-5" /></button>
+                <button 
+                  onClick={() => setSelectedClient(null)}
+                  className="p-2.5 bg-white/5 hover:bg-white/10 rounded-full transition-colors border border-white/5"
+                >
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
               </div>
 
-              {/* Corpo / Informações Expandidas */}
-              <div className="p-6 flex-1 overflow-y-auto space-y-6">
+              <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 no-scrollbar">
                 
-                {/* Status Operacional */}
-                <div className="bg-slate-950/40 border border-slate-800/60 rounded-2xl p-4 space-y-3">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-500 font-medium">Estado do Serviço:</span>
-                    <span className="font-bold text-white capitalize">{selectedClient.status}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-500 font-medium">Instância Atribuda:</span>
-                    <span className="font-mono text-slate-300 flex items-center gap-1"><Monitor className="w-3 h-3 text-indigo-400" /> {selectedClient.instance?.instance_name || 'Nenhuma'}</span>
-                  </div>
-                  {selectedClient.trial_end && (
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-500 font-medium">Fim do Período Trial:</span>
-                      <span className="font-mono text-blue-400 font-bold">{new Date(selectedClient.trial_end).toLocaleDateString('pt-PT')}</span>
-                    )}
-                </div>
-
-                {/* Contactos Rápidos */}
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-3 text-sm bg-slate-950/20 p-3 rounded-xl border border-slate-900">
-                    <Phone className="w-4 h-4 text-slate-500" />
-                    <span className="font-mono text-xs">{selectedClient.phone}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm bg-slate-950/20 p-3 rounded-xl border border-slate-900">
-                    <Mail className="w-4 h-4 text-slate-500" />
-                    <span className="text-xs truncate">{selectedClient.email || 'Sem e-mail cadastrado'}</span>
-                  </div>
-                </div>
-
-                {/* 🚀 BOTÃO GIGANTE: ATIVAR MODO PRODUÇÃO (O QUE FALTAVA!) */}
-                {selectedClient.status === 'trial' && (
+                {/* 3.1 PROMINENT ACTION: ACTIVATE PRODUCTION */}
+                {(selectedClient.status === 'trial' || selectedClient.status === 'pending') && (
                   <button 
                     onClick={() => handleActivateProduction(selectedClient.id)}
                     disabled={processing}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-2xl font-bold text-sm shadow-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white py-6 rounded-[2.5rem] font-black text-lg shadow-xl shadow-emerald-600/20 flex flex-col items-center justify-center gap-1 transition-all active:scale-95 group relative mb-4 overflow-hidden"
                   >
-                    {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 fill-white" />}
-                    ATIVAR MODO PRODUÇÃO (Dedicado)
+                    <div className="absolute inset-0 bg-gradient-to-tr from-emerald-600/0 via-white/10 to-emerald-600/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                    <Zap className="w-8 h-8 mb-1 animate-bounce" />
+                    <span>ATIVAR MODO PRODUÇÃO</span>
+                    <span className="text-[10px] font-black opacity-80 uppercase tracking-widest">Provisionar Instância Dedicada</span>
                   </button>
                 )}
 
-                {/* BOTÕES DE AÇÃO DE INFRAESTRUTURA */}
-                <div className="grid grid-cols-2 gap-3">
+                {/* 3.2 CLIENT METADATA */}
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="bg-white/5 rounded-3xl p-5 border border-white/5 space-y-4">
+                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Dados de Contrato</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Plano Atual</label>
+                        <div className="flex items-center gap-2 text-indigo-400 font-black uppercase text-sm">
+                          <Zap className="w-3.5 h-3.5" />
+                          {selectedClient.plan}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Instância</label>
+                        <div className="text-sm font-bold text-slate-200 truncate pr-2">
+                          {selectedClient.instance?.instance_name || 'N/A (Hub)'}
+                        </div>
+                      </div>
+                      <div className="space-y-1 col-span-2">
+                        <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Fim do Trial / Vencimento</label>
+                        <div className="flex items-center gap-2 text-amber-500 font-bold text-sm">
+                          <Calendar className="w-3.5 h-3.5" />
+                          {selectedClient.trial_end ? new Date(selectedClient.trial_end).toLocaleDateString() : 'Indeterminado'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/5 rounded-3xl p-5 border border-white/5 space-y-4">
+                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Contacto Direto</h4>
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/5">
+                        <Phone className="w-4 h-4 text-slate-500" />
+                        <span className="font-bold text-sm">{selectedClient.phone_e164}</span>
+                      </div>
+                      <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/5">
+                        <Mail className="w-4 h-4 text-slate-500" />
+                        <span className="font-bold text-sm truncate">{selectedClient.email || 'Não informado'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3.3 SECONDARY ACTIONS CONTAINER */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-2">Gestão Estratégica</h4>
+                  
                   <button 
-                    onClick={() => openBotConfig(selectedClient)}
-                    className="bg-indigo-950/60 border border-indigo-900/50 text-indigo-400 py-3.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 active:bg-indigo-900"
+                    onClick={() => {
+                      setBotConfigForm({
+                        master_prompt: selectedClient.master_prompt || '',
+                        bot_instructions: selectedClient.bot_instructions || '',
+                        bot_instructions_compact: selectedClient.bot_instructions_compact || ''
+                      });
+                      setIsBotConfigModalOpen(true);
+                    }}
+                    className="w-full flex items-center justify-between p-4 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-2xl border border-indigo-500/20 transition-all font-bold text-sm group"
                   >
-                    <Bot className="w-4 h-4" /> Configurar IA
+                    <div className="flex items-center gap-3">
+                      <Bot className="w-5 h-5" />
+                      <span>Configurar Engine de IA</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </button>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => {
+                        setEditForm({ ...selectedClient });
+                        setIsEditModalOpen(true);
+                      }}
+                      className="flex items-center justify-center gap-2 p-3.5 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 font-bold text-xs border border-white/5 transition-all"
+                    >
+                      <Edit2 className="w-4 h-4 text-indigo-400" />
+                      Editar Dados
+                    </button>
+                    <button 
+                      onClick={() => handleUpdateStatus(selectedClient.id, selectedClient.status)}
+                      className={cn(
+                        "flex items-center justify-center gap-2 p-3.5 rounded-2xl font-bold text-xs border transition-all",
+                        selectedClient.status === 'active' 
+                          ? "bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/20 text-rose-500" 
+                          : "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/20 text-emerald-500"
+                      )}
+                    >
+                      <ShieldAlert className="w-4 h-4" />
+                      {selectedClient.status === 'active' ? 'Suspender' : 'Reativar'}
+                    </button>
+                  </div>
+
                   <button 
-                    onClick={() => handleToggleStatus(selectedClient.id, selectedClient.status)}
-                    className={cn("border py-3.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all", 
-                      selectedClient.status === 'active' ? "bg-red-950/40 border-red-900/50 text-red-400" : "bg-emerald-950/40 border-emerald-900/50 text-emerald-400"
-                    )}
+                    onClick={() => handleDeleteTenant(selectedClient.id)}
+                    className="w-full flex items-center justify-center gap-2 p-4 bg-white/5 hover:bg-rose-500 text-slate-400 hover:text-white rounded-2xl font-bold text-xs border border-white/5 hover:border-rose-500 transition-all mt-4"
                   >
-                    <ShieldAlert className="w-4 h-4" /> 
-                    {selectedClient.status === 'active' ? 'Suspender Conta' : 'Reativar Conta'}
+                    <Trash2 className="w-4 h-4" />
+                    ELIMINAR TENANT DEFINITIVAMENTE
                   </button>
                 </div>
-
-                {/* EDICÃO E REMOÇÃO */}
-                <div className="pt-4 border-t border-slate-800/60 grid grid-cols-2 gap-3">
-                  <button onClick={() => setIsEditRegisterOpen(true)} className="bg-slate-800 border border-slate-700 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
-                    <Edit2 className="w-3.5 h-3.5" /> Editar Cadastro
-                  </button>
-                  <button onClick={() => handleDeleteClient(selectedClient.id)} className="bg-slate-950 border border-red-950 text-red-500 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-red-950/20">
-                    <Trash2 className="w-3.5 h-3.5" /> Eliminar Tenant
-                  </button>
-                </div>
-
               </div>
             </motion.div>
-          </div>
+          </>
         )}
       </AnimatePresence>
 
-      {/* MODAL SUB-NÍVEL: PROMPTS DE IA */}
+      {/* 4. MODALS (CREATE, IA CONFIG, EDIT) */}
       <AnimatePresence>
-        {isBotConfigOpen && selectedClient && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} className="bg-slate-900 border border-slate-800 rounded-[2rem] w-full max-w-2xl overflow-hidden text-slate-200">
-              <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-                <div>
-                  <h3 className="font-black text-white text-lg">Engine de IA (Evolution API)</h3>
-                  <p className="text-xs text-indigo-400 font-mono">{selectedClient.company_name}</p>
-                </div>
-                <button onClick={() => setIsBotConfigOpen(false)} className="p-1.5 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl"><X className="w-4 h-4" /></button>
-              </div>
-              <form onSubmit={handleSaveBotConfig} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">1. Master Prompt</label>
-                  <textarea rows={4} className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-slate-300 outline-none" value={botConfig.master_prompt} onChange={e => setBotConfig({...botConfig, master_prompt: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">2. Bot Instructions</label>
-                  <textarea rows={4} className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-slate-300 outline-none" value={botConfig.bot_instructions} onChange={e => setBotConfig({...botConfig, bot_instructions: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">3. Bot Instructions Compact</label>
-                  <textarea rows={2} className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-slate-300 outline-none" value={botConfig.bot_instructions_compact} onChange={e => setBotConfig({...botConfig, bot_instructions_compact: e.target.value})} />
-                </div>
-                <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setIsBotConfigOpen(false)} className="flex-1 py-3 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl font-bold text-xs">Voltar</button>
-                  <button type="submit" disabled={processing} className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
-                    {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sincronizar IA"}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL SUB-NÍVEL: EDITAR METADADOS CADASTRAIS */}
-      <AnimatePresence>
-        {isEditRegisterOpen && selectedClient && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} className="bg-slate-900 border border-slate-800 rounded-[2rem] w-full max-w-lg overflow-hidden text-slate-200">
-              <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-                <h3 className="font-black text-white text-lg">Modificar Cadastro Geral</h3>
-                <button onClick={() => setIsEditRegisterOpen(false)} className="p-1.5 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl"><X className="w-4 h-4" /></button>
-              </div>
-              <form onSubmit={handleUpdateClient} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Nome da Entidade</label>
-                  <input type="text" className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-white outline-none" value={selectedClient.company_name} onChange={e => setSelectedClient({...selectedClient, company_name: e.target.value})} required />
-                </div>
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Email Principal</label>
-                  <input type="email" className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none" value={selectedClient.email || ''} onChange={e => setSelectedClient({...selectedClient, email: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Contacto Telefónico</label>
-                  <input type="text" className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none" value={selectedClient.phone || ''} onChange={e => setSelectedClient({...selectedClient, phone: e.target.value})} />
-                </div>
-                <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setIsEditRegisterOpen(false)} className="flex-1 py-3 bg-slate-950 text-slate-400 rounded-xl font-bold text-xs">Voltar</button>
-                  <button type="submit" className="flex-1 bg-indigo-600 text-white rounded-xl font-bold text-xs">Gravar Metadados</button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL PRINCIPAL: CRIAR NOVO TRIAL */}
-      <AnimatePresence>
+        
+        {/* NEW TRIAL MODAL */}
         {isCreateModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} className="bg-slate-900 border border-slate-800 rounded-[2rem] w-full max-w-md overflow-hidden text-slate-200">
-              <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-                <h3 className="font-black text-white text-lg">Criar Conta Trial</h3>
-                <button onClick={() => setIsCreateModalOpen(false)} className="p-1.5 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl"><X className="w-4 h-4" /></button>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setIsCreateModalOpen(false)}
+              className="absolute inset-0 bg-slate-950/90 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-slate-900 border border-white/10 rounded-[2.5rem] w-full max-w-lg relative z-10 overflow-hidden shadow-2xl shadow-indigo-500/10"
+            >
+              <div className="p-8 border-b border-white/5 flex items-center justify-between bg-slate-900/50">
+                <div>
+                  <h3 className="text-xl font-black tracking-tight">Criar Conta Trial</h3>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Instância Hub Automática</p>
+                </div>
+                <button onClick={() => setIsCreateModalOpen(false)} className="p-2 bg-white/5 rounded-full text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <form onSubmit={handleCreateTrial} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Nome da Empresa</label>
-                  <input type="text" className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none" value={newClient.company_name} onChange={e => setNewClient({...newClient, company_name: e.target.value})} required />
+              <form onSubmit={handleCreateTrial} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto no-scrollbar">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Empresa</label>
+                      <input 
+                        type="text" required placeholder="Ex: TrataTudo Lda"
+                        value={createForm.company_name} onChange={e => setCreateForm({...createForm, company_name: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-bold"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Telefone (Whatsapp)</label>
+                      <input 
+                        type="text" required placeholder="+351912345678"
+                        value={createForm.phone_e164} onChange={e => setCreateForm({...createForm, phone_e164: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-bold"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Responsável</label>
+                      <input 
+                        type="text" placeholder="Nome do Admin"
+                        value={createForm.contact_name} onChange={e => setCreateForm({...createForm, contact_name: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-bold"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Email</label>
+                      <input 
+                        type="email" placeholder="admin@empresa.com"
+                        value={createForm.email} onChange={e => setCreateForm({...createForm, email: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-bold"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Plano Target</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {(['starter', 'pro', 'enterprise'] as const).map(p => (
+                        <button
+                          key={p} type="button"
+                          onClick={() => setCreateForm({...createForm, plan: p})}
+                          className={cn(
+                            "py-2.5 rounded-xl text-[10px] font-black uppercase tracking-tighter border transition-all",
+                            createForm.plan === p 
+                              ? "bg-indigo-600 border-indigo-600 text-white" 
+                              : "bg-white/5 border-white/10 text-slate-400"
+                          )}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Instruções Iniciais da IA</label>
+                    <textarea 
+                      rows={4} placeholder="Ex: Atua como um assistente de vendas da TrataTudo..."
+                      value={createForm.bot_instructions} onChange={e => setCreateForm({...createForm, bot_instructions: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-medium min-h-[100px]"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Telemóvel (Formato E164)</label>
-                  <input type="text" placeholder="+351912345678" className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none font-mono" value={newClient.phone_e164} onChange={e => setNewClient({...newClient, phone_e164: e.target.value})} required />
-                </div>
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Email</label>
-                  <input type="email" className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none" value={newClient.email} onChange={e => setNewClient({...newClient, email: e.target.value})} />
-                </div>
-                <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setIsCreateModalOpen(false)} className="flex-1 py-3 bg-slate-950 text-slate-400 rounded-xl font-bold text-xs">Cancelar</button>
-                  <button type="submit" disabled={processing} className="flex-1 bg-indigo-600 text-white rounded-xl font-bold text-xs flex items-center justify-center">
-                    {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Criar Instância Hub"}
-                  </button>
-                </div>
+                <button 
+                  type="submit" disabled={processing}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white py-4 rounded-3xl font-black text-sm shadow-xl shadow-indigo-600/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4 ml-1" /> Provisionar Trial Hub</>}
+                </button>
               </form>
             </motion.div>
           </div>
         )}
+
+        {/* IA CONFIG MODAL */}
+        {isBotConfigModalOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setIsBotConfigModalOpen(false)}
+              className="absolute inset-0 bg-slate-950/90 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-slate-900 border border-white/10 rounded-[2.5rem] w-full max-w-2xl relative z-10 overflow-hidden shadow-2xl"
+            >
+              <div className="p-8 border-b border-white/5 flex items-center justify-between bg-slate-900/50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-600/20 rounded-xl text-indigo-400">
+                    <Bot className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black tracking-tight">Configuração IA Evolution</h3>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Prompt Engineering & Hub Synch</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsBotConfigModalOpen(false)} className="p-2 bg-white/5 rounded-full text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <form onSubmit={handleUpdateBotConfig} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto no-scrollbar">
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Master Prompt (Personalidade)</label>
+                    <textarea 
+                      rows={4} value={botConfigForm.master_prompt} onChange={e => setBotConfigForm({...botConfigForm, master_prompt: e.target.value})}
+                      className="w-full bg-slate-950 font-mono text-xs p-4 rounded-2xl border border-white/10 focus:border-indigo-500/50 focus:outline-none transition-all"
+                      placeholder="Identidade fundamental do bot..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Bot Instructions (Regras de Negócio)</label>
+                    <textarea 
+                      rows={6} value={botConfigForm.bot_instructions} onChange={e => setBotConfigForm({...botConfigForm, bot_instructions: e.target.value})}
+                      className="w-full bg-slate-950 font-mono text-xs p-4 rounded-2xl border border-white/10 focus:border-indigo-500/50 focus:outline-none transition-all"
+                      placeholder="Instruções completas para operação..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Bot Instructions Compact (Contexto Rápido)</label>
+                    <textarea 
+                      rows={3} value={botConfigForm.bot_instructions_compact} onChange={e => setBotConfigForm({...botConfigForm, bot_instructions_compact: e.target.value})}
+                      className="w-full bg-slate-950 font-mono text-xs p-4 rounded-2xl border border-white/10 focus:border-indigo-500/50 focus:outline-none transition-all"
+                      placeholder="Resumo para chamadas de baixa latência..."
+                    />
+                  </div>
+                </div>
+                <button 
+                  type="submit" disabled={processing}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white py-5 rounded-3xl font-black text-sm shadow-xl shadow-indigo-600/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sincronizar Engine de IA"}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {/* EDIT CLIENT MODAL */}
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setIsEditModalOpen(false)}
+              className="absolute inset-0 bg-slate-950/90 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-slate-900 border border-white/10 rounded-[2.5rem] w-full max-w-lg relative z-10 overflow-hidden shadow-2xl"
+            >
+              <div className="p-8 border-b border-white/5 flex items-center justify-between bg-slate-900/50">
+                <h3 className="text-xl font-black tracking-tight">Editar Cadastro</h3>
+                <button onClick={() => setIsEditModalOpen(false)} className="p-2 bg-white/5 rounded-full text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <form onSubmit={handleEditSubmit} className="p-8 space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Empresa</label>
+                    <input 
+                      type="text" value={editForm.company_name || ''} onChange={e => setEditForm({...editForm, company_name: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-bold"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Telefone Principal</label>
+                    <input 
+                      type="text" value={editForm.phone_e164 || ''} onChange={e => setEditForm({...editForm, phone_e164: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-bold"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">E-mail Operacional</label>
+                    <input 
+                      type="email" value={editForm.email || ''} onChange={e => setEditForm({...editForm, email: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-bold"
+                    />
+                  </div>
+                </div>
+                <button 
+                  type="submit" disabled={processing}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white py-4 rounded-3xl font-black text-sm shadow-xl shadow-indigo-600/20 transition-all active:scale-95"
+                >
+                  {processing ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Salvar Alterações"}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
       </AnimatePresence>
 
+      {/* 5. FLOATING FOOTER STATUS */}
+      <footer className="fixed bottom-0 left-0 right-0 p-4 pointer-events-none z-20 flex justify-center">
+        <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-full px-6 py-2 flex items-center gap-4 pointer-events-auto shadow-2xl">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Database Sync</span>
+          </div>
+          <div className="w-px h-3 bg-white/10" />
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{clients.length} Clientes</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

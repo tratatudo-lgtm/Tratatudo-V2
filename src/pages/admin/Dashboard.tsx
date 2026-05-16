@@ -87,17 +87,7 @@ export function AdminDashboard() {
       
       // Fetch Stats
       const statsData = await apiGet('/api/admin/dashboard/stats');
-      const d = statsData.data || statsData;
-      setStats({
-        total_clients: d.activeClients || 0,
-        active_clients: d.activeClients || 0,
-        trial_clients: 0,
-        active_instances: d.activeClients || 0,
-        total_messages_24h: 0,
-        system_health: 100,
-        messages_chart: [],
-        ...d
-      });
+      setStats(statsData);
 
       // Fetch Alerts
       try {

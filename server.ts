@@ -7,7 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServer as createViteServer } from "vite";
 
 // --- ENV & CONFIG ---
-const PORT = 3002;
+const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "tratatudo-super-admin-secret-2026";
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "";
@@ -58,7 +58,6 @@ async function startServer() {
       }
 
       req.admin = admin;
-      req.adminEmail = decoded.email;
       req.adminId = decoded.userId;
       next();
     } catch (err) {
@@ -109,12 +108,12 @@ async function startServer() {
       res.cookie("tratatudo_admin_session", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "none",
+        sameSite: "lax",
         path: "/",
         maxAge: 12 * 60 * 60 * 1000 // 12 hours
       });
 
-      res.json({ ok: true, token, data: { user: authData.user, admin } });
+      res.json({ ok: true, data: { user: authData.user, admin } });
     } catch (err: any) {
       res.status(500).json({ ok: false, error: "Erro interno no servidor de autenticação." });
     }
@@ -128,8 +127,6 @@ async function startServer() {
     res.clearCookie("tratatudo_admin_session");
     res.json({ ok: true, message: "Logout efetuado com sucesso." });
   });
-
-  app.get("/api/admin/auth/session", requireAdminSession, async (req: any, res) => { res.json({ ok: true, authenticated: true, email: req.admin.email || req.adminEmail, role: "super_admin" }); });
 
   // --- CLIENT HUB AUTH (Multitenant) ---
 
@@ -264,75 +261,6 @@ async function startServer() {
     } catch (err: any) {
       res.status(500).json({ ok: false, error: err.message });
     }
-  });
-
-  app.get("/api/admin/dashboard/stats", requireAdminSession, async (req, res) => {
-    try {
-      const [
-        { count: activeClients },
-        { count: pendingTickets },
-        { data: subscriptions },
-        { count: expiredSubs }
-      ] = await Promise.all([
-        supabase.from("clients").select("*", { count: 'exact', head: true }).eq("status", "active"),
-        supabase.from("tickets").select("*", { count: 'exact', head: true }).neq("status", "resolved"),
-        supabase.from("subscriptions").select("plan, status"),
-        supabase.from("clients").select("*", { count: 'exact', head: true }).lt("subscription_expires_at", new Date().toISOString())
-      ]);
-      res.json({ ok: true, data: { activeClients: activeClients || 0, pendingTickets: pendingTickets || 0, expiredSubscriptions: expiredSubs || 0, billingSummary: subscriptions || [], systemStatus: { database: "online", evolution_api: "online", stripe: "online" } } });
-    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
-  });
-  app.get("/api/admin/alerts", requireAdminSession, async (req, res) => {
-    res.json({ ok: true, alerts: [] });
-  });
-
-  app.get("/api/admin/instances", requireAdminSession, async (req, res) => {
-    res.json({ ok: true, data: [] });
-  });
-
-  app.get("/api/admin/messages", requireAdminSession, async (req, res) => {
-    try {
-      const { data, error } = await supabase.from("messages").select("*").order("created_at", { ascending: false }).limit(100);
-      if (error) return res.status(500).json({ ok: false, error: error.message });
-      const mapped = (data || []).map((m: any) => ({ ...m, text: m.body || m.text || '', client_id: m.phone_e164, instance: m.instance_name }));
-      res.json({ ok: true, data: mapped });
-    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
-  });
-
-  app.get("/api/admin/subscriptions", requireAdminSession, async (req, res) => {
-    try {
-      const { data, error } = await supabase.from("subscriptions").select("*").order("created_at", { ascending: false });
-      if (error) return res.status(500).json({ ok: false, error: error.message });
-      res.json({ ok: true, data: data || [] });
-    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
-  });
-
-  app.get("/api/admin/logs", requireAdminSession, async (req, res) => {
-    try {
-      const fs = require('fs');
-      const logFiles = [
-        { file: '/home/ubuntu/.pm2/logs/dashboard-out.log', source: 'api', level: 'info' },
-        { file: '/home/ubuntu/.pm2/logs/dashboard-error.log', source: 'api', level: 'error' },
-      ];
-      const logs: any[] = [];
-      let id = 1;
-      for (const { file, source, level } of logFiles) {
-        if (!fs.existsSync(file)) continue;
-        const lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).slice(-100).reverse();
-        for (const line of lines) {
-          logs.push({ id: String(id++), level, source, message: line.slice(0, 200), created_at: new Date().toISOString() });
-        }
-      }
-      res.json({ ok: true, data: logs.slice(0, 200) });
-    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
-  });
-
-  app.get("/api/admin/clients/trial", requireAdminSession, async (req, res) => {
-    try {
-      const { data, error } = await supabase.from("clients").select("*").eq("status", "trial");
-      if (error) return res.status(500).json({ ok: false, error: error.message });
-      res.json({ ok: true, data: data || [] });
-    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
   });
 
   // --- CLIENT MANAGEMENT (CRUD) ---
