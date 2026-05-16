@@ -7,7 +7,7 @@ import './index.css';
 console.log("BOOT START - Initializing application...");
 
 // 2. Environment Variable Validation
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = 'https://api.tratatudo.pt/client-api';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
