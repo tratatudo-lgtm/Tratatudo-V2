@@ -286,6 +286,46 @@ async function startServer() {
     res.json({ ok: true, alerts: [] });
   });
 
+  app.get("/api/admin/instances", requireAdminSession, async (req, res) => {
+    try {
+      const { data, error } = await supabase.from("instances").select("*");
+      if (error) return res.status(500).json({ ok: false, error: error.message });
+      res.json({ ok: true, data: data || [] });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/messages", requireAdminSession, async (req, res) => {
+    try {
+      const { data, error } = await supabase.from("messages").select("*").order("created_at", { ascending: false }).limit(100);
+      if (error) return res.status(500).json({ ok: false, error: error.message });
+      res.json({ ok: true, data: data || [] });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/subscriptions", requireAdminSession, async (req, res) => {
+    try {
+      const { data, error } = await supabase.from("subscriptions").select("*").order("created_at", { ascending: false });
+      if (error) return res.status(500).json({ ok: false, error: error.message });
+      res.json({ ok: true, data: data || [] });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/logs", requireAdminSession, async (req, res) => {
+    try {
+      const { data, error } = await supabase.from("logs").select("*").order("created_at", { ascending: false }).limit(200);
+      if (error) return res.status(500).json({ ok: false, error: error.message });
+      res.json({ ok: true, data: data || [] });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
+  app.get("/api/admin/clients/trial", requireAdminSession, async (req, res) => {
+    try {
+      const { data, error } = await supabase.from("clients").select("*").eq("status", "trial");
+      if (error) return res.status(500).json({ ok: false, error: error.message });
+      res.json({ ok: true, data: data || [] });
+    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+  });
+
   // --- CLIENT MANAGEMENT (CRUD) ---
 
   app.get("/api/admin/clients", requireAdminSession, async (req, res) => {
