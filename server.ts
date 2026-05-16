@@ -7,7 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServer as createViteServer } from "vite";
 
 // --- ENV & CONFIG ---
-const PORT = 3000;
+const PORT = 3002;
 const JWT_SECRET = process.env.JWT_SECRET || "tratatudo-super-admin-secret-2026";
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "";
@@ -108,7 +108,7 @@ async function startServer() {
       res.cookie("tratatudo_admin_session", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        sameSite: "none",
         path: "/",
         maxAge: 12 * 60 * 60 * 1000 // 12 hours
       });

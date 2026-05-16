@@ -27,8 +27,8 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       const data = await apiGet('/api/admin/auth/session');
       if (data.authenticated && data.email) {
         setAdmin({ 
-          email: data.email,
-          role: data.role || 'admin'
+          email: data.data.user.email,
+          role: data.data.admin?.role || 'admin'
         });
       } else {
         setAdmin(null);
@@ -49,10 +49,10 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       const data = await apiPost('/api/admin/auth/login', { email, password });
-      if (data.ok && data.email) {
+      if (data.ok && data.data?.user?.email) {
         setAdmin({ 
-          email: data.email,
-          role: data.role || 'admin'
+          email: data.data.user.email,
+          role: data.data.admin?.role || 'admin'
         });
       } else {
         throw new Error('Resposta do servidor inválida');
