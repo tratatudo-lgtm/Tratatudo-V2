@@ -58,6 +58,7 @@ async function startServer() {
       }
 
       req.admin = admin;
+      req.adminEmail = decoded.email;
       req.adminId = decoded.userId;
       next();
     } catch (err) {
@@ -128,7 +129,7 @@ async function startServer() {
     res.json({ ok: true, message: "Logout efetuado com sucesso." });
   });
 
-  app.get("/api/admin/auth/session", requireAdminSession, async (req: any, res) => { res.json({ ok: true, authenticated: true, email: req.admin.email, role: "super_admin" }); });
+  app.get("/api/admin/auth/session", requireAdminSession, async (req: any, res) => { res.json({ ok: true, authenticated: true, email: req.admin.email || req.adminEmail, role: "super_admin" }); });
 
   // --- CLIENT HUB AUTH (Multitenant) ---
 
