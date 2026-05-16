@@ -294,7 +294,8 @@ async function startServer() {
     try {
       const { data, error } = await supabase.from("messages").select("*").order("created_at", { ascending: false }).limit(100);
       if (error) return res.status(500).json({ ok: false, error: error.message });
-      res.json({ ok: true, data: data || [] });
+      const mapped = (data || []).map((m: any) => ({ ...m, text: m.body || m.text || '', client_id: m.phone_e164, instance: m.instance_name }));
+      res.json({ ok: true, data: mapped });
     } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
   });
 
