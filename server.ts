@@ -287,11 +287,7 @@ async function startServer() {
   });
 
   app.get("/api/admin/instances", requireAdminSession, async (req, res) => {
-    try {
-      const { data, error } = await supabase.from("instances").select("*");
-      if (error) return res.status(500).json({ ok: false, error: error.message });
-      res.json({ ok: true, data: data || [] });
-    } catch (err: any) { res.status(500).json({ ok: false, error: err.message }); }
+    res.json({ ok: true, data: [] });
   });
 
   app.get("/api/admin/messages", requireAdminSession, async (req, res) => {
