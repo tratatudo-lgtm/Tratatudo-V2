@@ -68,6 +68,7 @@ import { AdminInstances } from './pages/admin/Instances';
 import { AdminTickets } from './pages/admin/Tickets';
 import { AdminMessages } from './pages/admin/Messages';
 import { AdminSubscriptions } from './pages/admin/Subscriptions';
+import { AdminLogs } from './pages/admin/Logs';
 
 // Restaurant Portal Pages
 import { RestaurantLayout } from './components/restaurant/RestaurantLayout';
@@ -235,6 +236,7 @@ function App() {
                   <Route path="tickets" element={<AdminTickets />} />
                   <Route path="messages" element={<AdminMessages />} />
                   <Route path="subscriptions" element={<AdminSubscriptions />} />
+                  <Route path="logs" element={<AdminLogs />} />
                 </Route>
 
                 {/* Fallback */}
