@@ -113,7 +113,7 @@ async function startServer() {
         maxAge: 12 * 60 * 60 * 1000 // 12 hours
       });
 
-      res.json({ ok: true, data: { user: authData.user, admin } });
+      res.json({ ok: true, token, data: { user: authData.user, admin } });
     } catch (err: any) {
       res.status(500).json({ ok: false, error: "Erro interno no servidor de autenticação." });
     }
