@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 
@@ -13,6 +13,17 @@ export function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
+
+  // Se o utilizador já tiver uma sessão de Admin ativa ao carregar a página, manda-o direto para o Dashboard
+  useEffect(() => {
+    async function checkExistingSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate('/admin/dashboard');
+      }
+    }
+    checkExistingSession();
+  }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,18 +43,13 @@ export function AdminLogin() {
       }
 
       if (data?.session) {
-        // Força a gravação imediata antes do redirecionamento
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        // Pequena pausa para garantir que o storage local grava o token do Supabase
+        await new Promise((resolve) => setTimeout(resolve, 250));
         
-        try {
-          // Tenta a rota padrão em minúsculas
-          navigate('/admin/clients');
-        } catch (routeErr) {
-          // Se o router falhar por sensibilidade de maiúsculas, tenta com C maiúsculo
-          navigate('/admin/Clients');
-        }
+        // Redireciona para a rota index oficial do Admin, que faz o handling correto pelo AdminLayout
+        navigate('/admin/dashboard');
       } else {
-        setErrorMsg('Não foi possível iniciar uma sessão ativa.');
+        setErrorMsg('Erro ao instanciar sessão administrativa.');
       }
 
     } catch (err) {
