@@ -34,6 +34,16 @@ export function AdminDashboard() {
     loadDashboardData();
   }, []);
 
+  // Função para encerrar a sessão de forma segura no Supabase
+  async function handleLogout() {
+    try {
+      await supabase.auth.signOut();
+      window.location.href = '/login'; 
+    } catch (err) {
+      console.error('Erro ao terminar sessão:', err);
+    }
+  }
+
   async function loadDashboardData() {
     try {
       setLoading(true);
@@ -53,12 +63,10 @@ export function AdminDashboard() {
         .from('tickets')
         .select('status');
 
-      // Cômputo de Métricas Estritas baseadas no teu Schema Real
       const totalClients = clients?.length || 0;
       const activeChats = chats?.length || 0;
       const pausedBots = chats?.filter(c => c.paused === true).length || 0;
       
-      // Filtragem por estados reais da tua constraint do banco
       const openTickets = tickets?.filter(t => t.status === 'novo' || t.status === 'em_resolucao').length || 0;
 
       setStats({
@@ -68,7 +76,6 @@ export function AdminDashboard() {
         pausedBots
       });
 
-      // 📊 Distribuição Real das Intenções de IA (wa_chats.current_intent)
       if (chats && chats.length > 0) {
         const intentMap: Record<string, number> = {};
         chats.forEach(c => {
@@ -107,10 +114,30 @@ export function AdminDashboard() {
   return (
     <div className="flex-1 p-4 md:p-8 bg-slate-950 text-slate-100 overflow-y-auto text-left">
       
-      {/* CONTEXTO DA PÁGINA */}
-      <div className="mb-8">
-        <span className="text-xs font-mono text-indigo-400 uppercase tracking-wider">Painel Executivo</span>
-        <h2 className="text-2xl font-black text-white tracking-tight">Visão Geral da Operação</h2>
+      {/* CONTEXTO DA PÁGINA + BOTÃO SAIR */}
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <span className="text-xs font-mono text-indigo-400 uppercase tracking-wider">Painel Executivo</span>
+          <h2 className="text-2xl font-black text-white tracking-tight">Visão Geral da Operação</h2>
+        </div>
+        
+        {/* Botão Sair Compacto e Seguro */}
+        <button 
+          onClick={handleLogout}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-all active:scale-95"
+        >
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            strokeWidth={2.5} 
+            stroke="currentColor" 
+            className="w-3.5 h-3.5"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+          </svg>
+          <span>SAIR</span>
+        </button>
       </div>
 
       {/* GRID DE KPIS SUPERIORES */}
@@ -171,7 +198,7 @@ export function AdminDashboard() {
           </div>
         </div>
 
-        {/* COMPONENTE DE MONOTORIZAÇÃO CORE */}
+        {/* COMPONENTE DE MONITORIZAÇÃO CORE */}
         <div className="bg-slate-900 border border-slate-800/80 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
           <div>
             <h3 className="text-xs font-bold font-mono uppercase tracking-wide text-slate-300 mb-1">🎛️ Estado dos Nós do Servidor</h3>
