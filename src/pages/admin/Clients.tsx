@@ -52,20 +52,40 @@ export function AdminClients() {
   // Estados de Modais
   const [selectedInstance, setSelectedInstance] = useState<ClientInstance | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
-  const [loadingQr, setLoadingQr] = useState(false);
+  const [loadingQr, setLoadingQr""] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState('');
 
-  // 🛡️ GATEKEEPER DE SEGURANÇA VITE
+  // 🛡️ GATEKEEPER CORRIGIDO (Escuta ativa de sessão do Supabase)
   useEffect(() => {
-    async function checkUser() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+    // Escuta mudanças de autenticação e valida o estado atual
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        setLoading(false);
         navigate('/admin/login');
-      } else {
+      } else if (session) {
         loadInitialData();
       }
-    }
-    checkUser();
+    });
+
+    // Verificação proativa inicial secundária
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        // Dá uma tolerância minúscula para o onAuthStateChange processar
+        const timeout = setTimeout(() => {
+          supabase.auth.getSession().then(({ data: { session: retrySession } }) => {
+            if (!retrySession) {
+              setLoading(false);
+              navigate('/admin/login');
+            }
+          });
+        }, 400);
+        return () => clearTimeout(timeout);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   useEffect(() => {
@@ -193,7 +213,7 @@ export function AdminClients() {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen bg-slate-950 text-indigo-400 font-mono text-xs tracking-widest animate-pulse">
-      A VERIFICAR SEGURANÇA TRATATUDO V2...
+      SINCRO DE SEGURANÇA TRATATUDO V2...
     </div>
   );
 
