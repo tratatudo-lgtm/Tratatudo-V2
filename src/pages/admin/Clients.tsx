@@ -52,7 +52,7 @@ export function AdminClients() {
   // Estados de Modais
   const [selectedInstance, setSelectedInstance] = useState<ClientInstance | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
-  const [loadingQr, setLoadingQr""] = useState(false);
+  const [loadingQr, setLoadingQr] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState('');
 
   // 🛡️ GATEKEEPER CORRIGIDO (Escuta ativa de sessão do Supabase)
