@@ -1,26 +1,72 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL || '',
+  import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+);
+
+interface Instance {
+  id: number;
+  instance_name: string;
+  status: string;
+  is_hub: boolean;
+  created_at: string;
+}
 
 export function AdminInstances() {
+  const [instances, setInstances] = useState<Instance[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadInstances() {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('client_instances')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setInstances(data || []);
+      } catch (err) {
+        console.error("Erro ao ler client_instances:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadInstances();
+  }, []);
+
   return (
-    <div className="flex-1 p-6 md:p-10 bg-slate-950 text-slate-100 overflow-y-auto text-left">
-      <div className="mb-10">
-        <span className="text-xs font-mono text-cyan-400 uppercase tracking-widest">Motor de Ligação VPS</span>
-        <h2 className="text-3xl font-black text-white mt-1.5 tracking-tighter">Instâncias Evolution API</h2>
+    <div className="flex-1 p-6 bg-slate-950 text-slate-100 text-left overflow-y-auto">
+      <div className="mb-6">
+        <span className="text-xs font-mono text-cyan-400 uppercase">Evolution API</span>
+        <h2 className="text-2xl font-black text-white">Instâncias de Comunicação</h2>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800/80 rounded-3xl p-10 text-center max-w-2xl mx-auto mt-12 shadow-[0_0_60px_rgba(34,211,238,0.05)] border-t-cyan-500/20">
-        <div className="text-5xl mb-6 select-none opacity-90 transition-transform hover:scale-110">Orquestrador Ativo</div>
-        <h3 className="text-lg font-black text-white uppercase tracking-tight">Gestão Descentralizada de Ligações</h3>
-        <p className="text-sm text-slate-400 mt-3 leading-relaxed">
-          As instâncias de WhatsApp não são geridas de forma isolada nesta tabela. Elas estão associadas diretamente aos números de contacto definidos na tabela de <span className="text-indigo-400 font-mono font-black">clients</span>. Os webhooks da Evolution API comunicam de forma nativa através do core do motor do backend, ligando cada empresa ao seu respetivo canal de conversa. Status: <span className="text-emerald-400 font-black">ATIVO</span>.
-        </p>
-        <div className="mt-8 p-3.5 bg-slate-950 border border-slate-850/60 rounded-xl flex items-center justify-between text-left font-mono text-[11px] text-slate-500 gap-4">
-          <span>⚙️ Endpoint Gateway Core: /webhook/evolution</span>
-          <span className="flex items-center gap-1.5 text-emerald-400 font-black">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            CONNECTED
-          </span>
-        </div>
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+        {loading ? (
+          <div className="text-xs font-mono text-slate-500 text-center p-8">A consultar client_instances...</div>
+        ) : instances.length === 0 ? (
+          <div className="text-xs font-mono text-slate-500 text-center p-8 italic">Nenhuma instância conectada de momento.</div>
+        ) : (
+          <div className="p-4 space-y-3">
+            {instances.map(ins => (
+              <div key={ins.id} className="bg-slate-950 p-4 border border-slate-850 rounded-xl flex items-center justify-between font-mono text-xs">
+                <div>
+                  <div className="text-white font-bold text-sm">{ins.instance_name}</div>
+                  <div className="text-slate-500 text-[10px] mt-0.5">Tipo: {ins.is_hub ? 'Central/Hub' : 'Cliente Dedicado'}</div>
+                </div>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                  ins.status === 'open' || ins.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
+                }`}>
+                  ● {ins.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
