@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { toas, toast } from 'sonner';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL || '',
@@ -7,300 +8,296 @@ const supabase = createClient(
 );
 
 interface Client {
-  id: number;
-  company_name: string;
-  email: string | null;
-  phone_e164: string | null;
-  status: 'active' | 'trial' | 'inactive';
-  master_prompt: string | null;
-  bot_instructions: string | null;
+  id: string;
+  name: string;
+  nif: string;
+  email: string;
+  status: 'active' | 'pending' | 'suspended';
+  plan: string;
   created_at: string;
+  phone?: string;
 }
 
 export function AdminClients() {
   const [clients, setClients] = useState<Client[]>([]);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeSubTab, setActiveSubTab] = useState<'contrato' | 'tecnico' | 'consumo'>('contrato');
-
-  // Estados para edição
-  const [editPrompt, setEditPrompt] = useState('');
-  const [editBotInstructions, setEditBotInstructions] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  
+  // Estado para o Modal de Criação
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState({ name: '', nif: '', email: '', phone: '', plan: 'Standard' });
 
   useEffect(() => {
     fetchClients();
   }, []);
 
-  useEffect(() => {
-    if (selectedClient) {
-      setEditPrompt(selectedClient.master_prompt || '');
-      setEditBotInstructions(selectedClient.bot_instructions || '');
-    }
-  }, [selectedClient]);
-
   async function fetchClients() {
-    setLoading(true);
     try {
+      setLoading(true);
+      // Ajusta o nome da tabela conforme o teu banco de dados
       const { data, error } = await supabase
         .from('clients')
         .select('*')
-        .order('company_name', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setClients(data || []);
-      if (data && data.length > 0 && !selectedClient) {
-        setSelectedClient(data[0]);
-      }
     } catch (err: any) {
-      console.error('Erro ao carregar clientes:', err.message);
-    } // Erro de digitação "finaly" corrigido aqui:
-    finally {
+      console.error(err);
+      toast.error(`Erro ao carregar dados: ${err.message || 'Verifica a tabela'}`);
+    } finally {
       setLoading(false);
     }
   }
 
-  // 💾 ATUALIZA CONFIGURAÇÃO TÉCNICA (PROMPTS) NO SUPABASE
-  async function handleSaveTechnicalConfig() {
-    if (!selectedClient) return;
-    setSaving(true);
+  async function handleCreateClient(e: React.FormEvent) {
+    e.preventDefault();
     try {
       const { error } = await supabase
         .from('clients')
-        .update({
-          master_prompt: editPrompt,
-          bot_instructions: editBotInstructions
-        })
-        .eq('id', selectedClient.id);
+        .insert([{
+          name: formData.name,
+          nif: formData.nif,
+          email: formData.email,
+          phone: formData.phone,
+          plan: formData.plan,
+          status: 'active'
+        }]);
 
       if (error) throw error;
-      
-      // Atualiza o estado local
-      setClients(prev => prev.map(c => c.id === selectedClient.id ? { 
-        ...c, 
-        master_prompt: editPrompt, 
-        bot_instructions: editBotInstructions 
-      } : c));
-      
-      setSelectedClient(prev => prev ? { 
-        ...prev, 
-        master_prompt: editPrompt, 
-        bot_instructions: editBotInstructions 
-      } : null);
 
-      alert('✅ Configuração de IA atualizada com sucesso!');
+      toast.success('Cliente matriculado com sucesso!');
+      setIsModalOpen(false);
+      setFormData({ name: '', nif: '', email: '', phone: '', plan: 'Standard' });
+      fetchClients();
     } catch (err: any) {
-      alert(`Erro ao salvar: ${err.message}`);
-    } finally {
-      setSaving(false);
+      toast.error(`Erro ao salvar: ${err.message}`);
     }
   }
 
-  const filteredClients = clients.filter(c => 
-    c.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (c.phone_e164 && c.phone_e164.includes(searchTerm))
-  );
+  // Filtros em tempo real
+  const filteredClients = clients.filter(c => {
+    const matchesSearch = c.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          c.nif?.includes(searchTerm) || 
+                          c.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col antialiased">
+    <div className="flex-1 p-4 md:p-8 bg-slate-950 text-slate-100 overflow-y-auto">
       
-      {/* BARRA DE TOPO DO CRM */}
-      <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
+      {/* HEADER DE CONTEXTO LOCAL */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h2 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-            Gestão de Contratos & Portfólio CRM
-          </h2>
-          <p className="text-[10px] font-mono text-slate-400">Layout Master-Detail Especializado para SaaS</p>
+          <span className="text-xs font-mono text-indigo-400 uppercase tracking-wider">Módulo de Gestão</span>
+          <h2 className="text-2xl font-black text-white tracking-tight">Portfólio de Contratos CRM</h2>
         </div>
-        <input 
-          type="text"
-          placeholder="🔍 Procurar empresa ou telemóvel..."
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          className="bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3 py-1.5 text-xs text-white outline-none w-64 font-mono"
-        />
-      </header>
-
-      <div className="flex-1 flex overflow-hidden">
-        
-        {/* COLUNA ESQUERDA: LISTA SELECIONÁVEL */}
-        <div className="w-full md:w-80 border-r border-slate-800 bg-slate-900/10 overflow-y-auto p-4 space-y-2">
-          {loading ? (
-            <div className="text-center font-mono text-xs text-slate-500 pt-8">A ler carteira de clientes...</div>
-          ) : filteredClients.length === 0 ? (
-            <div className="text-center font-mono text-xs text-slate-500 pt-8">Nenhum cliente localizado.</div>
-          ) : (
-            filteredClients.map(c => (
-              <div
-                key={c.id}
-                onClick={() => setSelectedClient(c)}
-                className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                  selectedClient?.id === c.id
-                    ? 'bg-slate-900 border-emerald-500/80 shadow-md'
-                    : 'bg-slate-900/60 border-slate-800/60 hover:border-slate-700'
-                }`}
-              >
-                <div className="flex justify-between items-center mb-1">
-                  <span className="font-bold text-xs text-slate-200 truncate block w-40">{c.company_name}</span>
-                  <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded ${
-                    c.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' :
-                    c.status === 'trial' ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-800 text-slate-400'
-                  }`}>
-                    {c.status.toUpperCase()}
-                  </span>
-                </div>
-                <p className="text-[10px] font-mono text-slate-500 truncate">{c.phone_e164 || 'Sem número associado'}</p>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* COLUNA DIREITA: FICHA TÉCNICA E AVANÇADA DO CLIENTE */}
-        <div className="flex-1 flex flex-col bg-slate-950 overflow-hidden">
-          {selectedClient ? (
-            <>
-              {/* CABEÇALHO DA INTERFÁCIA DETAIL */}
-              <div className="p-4 bg-slate-900/40 border-b border-slate-800 text-left">
-                <span className="text-[9px] font-mono text-emerald-400 font-bold tracking-widest block mb-0.5">CLIENT ID: #{selectedClient.id}</span>
-                <h3 className="font-black text-base text-white">{selectedClient.company_name}</h3>
-                
-                {/* SUB-SEPARADORES DE CONFIGURAÇÃO */}
-                <div className="flex gap-2 mt-4 border-b border-slate-800/80 pb-px">
-                  {(['contrato', 'tecnico', 'consumo'] as const).map(tab => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveSubTab(tab)}
-                      className={`pb-2 text-[10px] font-mono font-bold uppercase tracking-wider relative transition-all ${
-                        activeSubTab === tab ? 'text-white' : 'text-slate-500 hover:text-slate-300'
-                      }`}
-                    >
-                      {tab === 'contrato' && '📋 Contrato & Dados'}
-                      {tab === 'tecnico' && '⚙️ Configuração IA'}
-                      {tab === 'consumo' && '📈 Volumetria'}
-                      {activeSubTab === tab && (
-                        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full"></span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* CONTEÚDO DINÂMICO CONSOANTE O SEPARADOR ATIVO */}
-              <div className="flex-1 overflow-y-auto p-5 text-left space-y-4">
-                
-                {/* SUB-TAB 1: DADOS GERAIS E CONTRATO */}
-                {activeSubTab === 'contrato' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-xl space-y-3">
-                      <h4 className="text-xs font-bold text-slate-300 uppercase font-mono border-b border-slate-800/60 pb-1.5">Informação de Registo</h4>
-                      <div className="space-y-1 font-mono text-xs">
-                        <span className="text-slate-500 block">E-mail Corporativo:</span>
-                        <span className="text-slate-200 block bg-slate-950 p-2 rounded-lg border border-slate-900">{selectedClient.email || 'Não configurado'}</span>
-                      </div>
-                      <div className="space-y-1 font-mono text-xs">
-                        <span className="text-slate-500 block">Telemóvel e164:</span>
-                        <span className="text-slate-200 block bg-slate-950 p-2 rounded-lg border border-slate-900">{selectedClient.phone_e164 || 'Não configurado'}</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-xl space-y-3">
-                      <h4 className="text-xs font-bold text-slate-300 uppercase font-mono border-b border-slate-800/60 pb-1.5">Métrica Comercial</h4>
-                      <div className="space-y-1 font-mono text-xs">
-                        <span className="text-slate-500 block">Data de Matrícula:</span>
-                        <span className="text-slate-400 block">{new Date(selectedClient.created_at).toLocaleString('pt-PT')}</span>
-                      </div>
-                      <div className="space-y-1 font-mono text-xs">
-                        <span className="text-slate-500 block">Tipo de Licenciamento:</span>
-                        <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded mt-1 ${
-                          selectedClient.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-purple-500/10 text-purple-400'
-                        }`}>
-                          {selectedClient.status === 'active' ? 'PLANO SAAS EMPRESARIAL' : 'PERÍODO EXPERIMENTAL (TRIAL)'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* SUB-TAB 2: CONFIGURAÇÃO TÉCNICA E PROMPTS DE IA */}
-                {activeSubTab === 'tecnico' && (
-                  <div className="space-y-4">
-                    <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
-                      <label className="text-[11px] font-mono text-indigo-400 font-bold uppercase tracking-wide block">🧠 Master Prompt (Contexto Global)</label>
-                      <p className="text-[10px] text-slate-500 font-sans">Define a personalidade, regras de negócio e restrições base que a IA nunca pode quebrar.</p>
-                      <textarea
-                        rows={6}
-                        value={editPrompt}
-                        onChange={e => setEditPrompt(e.target.value)}
-                        placeholder="Ex: Tu és o assistente virtual da empresa X..."
-                        className="w-full bg-slate-950 border border-slate-800/80 rounded-xl px-3 py-2.5 text-xs text-slate-200 outline-none focus:border-indigo-500 font-mono resize-none leading-relaxed"
-                      />
-                    </div>
-
-                    <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
-                      <label className="text-[11px] font-mono text-purple-400 font-bold uppercase tracking-wide block">📋 Instruções de Operação Extra / Metadados</label>
-                      <p className="text-[10px] text-slate-500 font-sans">Configurações de fluxos de suporte rápidos ou flags de controle de expiração de teste.</p>
-                      <input
-                        type="text"
-                        value={editBotInstructions}
-                        onChange={e => setEditBotInstructions(e.target.value)}
-                        placeholder="[EXPIRAÇÃO:30/12/2026] [FLUXO:Comercial]"
-                        className="w-full bg-slate-950 border border-slate-800/80 rounded-xl px-3 py-2.5 text-xs text-slate-200 outline-none focus:border-purple-500 font-mono"
-                      />
-                    </div>
-
-                    <button
-                      onClick={handleSaveTechnicalConfig}
-                      disabled={saving}
-                      className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 rounded-xl transition-all font-mono"
-                    >
-                      {saving ? '⏳ A persistir dados no Supabase...' : '💾 Gravar Arquitetura de IA'}
-                    </button>
-                  </div>
-                )}
-
-                {/* SUB-TAB 3: VOLUMETRIA E CONSUMO DE RECURSOS */}
-                {activeSubTab === 'consumo' && (
-                  <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-4">
-                    <h4 className="text-xs font-bold text-slate-300 uppercase font-mono border-b border-slate-800/60 pb-1.5">Uso de Infraestrutura da VPS</h4>
-                    
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs font-mono">
-                        <span className="text-slate-400">Mensagens Processadas (Mês)</span>
-                        <span className="text-slate-200 font-bold">14,820 / 50,000</span>
-                      </div>
-                      <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-                        <div className="bg-emerald-500 h-full w-[29.6%] rounded-full"></div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 pt-2">
-                      <div className="flex justify-between text-xs font-mono">
-                        <span className="text-slate-400">Chamadas de Tokens de IA (LLM)</span>
-                        <span className="text-slate-200 font-bold">62% do limite</span>
-                      </div>
-                      <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-                        <div className="bg-amber-500 h-full w-[62%] rounded-full"></div>
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-slate-950 border border-slate-800/60 rounded-xl text-[10px] text-slate-500 font-mono leading-relaxed">
-                      💡 Os limites de volumetria são reiniciados automaticamente no dia 1 de cada mês de acordo com o plano contratado.
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-500 font-mono text-xs">
-              <span>💼 Carrega num cliente da lista para gerir os parâmetros de produção.</span>
-            </div>
-          )}
-        </div>
-
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="bg-indigo-600 hover:bg-indigo-500 text-white font-mono font-black text-xs uppercase px-5 py-3 rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+        >
+          ➕ Matricular Novo Cliente
+        </button>
       </div>
+
+      {/* 📊 KPI CARDS SUPERIORES - DEIXA O CRM COM CARA DE PORTAL SERIO */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <p className="text-[10px] font-mono text-slate-400 uppercase">Clientes Ativos</p>
+          <p className="text-2xl font-black text-white mt-1">
+            {clients.filter(c => c.status === 'active').length} <span className="text-xs font-normal text-slate-500">/ {clients.length}</span>
+          </p>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <p className="text-[10px] font-mono text-slate-400 uppercase">Faturação Estimada (MRR)</p>
+          <p className="text-2xl font-black text-emerald-400 mt-1">
+            {(clients.filter(c => c.status === 'active').length * 49).toFixed(2)}€
+          </p>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <p className="text-[10px] font-mono text-slate-400 uppercase">Instâncias Reais Evolution</p>
+          <p className="text-2xl font-black text-cyan-400 mt-1">🎛️ Ativas</p>
+        </div>
+      </div>
+
+      {/* ⚡ CONTROLO DE FILTROS E PESQUISA */}
+      <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-2xl mb-6 flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <div className="relative w-full sm:w-72">
+          <input
+            type="text"
+            placeholder="Procurar por Nome, NIF ou Email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+          />
+        </div>
+        
+        <div className="flex gap-2 w-full sm:w-auto overflow-x-auto">
+          {['all', 'active', 'pending', 'suspended'].map((status) => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-mono uppercase font-bold whitespace-nowrap transition-all ${
+                statusFilter === status
+                  ? 'bg-slate-800 text-white border border-slate-700'
+                  : 'text-slate-400 hover:text-slate-200 border border-transparent'
+              }`}
+            >
+              {status === 'all' ? 'Ver Todos' : status}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 🖥️ DATA TABLE DE EMPRESAS */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        {loading ? (
+          <div className="p-12 text-center font-mono text-xs text-slate-500 italic">
+            A ler dados da infraestrutura Supabase...
+          </div>
+        ) : filteredClients.length === 0 ? (
+          <div className="p-16 text-center">
+            <div className="text-3xl mb-3">🏢</div>
+            <p className="font-mono text-xs text-slate-400 font-bold">Nenhum cliente localizado no ecossistema.</p>
+            <p className="text-[11px] text-slate-500 mt-1">Altera os filtros ou adiciona uma nova empresa acima.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 bg-slate-950/50 font-mono text-[10px] text-slate-400 uppercase tracking-wider">
+                  <th className="p-4 font-black">Empresa / Contacto</th>
+                  <th className="p-4 font-black">NIF</th>
+                  <th className="p-4 font-black">Plano Ativo</th>
+                  <th className="p-4 font-black">Estado</th>
+                  <th className="p-4 font-black text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-850">
+                {filteredClients.map((client) => (
+                  <tr key={client.id} className="hover:bg-slate-850/40 transition-colors group">
+                    <td className="p-4">
+                      <div className="font-bold text-white text-xs group-hover:text-indigo-400 transition-colors">{client.name}</div>
+                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">{client.email}</div>
+                    </td>
+                    <td className="p-4 font-mono text-xs text-slate-300">
+                      {client.nif || '---'}
+                    </td>
+                    <td className="p-4">
+                      <span className="px-2 py-0.5 bg-slate-950 border border-slate-800 rounded-md text-[10px] font-mono text-indigo-300 font-bold">
+                        {client.plan || 'Standard'}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-0.5 rounded-md text-[9px] font-mono font-black uppercase ${
+                        client.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                        client.status === 'pending' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                        'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                      }`}>
+                        {client.status}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => window.location.href = `/app/clients/${client.id}`}
+                          className="px-2.5 py-1 bg-slate-950 border border-slate-800 hover:border-slate-700 text-[10px] font-mono font-bold text-slate-300 hover:text-white rounded-md transition-all"
+                        >
+                          Gerir Ficha ➔
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* 📦 MODAL OVERLAY - ADICIONAR CLIENTE EXPRESS */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl p-6 shadow-2xl relative">
+            <h3 className="text-base font-black text-white mb-1 uppercase tracking-wider font-mono">➕ Matricular Novo Cliente</h3>
+            <p className="text-xs text-slate-400 mb-4">Insere os dados fiscais e de contacto para ativar o painel operacional.</p>
+            
+            <form onSubmit={handleCreateClient} className="space-y-3.5">
+              <div>
+                <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">Nome Comercial da Empresa</label>
+                <input
+                  type="text" required
+                  value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-indigo-500"
+                  placeholder="Ex: TrataTudo Unipessoal"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">NIF</label>
+                  <input
+                    type="text" required
+                    value={formData.nif} onChange={e => setFormData({...formData, nif: e.target.value})}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-indigo-500"
+                    placeholder="249000000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">Plano Base</label>
+                  <select
+                    value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="Standard">Standard</option>
+                    <option value="Pro Core">Pro Core</option>
+                    <option value="Enterprise">Enterprise</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">Email de Contacto</label>
+                <input
+                  type="email" required
+                  value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-indigo-500"
+                  placeholder="geral@empresa.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">Telemóvel (WhatsApp Link)</label>
+                <input
+                  type="text"
+                  value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-indigo-500"
+                  placeholder="351912345678"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="flex-1 bg-slate-950 hover:bg-slate-850 border border-slate-800 text-slate-400 text-xs font-mono py-2.5 rounded-xl transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-mono font-bold text-xs py-2.5 rounded-xl transition-all shadow-md shadow-indigo-600/10"
+                >
+                  Gravar no Supabase
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
