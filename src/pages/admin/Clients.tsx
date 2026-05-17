@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL || '',
@@ -61,7 +60,6 @@ export default function UltimateSaaSDashboard() {
     async function checkUser() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        // Se não houver sessão ativa, redireciona para o login do Vite
         navigate('/admin/login');
       } else {
         loadInitialData();
@@ -144,14 +142,25 @@ export default function UltimateSaaSDashboard() {
     if (!typedMessage.trim() || !activeChat || sendingMsg) return;
     setSendingMsg(true);
     try {
-      await axios.post(`${BACKEND_VPS_URL}/api/send-manual`, {
-        phone_e164: activeChat.phone_e164,
-        message_text: typedMessage,
-        client_id: 1
+      const response = await fetch(`${BACKEND_VPS_URL}/api/send-manual`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone_e164: activeChat.phone_e164,
+          message_text: typedMessage,
+          client_id: 1
+        })
       });
-      setTypedMessage('');
+
+      if (response.ok) {
+        setTypedMessage('');
+      } else {
+        alert('Erro na VPS.');
+      }
     } catch (err) {
-      alert('Erro VPS.');
+      alert('Erro de rede ou VPS.');
     } finally {
       setSendingMsg(false);
     }
@@ -161,10 +170,12 @@ export default function UltimateSaaSDashboard() {
     if (!instanceName) return setQrCode('ERROR');
     setLoadingQr(true);
     try {
-      const response = await axios.get(`${EVOLUTION_API_URL}/instance/connect/${instanceName}`, {
+      const response = await fetch(`${EVOLUTION_API_URL}/instance/connect/${instanceName}`, {
+        method: 'GET',
         headers: { 'apikey': token || 'global_master_token' }
       });
-      setQrCode(response.data?.base64 || 'CONNECTED');
+      const data = await response.json();
+      setQrCode(data?.base64 || 'CONNECTED');
     } catch (err) {
       setQrCode('ERROR');
     }
