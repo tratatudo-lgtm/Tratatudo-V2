@@ -35,7 +35,7 @@ interface ClientInstance {
   master_prompt: string;
 }
 
-export default function UltimateSaaSDashboard() {
+export function AdminClients() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'chats' | 'instances'>('chats');
   const [chats, setChats] = useState<WaChat[]>([]);
