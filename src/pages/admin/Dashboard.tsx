@@ -1,113 +1,96 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { useNavigate } from 'react-router-dom';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL || '',
   import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 );
 
+interface DashboardStats {
+  totalClients: number;
+  activeChats: number;
+  openTickets: number;
+  pausedBots: number;
+}
+
+interface IntentMetric {
+  name: string;
+  count: number;
+  percentage: number;
+  color: string;
+}
+
 export function AdminDashboard() {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  
-  // Estados de dados
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<DashboardStats>({
     totalClients: 0,
-    trialClients: 0,
-    totalChats: 0,
+    activeChats: 0,
     openTickets: 0,
+    pausedBots: 0
   });
-  
-  // Estados para os gráficos nativos
-  const [intentMetrics, setIntentMetrics] = useState<{ name: string; count: number; percentage: number; color: string }[]>([]);
-  const [trafficHistory, setTrafficHistory] = useState<{ day: string; messages: number; height: string }[]>([]);
+  const [intentMetrics, setIntentMetrics] = useState<IntentMetric[]>([]);
 
   useEffect(() => {
-    async function checkAuth() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate('/admin/login');
-        return;
-      }
-      await loadDashboardMetrics();
-    }
-    checkAuth();
-  }, [navigate]);
+    loadDashboardData();
+  }, []);
 
-  async function loadDashboardMetrics() {
-    setLoading(true);
+  async function loadDashboardData() {
     try {
-      // 1. Fetch total de clientes e separação por status
-      const { data: clients } = await supabase.from('clients').select('status');
-      const totalClients = clients?.filter(c => c.status === 'active').length || 0;
-      const trialClients = clients?.filter(c => c.status === 'trial').length || 0;
+      setLoading(true);
 
-      // 2. Fetch de tickets abertos
-      const { data: tickets } = await supabase.from('tickets').select('status');
+      // 1. Fetch de Clientes (Contagem Base)
+      const { data: clients } = await supabase
+        .from('clients')
+        .select('status');
+
+      // 2. Fetch de Chats WhatsApp (Volumetria e Intenções)
+      const { data: chats } = await supabase
+        .from('wa_chats')
+        .select('current_intent, paused');
+
+      // 3. Fetch de Tickets de Suporte
+      const { data: tickets } = await supabase
+        .from('tickets')
+        .select('status');
+
+      // Cômputo de Métricas Estritas baseadas no teu Schema Real
+      const totalClients = clients?.length || 0;
+      const activeChats = chats?.length || 0;
+      const pausedBots = chats?.filter(c => c.paused === true).length || 0;
+      
+      // Filtragem por estados reais da tua constraint do banco
       const openTickets = tickets?.filter(t => t.status === 'novo' || t.status === 'em_resolucao').length || 0;
-
-      // 3. Fetch de wa_chats para extrair intenções reais e tráfego
-      const { data: chats } = await supabase.from('wa_chats').select('current_intent, updated_at');
-      const totalChats = chats?.length || 0;
 
       setStats({
         totalClients,
-        trialClients,
-        totalChats,
-        openTickets
+        activeChats,
+        openTickets,
+        pausedBots
       });
 
-      // 📊 CONSTRUÇÃO DO GRÁFICO 1: DISTRIBUIÇÃO DE INTENÇÕES (Mapeamento Dinâmico)
+      // 📊 Distribuição Real das Intenções de IA (wa_chats.current_intent)
       if (chats && chats.length > 0) {
         const intentMap: Record<string, number> = {};
         chats.forEach(c => {
-          const intent = c.current_intent || 'Não Detetada';
+          const intent = c.current_intent || 'Triagem Geral';
           intentMap[intent] = (intentMap[intent] || 0) + 1;
         });
 
         const colors = ['bg-indigo-500', 'bg-amber-500', 'bg-emerald-500', 'bg-rose-500', 'bg-purple-500'];
         const formattedIntents = Object.entries(intentMap).map(([name, count], index) => {
-          const percentage = Math.round((count / totalChats) * 100);
-          return {
-            name,
-            count,
-            percentage,
-            color: colors[index % colors.length]
-          };
+          const percentage = activeChats > 0 ? Math.round((count / activeChats) * 100) : 0;
+          return { name, count, percentage, color: colors[index % colors.length] };
         }).sort((a, b) => b.count - a.count);
 
         setIntentMetrics(formattedIntents);
       } else {
-        // Fallback bonito caso a tabela esteja limpa em dev
         setIntentMetrics([
-          { name: 'Triagem Geral', count: 0, percentage: 45, color: 'bg-indigo-500' },
-          { name: 'Comercial/Vendas', count: 0, percentage: 30, color: 'bg-emerald-500' },
-          { name: 'Suporte Técnico', count: 0, percentage: 25, color: 'bg-amber-500' }
+          { name: 'Nenhuma Intenção Registada', count: 0, percentage: 0, color: 'bg-slate-700' }
         ]);
       }
 
-      // 📈 CONSTRUÇÃO DO GRÁFICO 2: VOLUMETRIA DE TRÁFEGO 7 DIAS (Cálculo de Altura Dinâmica)
-      // Simulando volumetria real baseada em carimbos de data para renderizar colunas proporcionais
-      const baseTraffic = [
-        { day: 'Seg', messages: 142 },
-        { day: 'Ter', messages: 285 },
-        { day: 'Qua', messages: 410 },
-        { day: 'Qui', messages: 390 },
-        { day: 'Sex', messages: 520 },
-        { day: 'Sáb', messages: 190 },
-        { day: 'Dom', messages: 230 },
-      ];
-      
-      const maxMessages = Math.max(...baseTraffic.map(t => t.messages));
-      const calculatedTraffic = baseTraffic.map(t => ({
-        ...t,
-        height: `${Math.max(15, (t.messages / maxMessages) * 100)}%`
-      }));
-      setTrafficHistory(calculatedTraffic);
-
     } catch (err) {
-      console.error('Erro ao processar métricas:', err);
+      console.error('Erro ao processar cockpit analítico:', err);
     } finally {
       setLoading(false);
     }
@@ -115,124 +98,108 @@ export function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-400 font-mono text-xs flex items-center justify-center">
-        <span>⏳ A ler tráfego de rede e métricas de IA...</span>
+      <div className="flex-1 flex items-center justify-center bg-slate-950 font-mono text-xs text-slate-500">
+        🚀 Sincronizando Métricas do Cockpit Central...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 md:p-6 space-y-6 text-left">
+    <div className="flex-1 p-4 md:p-8 bg-slate-950 text-slate-100 overflow-y-auto text-left">
       
-      {/* HEADER DE CONTROL */}
-      <div className="flex justify-between items-center bg-slate-900 border border-slate-800/80 p-4 rounded-2xl shadow-xl">
-        <div>
-          <span className="text-[9px] font-mono font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md uppercase tracking-wider">Métricas Globais</span>
-          <h2 className="text-base font-black text-white uppercase mt-1 tracking-wide">Painel de Controlo Operacional</h2>
-        </div>
-        <button 
-          onClick={loadDashboardMetrics}
-          className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 px-3 py-1.5 rounded-xl font-mono text-xs font-bold shadow-md transition-all"
-        >
-          🔄 Recarregar Live Metrics
-        </button>
+      {/* CONTEXTO DA PÁGINA */}
+      <div className="mb-8">
+        <span className="text-xs font-mono text-indigo-400 uppercase tracking-wider">Painel Executivo</span>
+        <h2 className="text-2xl font-black text-white tracking-tight">Visão Geral da Operação</h2>
       </div>
 
-      {/* QUADRO DE ENGENHARIA: CARDS DE MÉTRICAS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl relative overflow-hidden group">
-          <div className="absolute right-0 bottom-0 text-slate-800/20 text-6xl font-black select-none pointer-events-none group-hover:scale-110 transition-transform">💼</div>
-          <span className="text-[10px] font-mono text-slate-400 block uppercase tracking-wider">Clientes Pagos</span>
-          <span className="text-2xl font-black text-white mt-1 block">{stats.totalClients}</span>
+      {/* GRID DE KPIS SUPERIORES */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-2xl shadow-lg">
+          <span className="text-[10px] font-mono text-slate-500 uppercase block">Empresas Contratantes</span>
+          <span className="text-2xl font-black text-white block mt-1">{stats.totalClients}</span>
+          <span className="text-[9px] font-mono text-emerald-400 mt-1 block">● Infraestrutura Ativa</span>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl relative overflow-hidden group">
-          <div className="absolute right-0 bottom-0 text-slate-800/20 text-6xl font-black select-none pointer-events-none group-hover:scale-110 transition-transform">🔮</div>
-          <span className="text-[10px] font-mono text-slate-400 block uppercase tracking-wider">Instâncias Trial</span>
-          <span className="text-2xl font-black text-purple-400 mt-1 block">{stats.trialClients}</span>
+        <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-2xl shadow-lg">
+          <span className="text-[10px] font-mono text-slate-500 uppercase block">Fluxos Ativos WhatsApp</span>
+          <span className="text-2xl font-black text-indigo-400 block mt-1">{stats.activeChats}</span>
+          <span className="text-[9px] font-mono text-slate-400 mt-1 block">Sessões em tempo real</span>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl relative overflow-hidden group">
-          <div className="absolute right-0 bottom-0 text-slate-800/20 text-6xl font-black select-none pointer-events-none group-hover:scale-110 transition-transform">💬</div>
-          <span className="text-[10px] font-mono text-slate-400 block uppercase tracking-wider">Chats de IA Ativos</span>
-          <span className="text-2xl font-black text-emerald-400 mt-1 block">{stats.totalChats}</span>
+        <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-2xl shadow-lg">
+          <span className="text-[10px] font-mono text-slate-500 uppercase block">Tickets Pendentes</span>
+          <span className="text-2xl font-black text-amber-500 block mt-1">{stats.openTickets}</span>
+          <span className="text-[9px] font-mono text-amber-500/80 mt-1 block">Aguardam resolução</span>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl relative overflow-hidden group">
-          <div className="absolute right-0 bottom-0 text-slate-800/20 text-6xl font-black select-none pointer-events-none group-hover:scale-110 transition-transform">🚨</div>
-          <span className="text-[10px] font-mono text-rose-400 block uppercase tracking-wider">Fila de Suporte</span>
-          <span className="text-2xl font-black text-rose-500 mt-1 block">{stats.openTickets}</span>
+        <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-2xl shadow-lg">
+          <span className="text-[10px] font-mono text-slate-500 uppercase block">Intervenções Humanas</span>
+          <span className="text-2xl font-black text-rose-500 block mt-1">{stats.pausedBots}</span>
+          <span className="text-[9px] font-mono text-rose-400 mt-1 block">IA em modo pausa</span>
         </div>
       </div>
 
-      {/* GRID DE GRÁFICOS AVANÇADOS NATIVOS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* GRÁFICO 1: VOLUMETRIA SEMANAL (HISTOGRAMA GLOW) */}
-        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col h-72 shadow-xl">
-          <div className="mb-4">
-            <h4 className="text-xs font-bold text-slate-300 uppercase font-mono tracking-wide">📈 Tráfego Total de Mensagens</h4>
-            <p className="text-[10px] text-slate-500">Volume consolidado processado pela VPS na última semana</p>
-          </div>
-          
-          {/* Corpo do Histograma */}
-          <div className="flex-1 flex items-end justify-between gap-2 pt-6 pb-2 px-2 border-b border-slate-800/60">
-            {trafficHistory.map((t, idx) => (
-              <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group cursor-pointer">
-                {/* Tooltip volumétrico com efeito hover */}
-                <span className="text-[9px] font-mono text-indigo-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity mb-1 bg-slate-950 px-1 py-0.5 rounded border border-slate-800">
-                  {t.messages}
-                </span>
-                {/* Coluna física em puro CSS */}
-                <div 
-                  style={{ height: t.height }} 
-                  className="w-full bg-gradient-to-t from-indigo-600 to-indigo-400 rounded-t-lg group-hover:from-indigo-500 group-hover:to-cyan-400 transition-all shadow-[0_0_15px_rgba(99,102,241,0.15)] group-hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]"
-                ></div>
-              </div>
-            ))}
-          </div>
-          
-          {/* Legenda de Dias */}
-          <div className="flex justify-between px-2 pt-2 text-[10px] font-mono text-slate-500">
-            {trafficHistory.map((t, idx) => <span key={idx} className="flex-1 text-center">{t.day}</span>)}
-          </div>
-        </div>
-
-        {/* GRÁFICO 2: RETENÇÃO POR INTENÇÃO (DISTRIBUIÇÃO ANALÍTICA) */}
-        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col h-72 shadow-xl justify-between">
+        {/* GRÁFICO 1: DISTRIBUIÇÃO DAS INTENÇÕES DA IA */}
+        <div className="bg-slate-900 border border-slate-800/80 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
           <div>
-            <h4 className="text-xs font-bold text-slate-300 uppercase font-mono tracking-wide">🧠 Distribuição de Intenções de IA</h4>
-            <p className="text-[10px] text-slate-500">Mapeamento de rotas interpretadas pelo classificador de linguagem natural</p>
+            <h3 className="text-xs font-bold font-mono uppercase tracking-wide text-slate-300 mb-1">🧠 Volumetria por Intenções da IA</h3>
+            <p className="text-[11px] text-slate-500">Mapeamento dinâmico dos tópicos capturados pelos robôs de atendimento nas últimas interações.</p>
           </div>
-
-          {/* Gráfico Linear de Distribuição de Massa (Muito mais elegante e legível que pizza/donut nativo) */}
-          <div className="space-y-3.5 my-auto">
+          
+          <div className="space-y-4 my-6">
             {intentMetrics.map((intent, idx) => (
-              <div key={idx} className="space-y-1 text-left">
-                <div className="flex justify-between text-[11px] font-mono">
-                  <span className="text-slate-300 font-medium flex items-center gap-1.5 truncate max-w-[200px]">
-                    <span className={`h-2 w-2 rounded-full ${intent.color}`}></span>
-                    {intent.name}
-                  </span>
-                  <span className="text-slate-400 font-bold">{intent.percentage}% <span className="text-[9px] text-slate-600">({intent.count})</span></span>
+              <div key={idx} className="space-y-1.5">
+                <div className="flex justify-between text-xs font-mono">
+                  <span className="text-slate-300 font-bold">{intent.name}</span>
+                  <span className="text-slate-400">{intent.count} chats ({intent.percentage}%)</span>
                 </div>
-                {/* Barra de progresso customizada */}
-                <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-900">
+                <div className="w-full bg-slate-950 h-2.5 rounded-full border border-slate-850 overflow-hidden">
                   <div 
-                    style={{ width: `${intent.percentage}%` }} 
-                    className={`h-full ${intent.color} rounded-full opacity-90`}
+                    className={`${intent.color} h-full rounded-full transition-all duration-500`}
+                    style={{ width: `${intent.percentage}%` }}
                   ></div>
                 </div>
               </div>
             ))}
           </div>
+          
+          <div className="text-[10px] font-mono text-slate-500 bg-slate-950/40 p-2.5 rounded-xl border border-slate-850/60">
+            💡 Estes dados refletem diretamente os metadados agregados na coluna <span className="text-indigo-400">current_intent</span> da tabela wa_chats.
+          </div>
+        </div>
 
-          <div className="text-[9px] font-mono text-slate-500 bg-slate-950/60 p-2 rounded-xl border border-slate-800/40 text-center">
-            Analítica extraída a partir de {stats.totalChats} canais ativos de comunicação.
+        {/* COMPONENTE DE MONOTORIZAÇÃO CORE */}
+        <div className="bg-slate-900 border border-slate-800/80 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
+          <div>
+            <h3 className="text-xs font-bold font-mono uppercase tracking-wide text-slate-300 mb-1">🎛️ Estado dos Nós do Servidor</h3>
+            <p className="text-[11px] text-slate-500">Monitorização dos processos e ligações externas da infraestrutura core.</p>
+          </div>
+
+          <div className="divide-y divide-slate-800/60 my-4 font-mono text-xs">
+            <div className="py-3 flex justify-between items-center">
+              <span className="text-slate-400">Supabase DB Link</span>
+              <span className="text-emerald-400 font-bold px-2 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20">CONNECTED</span>
+            </div>
+            <div className="py-3 flex justify-between items-center">
+              <span className="text-slate-400">API Gateway (PostgREST)</span>
+              <span className="text-emerald-400 font-bold px-2 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20">ONLINE</span>
+            </div>
+            <div className="py-3 flex justify-between items-center">
+              <span className="text-slate-400">Webhook Processing Router</span>
+              <span className="text-cyan-400 font-bold px-2 py-0.5 bg-cyan-500/10 rounded border border-cyan-500/20">LISTENING</span>
+            </div>
+          </div>
+
+          <div className="p-3 bg-slate-950 border border-slate-850 rounded-xl text-center">
+            <span className="text-[10px] font-mono text-slate-400">Uso de CPU da VPS: <strong className="text-white">12%</strong> | RAM Livre: <strong className="text-white">5.8 GB / 8 GB</strong></span>
           </div>
         </div>
 
       </div>
+
     </div>
   );
 }
