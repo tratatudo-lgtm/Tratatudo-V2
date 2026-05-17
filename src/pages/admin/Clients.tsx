@@ -1,5 +1,322 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, import { useEffect, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+// Inicializa o cliente do Supabase (Ajusta com as tuas variáveis de ambiente do Next/Vite)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+interface WaChat {
+  id: string;
+  phone_e164: string;
+  current_intent: string;
+  paused: boolean;
+  context_data: {
+    nome?: string;
+    empresa?: string;
+    email?: string;
+  };
+  updated_at: string;
+}
+
+interface ClientInstance {
+  id: string;
+  company_name: string;
+  evolution_instance_name: string;
+  evolution_status: 'connected' | 'disconnected' | 'connecting';
+  apikey: string;
+}
+
+export default function ModernAdminDashboard() {
+  const [activeTab, setActiveTab] = useState<'chats' | 'instances'>('chats');
+  const [chats, setChats] = useState<WaChat[]>([]);
+  const [instances, setInstances] = useState<ClientInstance[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedInstance, setSelectedInstance] = useState<ClientInstance | null>(null);
+
+  useEffect(() => {
+    async function loadDashboardData() {
+      // Procurar chats do WhatsApp
+      const { data: chatData } = await supabase
+        .from('wa_chats')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      // Procurar os teus clientes e as respetivas configurações da Evolution API
+      const { data: clientData } = await supabase
+        .from('clients')
+        .select('id, company_name, evolution_instance_name, evolution_status, apikey');
+
+      if (chatData) setChats(chatData as WaChat[]);
+      if (clientData) setInstances(clientData as any[]);
+      setLoading(false);
+    }
+
+    loadDashboardData();
+
+    // ⚡ REALTIME para os chats (atualiza leads e intenções no ecrã na hora)
+    const chatChannel = supabase
+      .channel('dashboard_realtime')
+      .on('postgres_changes', { event: '*', pattern: 'public', table: 'wa_chats' }, () => {
+        loadDashboardData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(chatChannel);
+    };
+  }, []);
+
+  // Alternar Estado do Bot (Human Takeover)
+  const toggleBot = async (chatId: string, currentPausedStatus: boolean) => {
+    const { error } = await supabase
+      .from('wa_chats')
+      .update({ paused: !currentPausedStatus })
+      .eq('id', chatId);
+
+    if (!error) {
+      setChats(chats.map(c => c.id === chatId ? { ...c, paused: !currentPausedStatus } : c));
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-950 text-slate-200">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+        <span className="ml-3 font-medium">A carregar o ecossistema TrataTudo...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-12">
+      {/* Top Header */}
+      <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-4 py-4 sm:px-6">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+              TrataTudo V2 Hub Admin
+            </h1>
+            <p className="text-xs text-slate-400 mt-0.5">Gestão de Instâncias & Conversas Automáticas</p>
+          </div>
+          
+          {/* Mobile-Friendly Tabs Selector */}
+          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 w-full sm:w-auto">
+            <button
+              onClick={() => setActiveTab('chats')}
+              className={`flex-1 sm:flex-none px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+                activeTab === 'chats' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              💬 Leads & IA
+            </button>
+            <button
+              onClick={() => setActiveTab('instances')}
+              className={`flex-1 sm:flex-none px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+                activeTab === 'instances' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              🔌 Instâncias Evolution
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 mt-6">
+        
+        {/* TAB 1: LEADS & IA */}
+        {activeTab === 'chats' && (
+          <div className="space-y-4">
+            <div className="hidden md:block overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
+              {/* Layout Desktop */}
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-900/50 text-slate-400 font-semibold text-xs uppercase tracking-wider">
+                    <th className="p-4">Contacto</th>
+                    <th className="p-4">Intenção Identificada</th>
+                    <th className="p-4">Metadados Capturados</th>
+                    <th className="p-4 text-center">Ação (Human Takeover)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 text-sm">
+                  {chats.map(chat => (
+                    <tr key={chat.id} className="hover:bg-slate-850/40 transition-colors">
+                      <td className="p-4">
+                        <div className="font-semibold text-white">{chat.context_data.nome || 'Lead Novo'}</div>
+                        <div className="text-xs text-slate-400 mt-0.5">{chat.phone_e164}</div>
+                      </td>
+                      <td className="p-4">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                          chat.current_intent === 'white_label' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                          chat.current_intent === 'vendas_crm_ia' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                          'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                        }`}>
+                          {chat.current_intent === 'white_label' ? '🚀 Revenda White Label' :
+                           chat.current_intent === 'vendas_crm_ia' ? '💼 Comprar CRM' : '💬 Dúvida Geral'}
+                        </span>
+                      </td>
+                      <td className="p-4 text-xs space-y-1">
+                        {chat.context_data.empresa && <div><span className="text-slate-500">Empresa:</span> <span className="text-slate-200 font-medium">{chat.context_data.empresa}</span></div>}
+                        {chat.context_data.email && <div><span className="text-slate-500">Email:</span> <span className="text-slate-200 font-medium">{chat.context_data.email}</span></div>}
+                        {!chat.context_data.empresa && !chat.context_data.email && <span className="text-slate-600 italic">A processar...</span>}
+                      </td>
+                      <td className="p-4 text-center">
+                        <button
+                          onClick={() => toggleBot(chat.id, chat.paused)}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all border ${
+                            chat.paused 
+                              ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30' 
+                              : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                          }`}
+                        >
+                          {chat.paused ? '⏸️ Assumido por Humano' : '🤖 Bot a Responder'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Layout Mobile (Transforma linhas em cartões independentes ao toque) */}
+            <div className="grid grid-cols-1 gap-4 md:hidden">
+              {chats.map(chat => (
+                <div key={chat.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-md space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-bold text-base text-white">{chat.context_data.nome || 'Lead Novo'}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">{chat.phone_e164}</div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                      chat.current_intent === 'white_label' ? 'bg-purple-500/20 text-purple-300' :
+                      chat.current_intent === 'vendas_crm_ia' ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {chat.current_intent === 'white_label' ? 'WhiteLabel' : chat.current_intent === 'vendas_crm_ia' ? 'CRM' : 'Geral'}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 text-xs space-y-1">
+                    {chat.context_data.empresa && <div><span className="text-slate-500">Empresa:</span> <span className="text-slate-300 font-medium">{chat.context_data.empresa}</span></div>}
+                    {chat.context_data.email && <div><span className="text-slate-500">Email:</span> <span className="text-slate-300 font-medium">{chat.context_data.email}</span></div>}
+                    {!chat.context_data.empresa && !chat.context_data.email && <span className="text-slate-600 italic">Nenhum dado capturado ainda.</span>}
+                  </div>
+
+                  <button
+                    onClick={() => toggleBot(chat.id, chat.paused)}
+                    className={`w-full py-2.5 rounded-xl text-xs font-bold text-center border transition-all ${
+                      chat.paused 
+                        ? 'bg-amber-500 text-slate-950 font-extrabold border-amber-600' 
+                        : 'bg-slate-850 hover:bg-slate-800 text-emerald-400 border-slate-750'
+                    }`}
+                  >
+                    {chat.paused ? '⏸️ IA Pausada - Estás a falar Tu' : '🤖 IA Ativa (Mudar para Humano)'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: INSTÂNCIAS EVOLUTION API (Para o negócio dos clientes) */}
+        {activeTab === 'instances' && (
+          <div className="space-y-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6">
+              <h3 className="text-lg font-bold text-white mb-2">Painel de Integrações WhatsApp</h3>
+              <p className="text-xs sm:text-sm text-slate-400 mb-6">
+                Gere os canais de comunicação dos teis clientes. Cada cliente tem direito a uma instância dedicada da Evolution API para ligar o seu próprio WhatsApp comercial.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {instances.map(inst => (
+                  <div key={inst.id} className="bg-slate-950 border border-slate-850 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition-all">
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-semibold text-slate-500">ID da Conta: #{inst.id}</span>
+                        <span className={`h-2 w-2 rounded-full ${
+                          inst.evolution_status === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'
+                        }`}></span>
+                      </div>
+                      <h4 className="font-bold text-white text-base truncate">{inst.company_name}</h4>
+                      <p className="text-xs text-slate-400 mt-1">Instância: <code className="bg-slate-900 px-1.5 py-0.5 rounded text-indigo-400">{inst.evolution_instance_name || 'Não gerada'}</code></p>
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t border-slate-900 flex gap-2">
+                      <button 
+                        onClick={() => setSelectedInstance(inst)}
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl text-xs font-bold transition-all"
+                      >
+                        ⚙️ Gerir Conexão
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal de Gestão de Instância Dedicada (Pop-up lindo e responsivo) */}
+            {selectedInstance && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+                  <h3 className="text-lg font-bold text-white mb-1">Instância {selectedInstance.company_name}</h3>
+                  <p className="text-xs text-slate-400 mb-4">Configuração técnica da Evolution API.</p>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">Nome Técnico da Instância</label>
+                      <input 
+                        type="text" 
+                        readOnly 
+                        value={selectedInstance.evolution_instance_name}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-300 text-xs p-2.5 rounded-xl outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">Chave de API (ApiKey)</label>
+                      <input 
+                        type="password" 
+                        readOnly 
+                        value={selectedInstance.apikey || '••••••••••••••••'}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-300 text-xs p-2.5 rounded-xl outline-none"
+                      />
+                    </div>
+
+                    {/* Espaço simulador para renderizar o QR Code da Evolution API obtido via fetch */}
+                    <div className="bg-slate-950 border border-dashed border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center py-6">
+                      <div className="h-32 w-32 bg-white rounded-lg flex items-center justify-center font-bold text-slate-900 text-xs shadow-inner">
+                        [QR CODE REAL]
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-3 max-w-xs">
+                        Pede ao cliente para ler este código com o WhatsApp do telemóvel dele (Definições &gt; Dispositivos Associados) para ativar o serviço na empresa dele.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex gap-2">
+                    <button 
+                      onClick={() => alert('A sincronizar com o servidor da Evolution API...')}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 rounded-xl transition-all"
+                    >
+                      🔄 Sincronizar Estado
+                    </button>
+                    <button 
+                      onClick={() => setSelectedInstance(null)}
+                      className="bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-bold px-4 py-2.5 rounded-xl transition-all"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+ } from 'motion/react';
 import { 
   Search, 
   Plus, 
