@@ -55,7 +55,8 @@ export function AdminClients() {
       }
     } catch (err: any) {
       console.error('Erro ao carregar clientes:', err.message);
-    } finaly {
+    } // Erro de digitação "finaly" corrigido aqui:
+    finally {
       setLoading(false);
     }
   }
