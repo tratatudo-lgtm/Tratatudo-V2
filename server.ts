@@ -128,13 +128,54 @@ async function startServer() {
     res.json({ ok: true, message: "Logout efetuado com sucesso." });
   });
 
-  // --- CLIENT HUB AUTH (Multitenant) ---
+    // --- CLIENT HUB AUTH (Multitenant) ---
 
   const normalizePhone = (p: string) => p?.replace(/\D/g, "") || "";
 
   app.post("/api/auth/send-otp", async (req, res) => {
     let { phone_e164 } = req.body;
     if (!phone_e164) return res.status(400).json({ ok: false, error: "Número obrigatório." });
+
+    phone_e164 = normalizePhone(phone_e164);
+
+    const { data: client } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("phone_e164", phone_e164)
+      .single();
+
+    if (!client) {
+      return res.status(404).json({ ok: false, error: "Este número não está associado a nenhuma conta." });
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log(`[AUTH] OTP for ${phone_e164}: ${code}`);
+
+    await supabase.from("auth_otps").insert({
+      phone_e164,
+      code_hash: code,
+      expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      purpose: 'hub_login'
+    });
+
+    // DISPARO VIA EVOLUTION API
+    const EVOLUTION_URL = process.env.EVOLUTION_URL || "http://127.0.0.1:8080";
+    const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || "FinalWAV";
+    const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || ""; // Define no teu .env
+
+    fetch(`${EVOLUTION_URL}/message/sendText/${EVOLUTION_INSTANCE}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": EVOLUTION_API_KEY },
+      body: JSON.stringify({
+        number: phone_e164,
+        text: `*TrataTudo*\nO teu código de acesso é: *${code}*`,
+        delay: 1200
+      })
+    }).catch(err => console.error("[EVOLUTION ERROR]", err));
+
+    res.json({ ok: true, message: "Código enviado com sucesso!" });
+  });
+
 
     phone_e164 = normalizePhone(phone_e164);
 
