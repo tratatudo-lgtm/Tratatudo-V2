@@ -27,8 +27,10 @@ async function fetchTickets() {
   ticketsList.classList.add('hidden');
   ticketsEmpty.classList.add('hidden');
 
+  const apiPrefix = window.location.pathname.startsWith('/admin') ? '/api/admin' : '/api/client';
+
   try {
-    const res = await window.apiGet('/api/admin/tickets');
+    const res = await window.apiGet(`${apiPrefix}/tickets`);
     if (res && res.ok) {
       allTickets = res.data || [];
       renderTickets();
@@ -136,7 +138,8 @@ async function loadTicketMessages(ticketId) {
   if (window.lucide) window.lucide.createIcons();
 
   try {
-    const res = await window.apiGet(`/api/admin/tickets/${ticketId}`);
+    const apiPrefix = window.location.pathname.startsWith('/admin') ? '/api/admin' : '/api/client';
+    const res = await window.apiGet(`${apiPrefix}/tickets/${ticketId}`);
     if (res && res.ok && res.data) {
       const messages = res.data.ticket_messages || [];
       renderTimeline(messages);
@@ -214,7 +217,8 @@ chatSendForm.addEventListener('submit', async (e) => {
   chatInput.value = '';
 
   try {
-    const res = await window.apiPost(`/api/admin/tickets/${activeTicket.id}/messages`, { text });
+    const apiPrefix = window.location.pathname.startsWith('/admin') ? '/api/admin' : '/api/client';
+    const res = await window.apiPost(`${apiPrefix}/tickets/${activeTicket.id}/messages`, { text });
     if (res && res.ok) {
       // Re-load to get actual DB timestamp and ID
       loadTicketMessages(activeTicket.id);
@@ -246,7 +250,8 @@ btnResolve.addEventListener('click', async () => {
   if (!confirm("Altear o estado deste ticket para RESOLVIDO? O cliente receberá um aviso.")) return;
 
   try {
-    const res = await window.apiPut(`/api/admin/tickets/${activeTicket.id}/status`, { status: 'resolved' });
+    const apiPrefix = window.location.pathname.startsWith('/admin') ? '/api/admin' : '/api/client';
+    const res = await window.apiPut(`${apiPrefix}/tickets/${activeTicket.id}/status`, { status: 'resolved' });
     if (res && res.ok) {
       alert("Ticket de suporte fechado com sucesso!");
       // Clean chat box or reload

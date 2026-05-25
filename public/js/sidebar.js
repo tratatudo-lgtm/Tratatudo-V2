@@ -70,6 +70,25 @@ function renderSidebar() {
   const basePath = isAdmin ? '/admin' : '/app';
   const dashboardUrl = `${basePath}/dashboard`;
 
+  const menuToRender = isAdmin ? [
+    {
+      title: "Administração Geral",
+      items: [
+        { name: "Clientes", url: "/admin/clients", rawUrl: "clients.html", icon: "user-check" },
+        { name: "Faturação Planos", url: "/admin/finance", rawUrl: "finance.html", icon: "wallet" },
+        { name: "Tickets de Suporte", url: "/admin/tickets", rawUrl: "tickets.html", icon: "ticket" }
+      ]
+    },
+    {
+      title: "Tecnologia & Infra",
+      items: [
+        { name: "Instâncias Evolution", url: "/admin/instance", rawUrl: "instance.html", icon: "server" },
+        { name: "Mestres de IA", url: "/admin/ai", rawUrl: "ai.html", icon: "bot" },
+        { name: "Definições Gerais", url: "/admin/settings", rawUrl: "settings.html", icon: "sliders" }
+      ]
+    }
+  ] : MENU_CATEGORIES;
+
   let html = `
     <!-- Desktop Sidebar Wrapper -->
     <div class="hidden lg:flex flex-col w-64 h-screen bg-slate-900 border-r border-white/5 text-slate-300 select-none overflow-y-auto no-scrollbar py-6">
@@ -101,7 +120,7 @@ function renderSidebar() {
       <nav class="flex-1 px-3 space-y-6">
   `;
 
-  MENU_CATEGORIES.forEach(cat => {
+  menuToRender.forEach(cat => {
     html += `
       <div class="space-y-1">
         <span class="px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest select-none">${cat.title}</span>
@@ -153,10 +172,10 @@ function renderSidebar() {
     <!-- Mobile Drawer Sidebar (Sliding Menu) -->
     <div id="mobile-sidebar-drawer" class="fixed inset-0 z-50 pointer-events-none lg:hidden">
       <!-- Backdrop -->
-      <div id="mobile-sidebar-backdrop" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm opacity-0 transition-opacity duration-300 ease-in-out pointer-events-none"></div>
+      <div id="mobile-sidebar-backdrop" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm opacity-0 transition-opacity duration-350 ease-in-out pointer-events-none"></div>
       
       <!-- Side Menu Drawer -->
-      <div id="mobile-sidebar-panel" class="absolute left-0 top-0 bottom-0 w-72 bg-slate-950 border-r border-white/10 p-6 flex flex-col transform -translate-x-full transition-transform duration-300 ease-in-out">
+      <div id="mobile-sidebar-panel" class="absolute left-0 top-0 bottom-0 w-72 bg-slate-950 border-r border-white/10 p-6 flex flex-col transform -translate-x-full transition-transform duration-350 ease-in-out">
         <div class="flex items-center justify-between mb-8">
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
@@ -179,7 +198,7 @@ function renderSidebar() {
             <span>Dashboard Principal</span>
           </a>
 
-          ${MENU_CATEGORIES.map(cat => `
+          ${menuToRender.map(cat => `
             <div class="space-y-1">
               <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest px-4">${cat.title}</span>
               <div class="space-y-0.5 mt-2">

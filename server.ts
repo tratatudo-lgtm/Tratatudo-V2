@@ -4,12 +4,16 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import { createClient } from "@supabase/supabase-js";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 // --- ENV & CONFIG ---
-const PORT = 3000;
+const PORT = Number(process.env.PORT || "3005");
 const JWT_SECRET = process.env.JWT_SECRET || "tratatudo-super-admin-secret-2026";
-const SUPABASE_URL = process.env.SUPABASE_URL || "";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxnaHNiamdqcm9na2FkY3ppa291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyODY2NDIsImV4cCI6MjA4Nzg2MjY0Mn0.FfxryvS33JUfIf5HOqJyhBRANKzdH0Snuu3p-RDOs_k";
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://lghsbjgjrogkadczikou.supabase.co";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
 
 // Dummy keys for initialization safety
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "gsk_dummy_key";
@@ -33,7 +37,6 @@ async function startServer() {
 
   /**
    * Middleware to validate Super Admin session via JWT
-   * and double-check against public.admins table
    */
   const requireAdminSession = async (req: any, res: any, next: any) => {
     const token = req.cookies.tratatudo_admin_session || req.headers.authorization?.split(" ")[1];
@@ -45,22 +48,47 @@ async function startServer() {
     try {
       const decoded: any = jwt.verify(token, JWT_SECRET);
       
-      // Categorical check: user must exist in public.admins
-      const { data: admin, error } = await supabase
-        .from("admins")
-        .select("*")
-        .eq("user_id", decoded.userId)
-        .single();
-
-      if (error || !admin) {
-        return res.status(403).json({ ok: false, error: "Acesso administrativo negado. Utilizador não é um Super Admin." });
+      if (decoded.email !== "juliocosta@protonmail.com") {
+        return res.status(403).json({ ok: false, error: "Acesso administrativo negado. Utilizador não autorizado." });
       }
 
-      req.admin = admin;
+      req.admin = { email: decoded.email, role: 'super_admin' };
       req.adminId = decoded.userId;
       next();
     } catch (err) {
       res.clearCookie("tratatudo_admin_session");
+      return res.status(401).json({ ok: false, error: "Sessão expirada ou inválida." });
+    }
+  };
+
+  /**
+   * Middleware to validate Client Hub session via JWT
+   */
+  const requireClientSession = async (req: any, res: any, next: any) => {
+    const token = req.cookies.hub_session || req.headers.authorization?.split(" ")[1];
+    
+    if (!token) {
+      return res.status(401).json({ ok: false, error: "Sessão não encontrada. Por favor, faça login." });
+    }
+
+    try {
+      const decoded: any = jwt.verify(token, JWT_SECRET);
+      
+      const { data: client, error } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", decoded.clientId)
+        .maybeSingle();
+
+      if (error || !client) {
+        return res.status(403).json({ ok: false, error: "Acesso de cliente negado." });
+      }
+
+      req.client = client;
+      req.clientId = decoded.clientId;
+      next();
+    } catch (err) {
+      res.clearCookie("hub_session");
       return res.status(401).json({ ok: false, error: "Sessão expirada ou inválida." });
     }
   };
@@ -74,6 +102,10 @@ async function startServer() {
       return res.status(400).json({ ok: false, error: "E-mail e password são obrigatórios." });
     }
 
+    if (email !== "juliocosta@protonmail.com") {
+      return res.status(403).json({ ok: false, error: "Acesso negado. Apenas o e-mail administrador juliocosta@protonmail.com tem acesso." });
+    }
+
     try {
       // 1. Authenticate with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -82,28 +114,17 @@ async function startServer() {
       });
 
       if (authError || !authData.user) {
-        return res.status(401).json({ ok: false, error: "Credenciais de acesso inválidas." });
+        return res.status(401).json({ ok: false, error: "E-mail ou palavra-passe incorretos." });
       }
 
-      // 2. Validate if user is in public.admins
-      const { data: admin, error: adminError } = await supabase
-        .from("admins")
-        .select("*")
-        .eq("user_id", authData.user.id)
-        .single();
-
-      if (adminError || !admin) {
-        return res.status(403).json({ ok: false, error: "Acesso negado. Este utilizador não possui privilégios de Super Admin." });
-      }
-
-      // 3. Generate Admin JWT
+      // 2. Generate Admin JWT
       const token = jwt.sign(
         { userId: authData.user.id, email: authData.user.email, role: 'super_admin' },
         JWT_SECRET,
         { expiresIn: "12h" }
       );
 
-      // 4. Set Cookie & Respond
+      // 3. Set Cookie & Respond
       res.cookie("tratatudo_admin_session", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -112,7 +133,7 @@ async function startServer() {
         maxAge: 12 * 60 * 60 * 1000 // 12 hours
       });
 
-      res.json({ ok: true, data: { user: authData.user, admin } });
+      res.json({ ok: true, data: { admin: { email: authData.user.email, id: authData.user.id } } });
     } catch (err: any) {
       res.status(500).json({ ok: false, error: "Erro interno no servidor de autenticação." });
     }
@@ -139,8 +160,8 @@ async function startServer() {
 
     // Validate if user exists (client OR client_user)
     const [ { data: client }, { data: clientUser } ] = await Promise.all([
-      supabase.from("clients").select("id").eq("phone_e164", phone_e164).single(),
-      supabase.from("client_users").select("id").eq("phone_e164", phone_e164).single()
+      supabase.from("clients").select("id").eq("phone_e164", phone_e164).maybeSingle(),
+      supabase.from("client_users").select("id").eq("phone_e164", phone_e164).maybeSingle()
     ]);
 
     if (!client && !clientUser) {
@@ -148,12 +169,29 @@ async function startServer() {
     }
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    // In dev, we just log it. In prod, we'd send via WhatsApp Evolution API.
     console.log(`[AUTH] OTP for ${phone_e164}: ${code}`);
+
+    // Call Evolution API natively to send OTP via WhatsApp
+    try {
+      await fetch("http://127.0.0.1:8080/message/sendText/FinalWAV", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": "TrataTudo_2026_Negocio"
+        },
+        body: JSON.stringify({
+          number: phone_e164,
+          text: "*TrataTudo*\nO teu código é: *" + code + "*"
+        })
+      });
+      console.log(`[EVOLUTION API] OTP sent successfully to ${phone_e164}`);
+    } catch (fetchErr: any) {
+      console.log(`[EVOLUTION API (FALLBACK)] Failed to contact standard Evolution service: ${fetchErr.message}`);
+    }
 
     const { error } = await supabase.from("auth_otps").insert({
       phone_e164,
-      code_hash: code, // Ideally hashed, but for brevity or simple demo we store plain or salt it
+      code_hash: code,
       expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       purpose: 'hub_login'
     });
@@ -163,7 +201,7 @@ async function startServer() {
   });
 
   app.post("/api/auth/verify-otp", async (req, res) => {
-    let { phone_e164, code, clientId } = req.body;
+    let { phone_e164, code } = req.body;
     phone_e164 = normalizePhone(phone_e164);
 
     const { data: otp, error } = await supabase
@@ -174,7 +212,7 @@ async function startServer() {
       .is("used_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (error || !otp || new Date(otp.expires_at) < new Date()) {
       return res.status(400).json({ ok: false, error: "Código inválido ou expirado." });
@@ -183,10 +221,10 @@ async function startServer() {
     await supabase.from("auth_otps").update({ used_at: new Date().toISOString() }).eq("id", otp.id);
 
     // Determine role and tenant
-    const { data: clientUser } = await supabase.from("client_users").select("*").eq("phone_e164", phone_e164).single();
-    const { data: clientOwner } = await supabase.from("clients").select("*").eq("phone_e164", phone_e164).single();
+    const { data: clientUser } = await supabase.from("client_users").select("*").eq("phone_e164", phone_e164).maybeSingle();
+    const { data: clientOwner } = await supabase.from("clients").select("*").eq("phone_e164", phone_e164).maybeSingle();
 
-    let client = clientOwner || (clientUser ? await supabase.from("clients").select("*").eq("id", clientUser.client_id).single().then(r => r.data) : null);
+    let client = clientOwner || (clientUser ? await supabase.from("clients").select("*").eq("id", clientUser.client_id).maybeSingle().then(r => r.data) : null);
     
     if (!client) return res.status(404).json({ ok: false, error: "Registo não encontrado." });
 
@@ -213,7 +251,7 @@ async function startServer() {
     if (!token) return res.json({ ok: true, authenticated: false });
     try {
       const decoded: any = jwt.verify(token, JWT_SECRET);
-      const { data: client } = await supabase.from("clients").select("*").eq("id", decoded.clientId).single();
+      const { data: client } = await supabase.from("clients").select("*").eq("id", decoded.clientId).maybeSingle();
       if (!client) throw new Error();
       res.json({ ok: true, authenticated: true, client, role: decoded.role, userId: decoded.userId });
     } catch {
@@ -225,6 +263,130 @@ async function startServer() {
   app.post("/api/auth/logout", (req, res) => {
     res.clearCookie("hub_session");
     res.json({ ok: true });
+  });
+
+  // --- CLIENT API SERVICES (Secured by requireClientSession) ---
+
+  app.get("/api/client/dashboard", requireClientSession, async (req: any, res) => {
+    try {
+      // Fetch count of client's own pending tickets
+      const { count: pendingTickets } = await supabase
+        .from("tickets")
+        .select("*", { count: 'exact', head: true })
+        .eq("client_id", req.clientId)
+        .neq("status", "resolved");
+
+      res.json({
+        ok: true,
+        data: {
+          activeClients: req.client.plan ? req.client.plan.toUpperCase() : "TRIAL",
+          pendingTickets: pendingTickets || 0,
+          expiredSubscriptions: req.client.subscription_expires_at 
+            ? new Date(req.client.subscription_expires_at).toLocaleDateString('pt') 
+            : "Sem Expiração",
+          systemStatus: {
+            database: "online",
+            evolution_api: "online",
+            stripe: "online"
+          }
+        }
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/tickets", requireClientSession, async (req: any, res) => {
+    try {
+      const { data, error } = await supabase
+        .from("tickets")
+        .select("*, clients(company_name)")
+        .eq("client_id", req.clientId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      res.json({ ok: true, data });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.get("/api/client/tickets/:id", requireClientSession, async (req: any, res) => {
+    try {
+      const { data, error } = await supabase
+        .from("tickets")
+        .select("*, clients(company_name), ticket_messages(*)")
+        .eq("id", req.params.id)
+        .eq("client_id", req.clientId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) return res.status(404).json({ ok: false, error: "Ticket não localizado ou sem autorização." });
+
+      res.json({ ok: true, data });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/client/tickets/:id/messages", requireClientSession, async (req: any, res) => {
+    try {
+      const { text } = req.body;
+      const { data: ticket, error: ticketError } = await supabase
+        .from("tickets")
+        .select("id")
+        .eq("id", req.params.id)
+        .eq("client_id", req.clientId)
+        .maybeSingle();
+
+      if (ticketError || !ticket) {
+        return res.status(403).json({ ok: false, error: "Mensagem não autorizada." });
+      }
+
+      const { data, error } = await supabase
+        .from("ticket_messages")
+        .insert({
+          ticket_id: req.params.id,
+          text,
+          role: 'client',
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      res.json({ ok: true, data });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.put("/api/client/tickets/:id/status", requireClientSession, async (req: any, res) => {
+    try {
+      const { status } = req.body;
+      const { data: ticket, error: ticketError } = await supabase
+        .from("tickets")
+        .select("id")
+        .eq("id", req.params.id)
+        .eq("client_id", req.clientId)
+        .maybeSingle();
+
+      if (ticketError || !ticket) {
+        return res.status(403).json({ ok: false, error: "Atualização não autorizada." });
+      }
+
+      const { data, error } = await supabase
+        .from("tickets")
+        .update({ status })
+        .eq("id", req.params.id)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      res.json({ ok: true, data });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
   });
 
   // --- ADMIN DASHBOARD ---
@@ -305,7 +467,7 @@ async function startServer() {
           tickets(*)
         `)
         .eq("id", req.params.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       res.json({ ok: true, data });
@@ -323,7 +485,7 @@ async function startServer() {
         .from("clients")
         .insert(client)
         .select()
-        .single();
+        .maybeSingle();
 
       if (clientError) throw clientError;
 
@@ -349,7 +511,7 @@ async function startServer() {
         .update(req.body)
         .eq("id", req.params.id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       res.json({ ok: true, data });
@@ -371,7 +533,7 @@ async function startServer() {
         })
         .eq("id", req.params.id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       res.json({ ok: true, data });
@@ -388,7 +550,7 @@ async function startServer() {
         .update({ status: 'inactive' })
         .eq("id", req.params.id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       res.json({ ok: true, data });
@@ -456,7 +618,7 @@ async function startServer() {
         .from("tickets")
         .select("*, clients(company_name), ticket_messages(*)")
         .eq("id", req.params.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       res.json({ ok: true, data });
@@ -478,7 +640,7 @@ async function startServer() {
           created_at: new Date().toISOString()
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       res.json({ ok: true, data });
@@ -495,7 +657,7 @@ async function startServer() {
         .update({ status })
         .eq("id", req.params.id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       res.json({ ok: true, data });
