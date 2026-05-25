@@ -17,8 +17,7 @@ import {
   Activity,
   Loader2,
   PieChart as PieChartIcon,
-  BarChart3,
-  LogOut
+  BarChart3
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { 
@@ -82,23 +81,12 @@ const shortcuts = [
 ];
 
 export function Dashboard() {
-  const { user, logout } = useAuth(); // Importa a função de logout do teu contexto de autenticação estruturado
+  const { user } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [aiInsights, setAiInsights] = useState<{ insights: any[], summary: string } | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
-
-  const handleLogout = async () => {
-    try {
-      if (logout) {
-        await logout();
-      }
-      window.location.href = '/login';
-    } catch (err) {
-      console.error("[APP] Logout failed:", err);
-    }
-  };
 
   const fetchAIInsights = async () => {
     try {
@@ -110,6 +98,7 @@ export function Dashboard() {
     } catch (err) {
       console.error("[APP] AI Insights failed:", err);
       
+      // Fallback for demo
       if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
         setAiInsights({
           summary: "O seu assistente de IA está a analisar o desempenho da sua conta.",
@@ -130,8 +119,10 @@ export function Dashboard() {
         setLoading(true);
         setError(null);
         
+        // Try primary endpoint
         const result = await apiGet('/api/client/dashboard/stats');
         
+        // Map the response to our interface
         const mappedData: DashboardData = {
           stats: result.stats || {},
           instance: extractObjectResponse(result, 'instance'),
@@ -139,6 +130,7 @@ export function Dashboard() {
           activity: extractArrayResponse(result, 'activity')
         };
         
+        // Fetch chart data
         try {
           const chartData = await apiGet('/api/client/dashboard/charts');
           mappedData.charts = chartData;
@@ -154,6 +146,7 @@ export function Dashboard() {
         console.error('[APP] Dashboard fetch failed:', err);
         setError(err.message || 'Não foi possível carregar os dados do painel.');
         
+        // Professional fallback for demo/development
         if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
           console.log('[APP] Using fallback dashboard data');
           setData({
@@ -282,28 +275,14 @@ export function Dashboard() {
 
   return (
     <div className="space-y-8">
-      {/* SEÇÃO DO CABEÇALHO ADAPTADO COM BOTÃO SAIR */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold text-slate-900">Painel de Controlo</h1>
           <p className="text-slate-500">Bem-vindo de volta. Aqui está o resumo da sua operação.</p>
         </div>
-        
-        <div className="flex items-center gap-3 self-end md:self-auto">
-          <div className="flex items-center gap-2 text-sm font-medium text-slate-500 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
-            <Clock className="w-4 h-4" />
-            Última atualização: {new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
-          </div>
-          
-          {/* Botão Sair Clean para o Cliente Final */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-all shadow-sm active:scale-95"
-            title="Encerrar Sessão"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Sair</span>
-          </button>
+        <div className="flex items-center gap-2 text-sm font-medium text-slate-500 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+          <Clock className="w-4 h-4" />
+          Última atualização: {new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
         </div>
       </div>
 

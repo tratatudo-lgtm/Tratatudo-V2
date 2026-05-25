@@ -3,8 +3,8 @@
  * Ensures all calls use the correct VITE_API_URL and handle credentials.
  */
 
-// Normalize API URL: remove trailing slash if exists
-const rawApiUrl = import.meta.env.VITE_API_URL || '';
+// Normalize API URL: use the current origin to ensure requests go to the correct absolute URL
+const rawApiUrl = typeof window !== 'undefined' ? window.location.origin : (import.meta.env.VITE_API_URL || '');
 export const API_URL = rawApiUrl.endsWith('/') ? rawApiUrl.slice(0, -1) : rawApiUrl;
 
 /**

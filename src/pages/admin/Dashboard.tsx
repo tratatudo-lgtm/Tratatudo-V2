@@ -1,232 +1,473 @@
-import React, { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL || '',
-  import.meta.env.VITE_SUPABASE_ANON_KEY || ''
-);
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  Users, 
+  MessageSquare, 
+  AlertCircle, 
+  TrendingUp, 
+  ArrowUpRight, 
+  ArrowDownRight, 
+  Activity, 
+  Clock, 
+  Calendar, 
+  Filter, 
+  RefreshCw, 
+  ChevronRight, 
+  Zap, 
+  Smartphone, 
+  CheckCircle2, 
+  XCircle,
+  ShieldCheck,
+  LayoutDashboard,
+  ExternalLink,
+  Loader2
+} from 'lucide-react';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  AreaChart, 
+  Area, 
+  Cell,
+  PieChart,
+  Pie
+} from 'recharts';
+import { cn, extractArrayResponse } from '../../lib/utils';
+import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
+import { LoadingState, ErrorState } from '../../components/States';
+import { apiGet } from '../../lib/api';
 
 interface DashboardStats {
-  totalClients: number;
-  activeChats: number;
-  openTickets: number;
-  pausedBots: number;
+  total_clients: number;
+  active_clients: number;
+  trial_clients: number;
+  total_messages_24h: number;
+  active_instances: number;
+  system_health: number;
+  messages_chart: { date: string; count: number }[];
+  clients_chart: { date: string; count: number }[];
 }
 
-interface IntentMetric {
-  name: string;
-  count: number;
-  percentage: number;
-  color: string;
+interface AdminAlert {
+  id: string;
+  type: 'error' | 'warning' | 'info' | 'success';
+  title: string;
+  message: string;
+  created_at: string;
+  is_read: boolean;
+}
+
+interface RecentActivity {
+  id: string;
+  type: 'client_joined' | 'message_spike' | 'instance_error' | 'payment_success';
+  title: string;
+  description: string;
+  timestamp: string;
 }
 
 export function AdminDashboard() {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [alerts, setAlerts] = useState<AdminAlert[]>([]);
+  const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<DashboardStats>({
-    totalClients: 0,
-    activeChats: 0,
-    openTickets: 0,
-    pausedBots: 0
-  });
-  const [intentMetrics, setIntentMetrics] = useState<IntentMetric[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('7d');
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  const { logout } = useAdminAuth();
 
-  // Função para encerrar a sessão de forma segura no Supabase
-  async function handleLogout() {
-    try {
-      await supabase.auth.signOut();
-      window.location.href = '/login'; 
-    } catch (err) {
-      console.error('Erro ao terminar sessão:', err);
-    }
-  }
-
-  async function loadDashboardData() {
+  const fetchDashboardData = async () => {
     try {
       setLoading(true);
-
-      // 1. Fetch de Clientes (Contagem Base)
-      const { data: clients } = await supabase
-        .from('clients')
-        .select('status');
-
-      // 2. Fetch de Chats WhatsApp (Volumetria e Intenções)
-      const { data: chats } = await supabase
-        .from('wa_chats')
-        .select('current_intent, paused');
-
-      // 3. Fetch de Tickets de Suporte
-      const { data: tickets } = await supabase
-        .from('tickets')
-        .select('status');
-
-      const totalClients = clients?.length || 0;
-      const activeChats = chats?.length || 0;
-      const pausedBots = chats?.filter(c => c.paused === true).length || 0;
+      setError(null);
       
-      const openTickets = tickets?.filter(t => t.status === 'novo' || t.status === 'em_resolucao').length || 0;
+      // Fetch Stats
+      const statsData = await apiGet('/api/admin/dashboard/stats');
+      setStats(statsData);
 
-      setStats({
-        totalClients,
-        activeChats,
-        openTickets,
-        pausedBots
-      });
-
-      if (chats && chats.length > 0) {
-        const intentMap: Record<string, number> = {};
-        chats.forEach(c => {
-          const intent = c.current_intent || 'Triagem Geral';
-          intentMap[intent] = (intentMap[intent] || 0) + 1;
-        });
-
-        const colors = ['bg-indigo-500', 'bg-amber-500', 'bg-emerald-500', 'bg-rose-500', 'bg-purple-500'];
-        const formattedIntents = Object.entries(intentMap).map(([name, count], index) => {
-          const percentage = activeChats > 0 ? Math.round((count / activeChats) * 100) : 0;
-          return { name, count, percentage, color: colors[index % colors.length] };
-        }).sort((a, b) => b.count - a.count);
-
-        setIntentMetrics(formattedIntents);
-      } else {
-        setIntentMetrics([
-          { name: 'Nenhuma Intenção Registada', count: 0, percentage: 0, color: 'bg-slate-700' }
-        ]);
+      // Fetch Alerts
+      try {
+        const alertsData = await apiGet('/api/admin/alerts');
+        setAlerts(extractArrayResponse<AdminAlert>(alertsData, 'alerts'));
+      } catch (alertErr) {
+        console.warn('[ADMIN] Failed to fetch alerts:', alertErr);
       }
 
-    } catch (err) {
-      console.error('Erro ao processar cockpit analítico:', err);
+      // Fetch Recent Activity
+      // TODO: Backend endpoint /api/admin/activity missing. 
+      // This is prepared in UI but requires backend implementation.
+      setActivities([]);
+
+    } catch (err: any) {
+      console.error('[ADMIN] Dashboard fetch failed:', err);
+      if (err.message && (err.message.includes('401') || err.message.includes('não autorizado'))) {
+        await logout();
+      }
+      setError(err.message || 'Não foi possível carregar os dados do dashboard.');
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  if (loading && !stats) {
+    return <LoadingState message="A preparar o seu centro de comando..." className="h-[80vh]" />;
   }
 
-  if (loading) {
+  if (error && !stats) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-slate-950 font-mono text-xs text-slate-500">
-        🚀 Sincronizando Métricas do Cockpit Central...
+      <div className="h-[80vh] flex flex-col items-center justify-center gap-4 text-center px-4">
+        <ErrorState message={error} />
+        <button 
+          onClick={fetchDashboardData}
+          className="mt-4 px-6 py-2 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors"
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }
 
+  const statCards = [
+    { 
+      label: 'Total Clientes', 
+      value: stats?.total_clients || 0, 
+      trend: '+12%', 
+      icon: Users, 
+      color: 'blue',
+      description: 'Crescimento acumulado'
+    },
+    { 
+      label: 'Mensagens (24h)', 
+      value: stats?.total_messages_24h || 0, 
+      trend: '+24%', 
+      icon: MessageSquare, 
+      color: 'emerald',
+      description: 'Volume de interações'
+    },
+    { 
+      label: 'Instâncias Ativas', 
+      value: stats?.active_instances || 0, 
+      trend: 'Estável', 
+      icon: Zap, 
+      color: 'orange',
+      description: 'Conexões em tempo real'
+    },
+    { 
+      label: 'Saúde do Sistema', 
+      value: `${stats?.system_health || 100}%`, 
+      trend: 'Excelente', 
+      icon: Activity, 
+      color: 'indigo',
+      description: 'Uptime global'
+    }
+  ];
+
   return (
-    <div className="flex-1 p-4 md:p-8 bg-slate-950 text-slate-100 overflow-y-auto text-left">
-      
-      {/* CONTEXTO DA PÁGINA + BOTÃO SAIR */}
-      <div className="mb-8 flex items-center justify-between">
+    <div className="space-y-10 max-w-7xl mx-auto pb-20">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <span className="text-xs font-mono text-indigo-400 uppercase tracking-wider">Painel Executivo</span>
-          <h2 className="text-2xl font-black text-white tracking-tight">Visão Geral da Operação</h2>
-        </div>
-        
-        {/* Botão Sair Compacto e Seguro */}
-        <button 
-          onClick={handleLogout}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-all active:scale-95"
-        >
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            strokeWidth={2.5} 
-            stroke="currentColor" 
-            className="w-3.5 h-3.5"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
-          </svg>
-          <span>SAIR</span>
-        </button>
-      </div>
-
-      {/* GRID DE KPIS SUPERIORES */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-2xl shadow-lg">
-          <span className="text-[10px] font-mono text-slate-500 uppercase block">Empresas Contratantes</span>
-          <span className="text-2xl font-black text-white block mt-1">{stats.totalClients}</span>
-          <span className="text-[9px] font-mono text-emerald-400 mt-1 block">● Infraestrutura Ativa</span>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-2xl shadow-lg">
-          <span className="text-[10px] font-mono text-slate-500 uppercase block">Fluxos Ativos WhatsApp</span>
-          <span className="text-2xl font-black text-indigo-400 block mt-1">{stats.activeChats}</span>
-          <span className="text-[9px] font-mono text-slate-400 mt-1 block">Sessões em tempo real</span>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-2xl shadow-lg">
-          <span className="text-[10px] font-mono text-slate-500 uppercase block">Tickets Pendentes</span>
-          <span className="text-2xl font-black text-amber-500 block mt-1">{stats.openTickets}</span>
-          <span className="text-[9px] font-mono text-amber-500/80 mt-1 block">Aguardam resolução</span>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-2xl shadow-lg">
-          <span className="text-[10px] font-mono text-slate-500 uppercase block">Intervenções Humanas</span>
-          <span className="text-2xl font-black text-rose-500 block mt-1">{stats.pausedBots}</span>
-          <span className="text-[9px] font-mono text-rose-400 mt-1 block">IA em modo pausa</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* GRÁFICO 1: DISTRIBUIÇÃO DAS INTENÇÕES DA IA */}
-        <div className="bg-slate-900 border border-slate-800/80 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
-          <div>
-            <h3 className="text-xs font-bold font-mono uppercase tracking-wide text-slate-300 mb-1">🧠 Volumetria por Intenções da IA</h3>
-            <p className="text-[11px] text-slate-500">Mapeamento dinâmico dos tópicos capturados pelos robôs de atendimento nas últimas interações.</p>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+              <LayoutDashboard className="w-6 h-6 text-primary" />
+            </div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Painel de Controlo</h1>
           </div>
-          
-          <div className="space-y-4 my-6">
-            {intentMetrics.map((intent, idx) => (
-              <div key={idx} className="space-y-1.5">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-slate-300 font-bold">{intent.name}</span>
-                  <span className="text-slate-400">{intent.count} chats ({intent.percentage}%)</span>
-                </div>
-                <div className="w-full bg-slate-950 h-2.5 rounded-full border border-slate-850 overflow-hidden">
-                  <div 
-                    className={`${intent.color} h-full rounded-full transition-all duration-500`}
-                    style={{ width: `${intent.percentage}%` }}
-                  ></div>
-                </div>
-              </div>
+          <p className="text-slate-500 font-medium">Monitorização global da infraestrutura TrataTudo</p>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <div className="bg-white border border-slate-200 rounded-2xl p-1 flex shadow-sm">
+            {(['24h', '7d', '30d'] as const).map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                  timeRange === range ? "bg-slate-900 text-white shadow-md" : "text-slate-400 hover:text-slate-600"
+                )}
+              >
+                {range}
+              </button>
             ))}
           </div>
-          
-          <div className="text-[10px] font-mono text-slate-500 bg-slate-950/40 p-2.5 rounded-xl border border-slate-850/60">
-            💡 Estes dados refletem diretamente os metadados agregados na coluna <span className="text-indigo-400">current_intent</span> da tabela wa_chats.
-          </div>
+          <button 
+            onClick={fetchDashboardData}
+            className="p-3 bg-white border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            <RefreshCw className={cn("w-5 h-5", loading && "animate-spin")} />
+          </button>
         </div>
-
-        {/* COMPONENTE DE MONITORIZAÇÃO CORE */}
-        <div className="bg-slate-900 border border-slate-800/80 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
-          <div>
-            <h3 className="text-xs font-bold font-mono uppercase tracking-wide text-slate-300 mb-1">🎛️ Estado dos Nós do Servidor</h3>
-            <p className="text-[11px] text-slate-500">Monitorização dos processos e ligações externas da infraestrutura core.</p>
-          </div>
-
-          <div className="divide-y divide-slate-800/60 my-4 font-mono text-xs">
-            <div className="py-3 flex justify-between items-center">
-              <span className="text-slate-400">Supabase DB Link</span>
-              <span className="text-emerald-400 font-bold px-2 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20">CONNECTED</span>
-            </div>
-            <div className="py-3 flex justify-between items-center">
-              <span className="text-slate-400">API Gateway (PostgREST)</span>
-              <span className="text-emerald-400 font-bold px-2 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20">ONLINE</span>
-            </div>
-            <div className="py-3 flex justify-between items-center">
-              <span className="text-slate-400">Webhook Processing Router</span>
-              <span className="text-cyan-400 font-bold px-2 py-0.5 bg-cyan-500/10 rounded border border-cyan-500/20">LISTENING</span>
-            </div>
-          </div>
-
-          <div className="p-3 bg-slate-950 border border-slate-850 rounded-xl text-center">
-            <span className="text-[10px] font-mono text-slate-400">Uso de CPU da VPS: <strong className="text-white">12%</strong> | RAM Livre: <strong className="text-white">5.8 GB / 8 GB</strong></span>
-          </div>
-        </div>
-
       </div>
 
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {statCards.map((stat, index) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden"
+          >
+            <div className={cn(
+              "absolute top-0 right-0 w-32 h-32 -mr-8 -mt-8 rounded-full opacity-[0.03] transition-transform group-hover:scale-110",
+              `bg-${stat.color}-600`
+            )} />
+            
+            <div className="flex items-center justify-between mb-6">
+              <div className={cn(
+                "w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm",
+                stat.color === 'blue' ? "bg-blue-50 text-blue-600" :
+                stat.color === 'emerald' ? "bg-emerald-50 text-emerald-600" :
+                stat.color === 'orange' ? "bg-orange-50 text-orange-600" : "bg-indigo-50 text-indigo-600"
+              )}>
+                <stat.icon className="w-6 h-6" />
+              </div>
+              <div className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest",
+                stat.trend.startsWith('+') ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-400"
+              )}>
+                {stat.trend.startsWith('+') ? <ArrowUpRight className="w-3 h-3" /> : null}
+                {stat.trend}
+              </div>
+            </div>
+            
+            <h3 className="text-3xl font-black text-slate-900 tracking-tight mb-1">{stat.value}</h3>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
+            <p className="text-[10px] font-medium text-slate-400">{stat.description}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Chart */}
+        <div className="lg:col-span-2 bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Volume de Mensagens</h3>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Atividade global do sistema</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-primary" />
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inbound</span>
+              </div>
+              <div className="flex items-center gap-1.5 ml-4">
+                <div className="w-2 h-2 rounded-full bg-slate-200" />
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Outbound</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={stats?.messages_chart || []}>
+                <defs>
+                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0F172A" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#0F172A" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                <XAxis 
+                  dataKey="date" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#94A3B8' }}
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#94A3B8' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: '16px', 
+                    border: 'none', 
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                  }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="count" 
+                  stroke="#0F172A" 
+                  strokeWidth={3}
+                  fillOpacity={1} 
+                  fill="url(#colorCount)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Alerts Column */}
+        <div className="space-y-8">
+          <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Alertas Críticos</h3>
+              <span className="bg-red-50 text-red-600 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                {alerts.length} Ativos
+              </span>
+            </div>
+            
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              {alerts.length > 0 ? alerts.map((alert) => (
+                <div key={alert.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-slate-200 transition-all">
+                  <div className="flex items-start gap-3">
+                    <div className={cn(
+                      "w-8 h-8 rounded-xl flex items-center justify-center shrink-0",
+                      alert.type === 'error' ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600"
+                    )}>
+                      <AlertCircle className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-slate-900 mb-1 truncate">{alert.title}</p>
+                      <p className="text-[10px] text-slate-500 font-medium leading-relaxed mb-2">{alert.message}</p>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                        {new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )) : (
+                <div className="text-center py-12">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-200 mx-auto mb-4" />
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Tudo operacional</p>
+                </div>
+              )}
+            </div>
+            
+            <button className="w-full mt-6 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10">
+              Ver Todos os Alertas
+            </button>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="bg-primary p-8 rounded-[3rem] text-white shadow-xl shadow-primary/20 relative overflow-hidden group">
+            <Zap className="absolute top-0 right-0 w-32 h-32 -mr-8 -mt-8 opacity-10 group-hover:scale-110 transition-transform" />
+            <h3 className="text-xl font-black tracking-tight mb-2">Ações Rápidas</h3>
+            <p className="text-xs font-bold text-white/70 uppercase tracking-widest mb-6">Gestão de emergência</p>
+            
+            <div className="space-y-3">
+              <Link 
+                to="/admin/instances"
+                className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-left px-4 flex items-center justify-between"
+              >
+                Verificar Instâncias <ChevronRight className="w-4 h-4" />
+              </Link>
+              <Link 
+                to="/admin/logs"
+                className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-left px-4 flex items-center justify-between"
+              >
+                Logs de Erro <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Recent Activity */}
+        <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Atividade Recente</h3>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Últimos eventos do sistema</p>
+            </div>
+            <Activity className="w-6 h-6 text-slate-200" />
+          </div>
+          
+          <div className="space-y-6">
+            {activities.length > 0 ? activities.map((activity) => (
+              <div key={activity.id} className="flex items-start gap-4 group">
+                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center shrink-0 group-hover:bg-primary/5 transition-colors">
+                  <Clock className="w-5 h-5 text-slate-300 group-hover:text-primary transition-colors" />
+                </div>
+                <div className="flex-1 min-w-0 border-b border-slate-50 pb-6">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm font-black text-slate-900">{activity.title}</p>
+                    <span className="text-[10px] font-bold text-slate-400">{activity.timestamp}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium">{activity.description}</p>
+                </div>
+              </div>
+            )) : (
+              <div className="text-center py-12">
+                <Activity className="w-10 h-10 text-slate-100 mx-auto mb-4" />
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Sem atividade recente registada</p>
+                <p className="text-[10px] text-slate-400 mt-1 italic">TODO: Backend endpoint /api/admin/activity missing</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* System Health / Distribution */}
+        <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Distribuição de Clientes</h3>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Segmentação por estado</p>
+            </div>
+            <Users className="w-6 h-6 text-slate-200" />
+          </div>
+          
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: 'Ativos', value: stats?.active_clients || 0 },
+                    { name: 'Trial', value: stats?.trial_clients || 0 },
+                    { name: 'Inativos', value: (stats?.total_clients || 0) - (stats?.active_clients || 0) - (stats?.trial_clients || 0) }
+                  ]}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={8}
+                  dataKey="value"
+                >
+                  <Cell fill="#0F172A" />
+                  <Cell fill="#3B82F6" />
+                  <Cell fill="#E2E8F0" />
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-4 mt-4">
+            <div className="text-center">
+              <p className="text-lg font-black text-slate-900">{stats?.active_clients || 0}</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ativos</p>
+            </div>
+            <div className="text-center border-x border-slate-50">
+              <p className="text-lg font-black text-blue-600">{stats?.trial_clients || 0}</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Trial</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-black text-slate-400">{(stats?.total_clients || 0) - (stats?.active_clients || 0) - (stats?.trial_clients || 0)}</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Outros</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

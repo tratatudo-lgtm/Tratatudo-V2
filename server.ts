@@ -38,14 +38,14 @@ async function startServer() {
    */
   const requireAdminSession = async (req: any, res: any, next: any) => {
     const token = req.cookies.tratatudo_admin_session || req.headers.authorization?.split(" ")[1];
-
+    
     if (!token) {
       return res.status(401).json({ ok: false, error: "Sessão não encontrada. Por favor, faça login." });
     }
 
     try {
       const decoded: any = jwt.verify(token, JWT_SECRET);
-
+      
       // Categorical check: user must exist in public.admins
       const { data: admin, error } = await supabase
         .from("admins")
@@ -128,74 +128,33 @@ async function startServer() {
     res.json({ ok: true, message: "Logout efetuado com sucesso." });
   });
 
-    // --- CLIENT HUB AUTH (Multitenant) ---
+  // --- CLIENT HUB AUTH (Multitenant) ---
 
   const normalizePhone = (p: string) => p?.replace(/\D/g, "") || "";
 
   app.post("/api/auth/send-otp", async (req, res) => {
     let { phone_e164 } = req.body;
     if (!phone_e164) return res.status(400).json({ ok: false, error: "Número obrigatório." });
-
+    
     phone_e164 = normalizePhone(phone_e164);
 
-    const { data: client } = await supabase
-      .from("clients")
-      .select("id")
-      .eq("phone_e164", phone_e164)
-      .single();
+    // Validate if user exists (client OR client_user)
+    const [ { data: client }, { data: clientUser } ] = await Promise.all([
+      supabase.from("clients").select("id").eq("phone_e164", phone_e164).single(),
+      supabase.from("client_users").select("id").eq("phone_e164", phone_e164).single()
+    ]);
 
-    if (!client) {
+    if (!client && !clientUser) {
       return res.status(404).json({ ok: false, error: "Este número não está associado a nenhuma conta." });
     }
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log(`[AUTH] OTP for ${phone_e164}: ${code}`);
-
-    await supabase.from("auth_otps").insert({
-      phone_e164,
-      code_hash: code,
-      expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-      purpose: 'hub_login'
-    });
-
-    // DISPARO VIA EVOLUTION API
-    const EVOLUTION_URL = process.env.EVOLUTION_URL || "http://127.0.0.1:8080";
-    const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || "FinalWAV";
-    const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || ""; // Define no teu .env
-
-    fetch(`${EVOLUTION_URL}/message/sendText/${EVOLUTION_INSTANCE}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "apikey": EVOLUTION_API_KEY },
-      body: JSON.stringify({
-        number: phone_e164,
-        text: `*TrataTudo*\nO teu código de acesso é: *${code}*`,
-        delay: 1200
-      })
-    }).catch(err => console.error("[EVOLUTION ERROR]", err));
-
-    res.json({ ok: true, message: "Código enviado com sucesso!" });
-  });
-
-
-    phone_e164 = normalizePhone(phone_e164);
-
-    // CORREÇÃO: Procura direta apenas na tabela de clientes ativos, ignorando client_users
-    const { data: client } = await supabase
-      .from("clients")
-      .select("id")
-      .eq("phone_e164", phone_e164)
-      .single();
-
-    if (!client) {
-      return res.status(404).json({ ok: false, error: "Este número não está associado a nenhuma conta." });
-    }
-
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // In dev, we just log it. In prod, we'd send via WhatsApp Evolution API.
     console.log(`[AUTH] OTP for ${phone_e164}: ${code}`);
 
     const { error } = await supabase.from("auth_otps").insert({
       phone_e164,
-      code_hash: code,
+      code_hash: code, // Ideally hashed, but for brevity or simple demo we store plain or salt it
       expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       purpose: 'hub_login'
     });
@@ -224,17 +183,19 @@ async function startServer() {
 
     await supabase.from("auth_otps").update({ used_at: new Date().toISOString() }).eq("id", otp.id);
 
-    // CORREÇÃO: Ignorar a tabela client_users obsoleta no login
-    const clientUser = null;
-    const { data: client } = await supabase.from("clients").select("*").eq("phone_e164", phone_e164).single();
+    // Determine role and tenant
+    const { data: clientUser } = await supabase.from("client_users").select("*").eq("phone_e164", phone_e164).single();
+    const { data: clientOwner } = await supabase.from("clients").select("*").eq("phone_e164", phone_e164).single();
 
+    let client = clientOwner || (clientUser ? await supabase.from("clients").select("*").eq("id", clientUser.client_id).single().then(r => r.data) : null);
+    
     if (!client) return res.status(404).json({ ok: false, error: "Registo não encontrado." });
 
     const token = jwt.sign({
       clientId: client.id,
       phone_e164,
-      role: 'admin',
-      userId: client.id
+      role: clientUser?.role || 'admin',
+      userId: clientUser?.id || client.id
     }, JWT_SECRET, { expiresIn: "24h" });
 
     res.cookie("hub_session", token, {
@@ -245,7 +206,7 @@ async function startServer() {
       maxAge: 24 * 60 * 60 * 1000
     });
 
-    res.json({ ok: true, client, role: 'admin' });
+    res.json({ ok: true, client, role: clientUser?.role || 'admin' });
   });
 
   app.get("/api/auth/session", async (req, res) => {
@@ -357,7 +318,7 @@ async function startServer() {
   app.post("/api/admin/clients", requireAdminSession, async (req, res) => {
     try {
       const { client, profile } = req.body;
-
+      
       // 1. Create client
       const { data: newClient, error: clientError } = await supabase
         .from("clients")
@@ -372,7 +333,7 @@ async function startServer() {
         const { error: profileError } = await supabase
           .from("client_profiles")
           .insert({ ...profile, client_id: newClient.id });
-
+        
         if (profileError) throw profileError;
       }
 
@@ -401,7 +362,7 @@ async function startServer() {
   app.put("/api/admin/clients/:id/bot-config", requireAdminSession, async (req, res) => {
     try {
       const { master_prompt, bot_instructions, bot_instructions_compact } = req.body;
-
+      
       const { data, error } = await supabase
         .from("clients")
         .update({
@@ -422,6 +383,7 @@ async function startServer() {
 
   app.delete("/api/admin/clients/:id", requireAdminSession, async (req, res) => {
     try {
+      // Prefer soft delete (status inactive) or based on user choice
       const { data, error } = await supabase
         .from("clients")
         .update({ status: 'inactive' })
@@ -446,6 +408,7 @@ async function startServer() {
 
       if (error) throw error;
 
+      // Group by plan
       const stats = data.reduce((acc: any, sub: any) => {
         acc[sub.plan] = (acc[sub.plan] || 0) + 1;
         return acc;

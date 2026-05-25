@@ -1,73 +1,393 @@
-import React, { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL || '',
-  import.meta.env.VITE_SUPABASE_ANON_KEY || ''
-);
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  Smartphone, 
+  Search, 
+  Filter, 
+  CheckCircle2, 
+  XCircle, 
+  AlertCircle, 
+  Loader2, 
+  RefreshCw,
+  Zap,
+  MessageSquare,
+  ShieldCheck,
+  Activity,
+  ArrowRight,
+  ExternalLink,
+  Plus,
+  X,
+  Users,
+  QrCode
+} from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAdminAuth } from '../../lib/auth/AdminAuthContext';
+import { cn, extractArrayResponse } from '../../lib/utils';
+import { toast } from 'sonner';
+import { LoadingState, ErrorState } from '../../components/States';
+import { apiGet } from '../../lib/api';
 
 interface Instance {
-  id: number;
+  id: string;
+  client_id: string;
+  company_name: string;
   instance_name: string;
-  status: string;
+  status: 'online' | 'offline' | 'connecting';
+  whatsapp_number: string;
+  last_connected: string;
   is_hub: boolean;
-  created_at: string;
+  updated_at: string;
 }
 
 export function AdminInstances() {
   const [instances, setInstances] = useState<Instance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // New state for creation
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [clients, setClients] = useState<any[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isFetchingQr, setIsFetchingQr] = useState(false);
+  
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const { logout } = useAdminAuth();
+
+  const fetchInstances = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const data = await apiGet('/api/admin/instances');
+      const instancesData = extractArrayResponse<Instance>(data, 'instances');
+      setInstances(instancesData);
+    } catch (err: any) {
+      console.error('[ADMIN] Fetch instances failed:', err);
+      if (err.message && (err.message.includes('401') || err.message.includes('não autorizado'))) {
+        await logout();
+      }
+      setError(err.message || 'Não foi possível carregar as instâncias.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadInstances() {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('client_instances')
-          .select('*')
-          .order('created_at', { ascending: false });
+    fetchInstances();
+    
+    // Check for create query param
+    const params = new URLSearchParams(location.search);
+    const createClientId = params.get('create');
+    if (createClientId) {
+      handleOpenCreateModal(createClientId);
+      // Clean up URL
+      navigate('/admin/instances', { replace: true });
+    }
+  }, [location.search]);
 
-        if (error) throw error;
-        setInstances(data || []);
-      } catch (err) {
-        console.error("Erro ao ler client_instances:", err);
-      } finally {
-        setLoading(false);
+  const fetchClients = async () => {
+    try {
+      const result = await apiGet('/api/admin/clients');
+      setClients(extractArrayResponse<any>(result, 'clients'));
+    } catch (err: any) {
+      console.error('[ADMIN] Fetch clients failed:', err);
+      if (err.message && (err.message.includes('401') || err.message.includes('não autorizado'))) {
+        await logout();
+      } else {
+        toast.error(err.message || 'Erro ao carregar lista de clientes');
       }
     }
-    loadInstances();
-  }, []);
+  };
+
+  const handleOpenCreateModal = (clientId?: string) => {
+    setIsCreateModalOpen(true);
+    fetchClients();
+    setQrCode(null);
+    setSelectedClientId(clientId || '');
+  };
+
+  const handleCreateInstance = async () => {
+    if (!selectedClientId) {
+      toast.error('Por favor, selecione um cliente');
+      return;
+    }
+
+    // TODO: Backend endpoint /api/admin/instances/create does not exist yet.
+    toast.info('Criação de instância (Admin) aguarda implementação no backend.');
+  };
+
+  const handleFetchQrCode = async (instanceName: string) => {
+    // TODO: Backend endpoint /api/admin/instances/qrcode/:instanceName does not exist yet.
+    toast.info('Geração de QR Code (Admin) aguarda implementação no backend.');
+  };
+
+  const filteredInstances = instances.filter(inst => 
+    inst.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    inst.instance_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    inst.whatsapp_number.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) {
+    return <LoadingState message="A carregar estado das instâncias..." className="h-[60vh]" />;
+  }
+
+  if (error) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center gap-4 text-center px-4">
+        <ErrorState message={error} />
+        <button 
+          onClick={fetchInstances}
+          className="mt-4 px-6 py-2 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex-1 p-6 bg-slate-950 text-slate-100 text-left overflow-y-auto">
-      <div className="mb-6">
-        <span className="text-xs font-mono text-cyan-400 uppercase">Evolution API</span>
-        <h2 className="text-2xl font-black text-white">Instâncias de Comunicação</h2>
+    <div className="space-y-8 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Instâncias WhatsApp</h1>
+          <p className="text-slate-500 font-medium">Monitorização em tempo real das ligações</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => handleOpenCreateModal()}
+            className="px-4 py-2 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Criar Instância
+          </button>
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Pesquisar instância..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-white border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all w-64 shadow-sm"
+            />
+          </div>
+          <button className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
+            <RefreshCw className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-        {loading ? (
-          <div className="text-xs font-mono text-slate-500 text-center p-8">A consultar client_instances...</div>
-        ) : instances.length === 0 ? (
-          <div className="text-xs font-mono text-slate-500 text-center p-8 italic">Nenhuma instância conectada de momento.</div>
-        ) : (
-          <div className="p-4 space-y-3">
-            {instances.map(ins => (
-              <div key={ins.id} className="bg-slate-950 p-4 border border-slate-850 rounded-xl flex items-center justify-between font-mono text-xs">
-                <div>
-                  <div className="text-white font-bold text-sm">{ins.instance_name}</div>
-                  <div className="text-slate-500 text-[10px] mt-0.5">Tipo: {ins.is_hub ? 'Central/Hub' : 'Cliente Dedicado'}</div>
+      {/* Instances Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredInstances.map((inst, index) => (
+          <motion.div
+            key={inst.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05 }}
+            className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all p-8 group"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className={cn(
+                "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110",
+                inst.status === 'online' ? "bg-emerald-500 shadow-emerald-500/20" : 
+                inst.status === 'offline' ? "bg-red-500 shadow-red-500/20" : "bg-orange-500 shadow-orange-500/20"
+              )}>
+                <Smartphone className="w-7 h-7 text-white" />
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <div className={cn(
+                  "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+                  inst.status === 'online' ? "bg-emerald-50 text-emerald-600" : 
+                  inst.status === 'offline' ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600"
+                )}>
+                  {inst.status === 'online' ? <CheckCircle2 className="w-3 h-3" /> : 
+                   inst.status === 'offline' ? <XCircle className="w-3 h-3" /> : <Activity className="w-3 h-3 animate-pulse" />}
+                  {inst.status}
                 </div>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                  ins.status === 'open' || ins.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
-                }`}>
-                  ● {ins.status}
+                <span className={cn(
+                  "text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md",
+                  inst.is_hub ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"
+                )}>
+                  {inst.is_hub ? 'HUB PARTILHADA' : 'INSTÂNCIA PRIVADA'}
                 </span>
               </div>
-            ))}
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 tracking-tight">{inst.instance_name}</h3>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">{inst.company_name}</p>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">WhatsApp</span>
+                  <span className="text-xs font-black text-slate-900 tracking-tight">{inst.whatsapp_number}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Última Atividade</span>
+                  <span className="text-xs font-black text-slate-900 tracking-tight">
+                    {new Date(inst.updated_at || inst.last_connected).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button 
+                  onClick={() => handleFetchQrCode(inst.instance_name)}
+                  className="flex-1 px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
+                >
+                  <QrCode className="w-4 h-4" />
+                  Sincronizar
+                </button>
+                <button className="p-2.5 bg-white border border-slate-200 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm">
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {filteredInstances.length === 0 && (
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-20 text-center">
+          <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Smartphone className="w-8 h-8" />
+          </div>
+          <p className="text-slate-500 font-medium tracking-tight">Nenhuma instância encontrada.</p>
+        </div>
+      )}
+
+      {/* Create Instance Modal */}
+      <AnimatePresence>
+        {isCreateModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100"
+            >
+              <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
+                    <Smartphone className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight">Nova Instância</h2>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Evolution API Integration</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="p-2 hover:bg-white rounded-xl transition-colors text-slate-400 hover:text-slate-900"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                {!qrCode ? (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-black text-slate-700 uppercase tracking-widest ml-1">Selecionar Cliente</label>
+                      <div className="relative">
+                        <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <select
+                          value={selectedClientId}
+                          onChange={(e) => setSelectedClientId(e.target.value)}
+                          className="w-full bg-slate-50 border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-slate-900 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-bold appearance-none"
+                        >
+                          <option value="">Selecione um cliente...</option>
+                          {clients.map(client => (
+                            <option key={client.id} value={client.client_id}>
+                              {client.company_name} ({client.client_id})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex gap-3">
+                      <AlertCircle className="w-5 h-5 text-blue-500 shrink-0" />
+                      <p className="text-xs text-blue-700 font-medium leading-relaxed">
+                        Ao criar a instância, o sistema irá gerar automaticamente um identificador único na Evolution API e preparar o QR Code para ligação.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={handleCreateInstance}
+                      disabled={isCreating || !selectedClientId}
+                      className="w-full bg-primary text-white rounded-2xl py-4 font-black shadow-lg shadow-primary/30 hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100"
+                    >
+                      {isCreating ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          A CRIAR INSTÂNCIA...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-5 h-5" />
+                          CRIAR E GERAR QR CODE
+                        </>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center text-center space-y-6 py-4">
+                    <div className="relative group">
+                      <div className="absolute -inset-4 bg-primary/5 rounded-[3rem] blur-xl group-hover:bg-primary/10 transition-all" />
+                      <div className="relative bg-white p-6 rounded-[2.5rem] border-2 border-primary/20 shadow-xl">
+                        {isFetchingQr ? (
+                          <div className="w-64 h-64 flex items-center justify-center">
+                            <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                          </div>
+                        ) : (
+                          <img 
+                            src={qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`} 
+                            alt="WhatsApp QR Code" 
+                            className="w-64 h-64 rounded-xl"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Digitalize o QR Code</h3>
+                      <p className="text-sm text-slate-500 font-medium max-w-xs mx-auto">
+                        Abra o WhatsApp no seu telemóvel, vá a Dispositivos Ligados e aponte a câmara para este ecrã.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 w-full pt-4">
+                      <button
+                        onClick={() => handleFetchQrCode(`client-${selectedClientId}`)}
+                        disabled={isFetchingQr}
+                        className="flex-1 bg-slate-100 text-slate-600 rounded-2xl py-4 font-black hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                      >
+                        <RefreshCw className={cn("w-5 h-5", isFetchingQr && "animate-spin")} />
+                        ATUALIZAR
+                      </button>
+                      <button
+                        onClick={() => setIsCreateModalOpen(false)}
+                        className="flex-1 bg-primary text-white rounded-2xl py-4 font-black shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all"
+                      >
+                        CONCLUÍDO
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
           </div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
   );
 }
