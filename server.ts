@@ -158,13 +158,14 @@ async function startServer() {
     
     phone_e164 = normalizePhone(phone_e164);
 
-    // Validate if user exists (client OR client_user)
-    const [ { data: client }, { data: clientUser } ] = await Promise.all([
-      supabase.from("clients").select("id").eq("phone_e164", phone_e164).maybeSingle(),
-      supabase.from("client_users").select("id").eq("phone_e164", phone_e164).maybeSingle()
-    ]);
+    // Validate if user exists (clients table only)
+    const { data: client, error: clientErr } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("phone_e164", phone_e164)
+      .maybeSingle();
 
-    if (!client && !clientUser) {
+    if (clientErr || !client) {
       return res.status(404).json({ ok: false, error: "Este número não está associado a nenhuma conta." });
     }
 
@@ -220,19 +221,22 @@ async function startServer() {
 
     await supabase.from("auth_otps").update({ used_at: new Date().toISOString() }).eq("id", otp.id);
 
-    // Determine role and tenant
-    const { data: clientUser } = await supabase.from("client_users").select("*").eq("phone_e164", phone_e164).maybeSingle();
-    const { data: clientOwner } = await supabase.from("clients").select("*").eq("phone_e164", phone_e164).maybeSingle();
-
-    let client = clientOwner || (clientUser ? await supabase.from("clients").select("*").eq("id", clientUser.client_id).maybeSingle().then(r => r.data) : null);
+    // Determine role and tenant (clients only)
+    const { data: client, error: clientErr } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("phone_e164", phone_e164)
+      .maybeSingle();
     
-    if (!client) return res.status(404).json({ ok: false, error: "Registo não encontrado." });
+    if (clientErr || !client) {
+      return res.status(404).json({ ok: false, error: "Registo não encontrado." });
+    }
 
     const token = jwt.sign({
       clientId: client.id,
       phone_e164,
-      role: clientUser?.role || 'admin',
-      userId: clientUser?.id || client.id
+      role: 'admin',
+      userId: client.id
     }, JWT_SECRET, { expiresIn: "24h" });
 
     res.cookie("hub_session", token, {
@@ -243,7 +247,7 @@ async function startServer() {
       maxAge: 24 * 60 * 60 * 1000
     });
 
-    res.json({ ok: true, client, role: clientUser?.role || 'admin' });
+    res.json({ ok: true, client, role: 'admin' });
   });
 
   app.get("/api/auth/session", async (req, res) => {
