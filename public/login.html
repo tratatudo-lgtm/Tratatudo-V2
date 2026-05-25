@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login | TrataTudo Super Admin</title>
+  <title>Login Cliente | TrataTudo</title>
   <!-- Tailwind CSS Via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Style Sheet -->
@@ -18,8 +18,8 @@
             brand: {
               navy: '#0b0f19',
               dark: '#111827',
-              accent: '#6366f1',
-              emerald: '#10b981',
+              accent: '#10b981', // WhatsApp green accent for client flow
+              indigo: '#6366f1',
             }
           }
         }
@@ -27,69 +27,101 @@
     }
   </script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4 selection:bg-indigo-500/30">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4 selection:bg-emerald-500/30">
 
-  <div class="relative w-full max-w-md bg-slate-900 border border-white/5 rounded-3xl p-8 shadow-2xl overflow-hidden animate-fade-in glow-indigo">
+  <div class="relative w-full max-w-md bg-slate-900 border border-white/5 rounded-3xl p-8 shadow-2xl overflow-hidden animate-fade-in glow-emerald animate-scale-up">
     <!-- Decorative Ambient Glow -->
-    <div class="absolute -right-20 -top-20 w-48 h-48 bg-indigo-600/10 blur-3xl rounded-full"></div>
+    <div class="absolute -right-20 -top-20 w-48 h-48 bg-emerald-600/10 blur-3xl rounded-full"></div>
     <div class="absolute -left-20 -bottom-20 w-48 h-48 bg-emerald-600/5 blur-3xl rounded-full"></div>
 
     <!-- Header Section -->
     <div class="text-center relative z-10 mb-8">
-      <div class="inline-flex w-16 h-16 bg-indigo-600/10 rounded-2xl items-center justify-center border border-indigo-500/20 mb-4 animate-bounce">
-        <i data-lucide="shield-check" class="w-8 h-8 text-indigo-400"></i>
+      <div class="inline-flex w-16 h-16 bg-emerald-600/10 rounded-2xl items-center justify-center border border-emerald-500/20 mb-4 animate-pulse">
+        <i data-lucide="message-square" class="w-8 h-8 text-emerald-400"></i>
       </div>
       <h1 class="text-2xl font-black tracking-tight text-white mb-1">TrataTudo</h1>
-      <p class="text-xs font-black text-indigo-400 uppercase tracking-widest">Painel Super Admin</p>
+      <p class="text-[10px] font-black text-emerald-400 const uppercase tracking-widest leading-none">Login de Cliente (WhatsApp OTP)</p>
     </div>
 
     <!-- Alert Box -->
-    <div id="error-alert" class="hidden flex items-start gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-2xl text-xs mb-6 font-semibold animate-fade-in">
-      <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 text-rose-400"></i>
-      <span id="error-text">Ocorreu um erro no login.</span>
+    <div id="status-alert" class="hidden flex items-start gap-3 p-4 rounded-2xl text-xs mb-6 font-semibold animate-fade-in border">
+      <i id="alert-icon" data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i>
+      <span id="alert-text">Mensagem decorrente da ação.</span>
     </div>
 
-    <!-- Login Form -->
-    <form id="login-form" class="space-y-5 relative z-10">
-      <div class="space-y-2">
-        <label for="email" class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Endereço de E-mail</label>
-        <div class="relative">
-          <i data-lucide="mail" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
-          <input 
-            type="email" 
-            id="email" 
-            name="email" 
-            required 
-            placeholder="admin@tratatudo.pt" 
-            class="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-semibold placeholder:text-slate-600"
-          >
+    <!-- OTP Flow Container -->
+    <div class="relative z-10 space-y-5">
+      
+      <!-- Phase 1: Phone Number Input -->
+      <div id="phone-phase" class="space-y-4 animate-fade-in">
+        <div class="space-y-2">
+          <label for="phone" class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Telemóvel / Telefone</label>
+          <div class="relative">
+            <i data-lucide="phone" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
+            <input 
+              type="text" 
+              id="phone" 
+              name="phone" 
+              placeholder="+351 912 345 678" 
+              class="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/50 transition-all font-semibold placeholder:text-slate-600"
+            >
+          </div>
+          <p class="text-[9px] text-slate-500 font-medium ml-1">Insira o número de telefone com indicativo internacional válido no qual os agentes operam.</p>
         </div>
+
+        <button 
+          id="send-code-btn"
+          class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-2xl font-black text-sm shadow-xl shadow-emerald-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+        >
+          <span>Enviar Código</span>
+          <i data-lucide="send" class="w-4 h-4"></i>
+        </button>
       </div>
 
-      <div class="space-y-2">
-        <label for="password" class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Palavra-passe</label>
-        <div class="relative">
-          <i data-lucide="key" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
-          <input 
-            type="password" 
-            id="password" 
-            name="password" 
-            required 
-            placeholder="••••••••••••" 
-            class="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-semibold placeholder:text-slate-600"
-          >
+      <!-- Phase 2: OTP Verification Input -->
+      <div id="otp-phase" class="hidden space-y-4 animate-fade-in">
+        <div class="p-3 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between text-xs font-semibold">
+          <div class="flex items-center gap-2">
+            <i data-lucide="check" class="w-4 h-4 text-emerald-400"></i>
+            <span id="target-phone-display" class="text-slate-300"></span>
+          </div>
+          <button id="change-phone-btn" class="text-emerald-400 hover:text-emerald-300 font-bold transition-all text-[11px]">Alterar número</button>
         </div>
+
+        <div class="space-y-2">
+          <label for="otp" class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Código de Segurança (OTP)</label>
+          <div class="relative">
+            <i data-lucide="shield-check" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
+            <input 
+              type="text" 
+              id="otp" 
+              name="otp" 
+              maxlength="6"
+              placeholder="123456" 
+              class="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-sm tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/50 transition-all font-mono font-black placeholder:text-slate-600 placeholder:font-sans placeholder:tracking-normal"
+            >
+          </div>
+          <p class="text-[9px] text-slate-500 font-medium ml-1">O código de 6 dígitos foi enviado via WhatsApp. Em ambiente de testes, consulte os logs do servidor.</p>
+        </div>
+
+        <button 
+          id="verify-code-btn"
+          class="w-full bg-emerald-650 bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+        >
+          <span>Confirmar Código</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
       </div>
 
-      <button 
-        type="submit" 
-        id="submit-btn"
-        class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 mt-2"
-      >
-        <span>Entrar no Painel</span>
-        <i data-lucide="arrow-right" class="w-4 h-4"></i>
-      </button>
-    </form>
+    </div>
+
+    <!-- Switch to Admin Login -->
+    <div class="mt-8 pt-6 border-t border-white/5 text-center relative z-10">
+      <a href="/admin/login" class="text-[10px] font-black text-slate-400 hover:text-slate-200 uppercase tracking-widest flex items-center justify-center gap-1.5 transition-colors">
+        <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+        <span>Aceder como Administrador</span>
+      </a>
+    </div>
   </div>
 
   <script src="/js/api.js"></script>
@@ -98,44 +130,126 @@
     // Initialize Lucide Icons
     lucide.createIcons();
 
-    // Specific Login Form Script
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const submitBtn = document.getElementById('submit-btn');
-      const errorAlert = document.getElementById('error-alert');
-      const errorText = document.getElementById('error-text');
+    const phonePhase = document.getElementById('phone-phase');
+    const otpPhase = document.getElementById('otp-phase');
+    const phoneInput = document.getElementById('phone');
+    const otpInput = document.getElementById('otp');
+    const sendCodeBtn = document.getElementById('send-code-btn');
+    const verifyCodeBtn = document.getElementById('verify-code-btn');
+    const changePhoneBtn = document.getElementById('change-phone-btn');
+    const targetPhoneDisplay = document.getElementById('target-phone-display');
+    
+    // Status Alert components
+    const statusAlert = document.getElementById('status-alert');
+    const alertIcon = document.getElementById('alert-icon');
+    const alertText = document.getElementById('alert-text');
 
-      // Update button to loading state
-      const originalText = submitBtn.innerHTML;
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = `
-        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    function showAlert(text, type = 'error') {
+      statusAlert.classList.remove('hidden', 'bg-rose-500/10', 'border-rose-500/20', 'text-rose-400', 'bg-emerald-500/10', 'border-emerald-500/20', 'text-emerald-400');
+      
+      if (type === 'success') {
+        statusAlert.classList.add('bg-emerald-500/10', 'border-emerald-500/20', 'text-emerald-400');
+        alertIcon.setAttribute('data-lucide', 'check-circle');
+      } else {
+        statusAlert.classList.add('bg-rose-500/10', 'border-rose-500/20', 'text-rose-400');
+        alertIcon.setAttribute('data-lucide', 'alert-triangle');
+      }
+      
+      alertText.textContent = text;
+      statusAlert.classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function hideAlert() {
+      statusAlert.classList.add('hidden');
+    }
+
+    // Step 1: Request OTP
+    sendCodeBtn.addEventListener('click', async () => {
+      const rawPhone = phoneInput.value.trim();
+      if (!rawPhone) {
+        showAlert('Por favor, introduza o número de telefone.');
+        return;
+      }
+
+      const originalHTML = sendCodeBtn.innerHTML;
+      sendCodeBtn.disabled = true;
+      sendCodeBtn.innerHTML = `
+        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg> Autenticando...
+        </svg> Enviando código...
       `;
 
-      errorAlert.classList.add('hidden');
+      hideAlert();
 
       try {
-        const result = await window.apiPost('/api/admin/auth/login', { email, password });
-        if (result && result.ok) {
-          // Store user info and redirect
-          localStorage.setItem('tratatudo_admin', JSON.stringify(result.data.admin));
-          window.location.href = '/app/dashboard';
+        const res = await window.apiPost('/api/auth/send-otp', { phone_e164: rawPhone });
+        if (res && res.ok) {
+          showAlert('Código enviado com sucesso pelo WhatsApp!', 'success');
+          targetPhoneDisplay.textContent = rawPhone;
+          
+          // Switch UI layout to OTP verification phase
+          phonePhase.classList.add('hidden');
+          otpPhase.classList.remove('hidden');
+          otpInput.focus();
         } else {
-          throw new Error(result.error || "Credenciais inválidas");
+          throw new Error(res.error || 'Falha ao processar requisição');
         }
       } catch (err) {
-        console.error(err);
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
-        errorText.textContent = err.message || "Senha incorreta ou acesso de administrador não autorizado.";
-        errorAlert.classList.remove('hidden');
+        showAlert(err.message || 'Erro ao enviar código por WhatsApp');
+      } finally {
+        sendCodeBtn.disabled = false;
+        sendCodeBtn.innerHTML = originalHTML;
       }
+    });
+
+    // Step 2: Verify OTP
+    verifyCodeBtn.addEventListener('click', async () => {
+      const rawPhone = phoneInput.value.trim();
+      const code = otpInput.value.trim();
+      
+      if (!code || code.length < 4) {
+        showAlert('Introduza um código válido com os 6 dígitos rececionados.');
+        return;
+      }
+
+      const originalHTML = verifyCodeBtn.innerHTML;
+      verifyCodeBtn.disabled = true;
+      verifyCodeBtn.innerHTML = `
+        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg> Verificando...
+      `;
+
+      hideAlert();
+
+      try {
+        const res = await window.apiPost('/api/auth/verify-otp', { phone_e164: rawPhone, code: code });
+        if (res && res.ok) {
+          showAlert('Código confirmado! A entrar...', 'success');
+          
+          // Store client data and redirect to dashboard
+          localStorage.setItem('tratatudo_client', JSON.stringify(res.client));
+          window.location.href = '/app/dashboard';
+        } else {
+          throw new Error(res.error || 'Código incorreto ou expirado');
+        }
+      } catch (err) {
+        showAlert(err.message || 'Falha na validação do código de segurança');
+      } finally {
+        verifyCodeBtn.disabled = false;
+        verifyCodeBtn.innerHTML = originalHTML;
+      }
+    });
+
+    // Back to Phone Number Change
+    changePhoneBtn.addEventListener('click', () => {
+      otpPhase.classList.add('hidden');
+      phonePhase.classList.remove('hidden');
+      hideAlert();
+      phoneInput.focus();
     });
   </script>
 </body>

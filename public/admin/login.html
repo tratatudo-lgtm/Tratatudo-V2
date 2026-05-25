@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Administrador | TrataTudo</title>
+  <!-- Tailwind CSS Via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Style Sheet -->
+  <link rel="stylesheet" href="/css/style.css">
+  <!-- Lucide icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              navy: '#0b0f19',
+              dark: '#111827',
+              accent: '#6366f1',
+              emerald: '#10b981',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4 selection:bg-indigo-500/30">
+
+  <div class="relative w-full max-w-md bg-slate-900 border border-white/5 rounded-3xl p-8 shadow-2xl overflow-hidden animate-fade-in glow-indigo animate-scale-up">
+    <!-- Decorative Ambient Glow -->
+    <div class="absolute -right-20 -top-20 w-48 h-48 bg-indigo-600/10 blur-3xl rounded-full"></div>
+    <div class="absolute -left-20 -bottom-20 w-48 h-48 bg-indigo-600/5 blur-3xl rounded-full"></div>
+
+    <!-- Header Section -->
+    <div class="text-center relative z-10 mb-8">
+      <div class="inline-flex w-16 h-16 bg-indigo-600/10 rounded-2xl items-center justify-center border border-indigo-500/20 mb-4 animate-pulse">
+        <i data-lucide="shield-check" class="w-8 h-8 text-indigo-400"></i>
+      </div>
+      <h1 class="text-2xl font-black tracking-tight text-white mb-1">TrataTudo</h1>
+      <p class="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">Painel Super Admin</p>
+    </div>
+
+    <!-- Alert Box -->
+    <div id="error-alert" class="hidden flex items-start gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-2xl text-xs mb-6 font-semibold animate-fade-in">
+      <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 text-rose-400"></i>
+      <span id="error-text">Ocorreu um erro no login.</span>
+    </div>
+
+    <!-- Login Form -->
+    <form id="login-form" class="space-y-5 relative z-10">
+      <div class="space-y-2">
+        <label for="email" class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Administrativo</label>
+        <div class="relative">
+          <i data-lucide="mail" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
+          <input 
+            type="email" 
+            id="email" 
+            name="email" 
+            required 
+            placeholder="admin@tratatudo.pt" 
+            class="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-semibold placeholder:text-slate-600"
+          >
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label for="password" class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Palavra-passe</label>
+        <div class="relative">
+          <i data-lucide="key" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            required 
+            placeholder="••••••••••••" 
+            class="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-semibold placeholder:text-slate-600"
+          >
+        </div>
+      </div>
+
+      <button 
+        type="submit" 
+        id="submit-btn"
+        class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 mt-2"
+      >
+        <span>Aceder ao Painel</span>
+        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+      </button>
+    </form>
+
+    <div class="mt-8 pt-6 border-t border-white/5 text-center relative z-10">
+      <a href="/login" class="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-widest flex items-center justify-center gap-1.5 transition-colors">
+        <i data-lucide="user" class="w-3.5 h-3.5"></i>
+        <span>Login de Cliente</span>
+      </a>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Specific Login Form Script
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const submitBtn = document.getElementById('submit-btn');
+      const errorAlert = document.getElementById('error-alert');
+      const errorText = document.getElementById('error-text');
+
+      // Update button to loading state
+      const originalText = submitBtn.innerHTML;
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `
+        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg> Entrando...
+      `;
+
+      errorAlert.classList.add('hidden');
+
+      try {
+        const result = await window.apiPost('/api/admin/auth/login', { email, password });
+        if (result && result.ok) {
+          // Store user info and redirect to /admin/dashboard
+          localStorage.setItem('tratatudo_admin', JSON.stringify(result.data.admin));
+          window.location.href = '/admin/dashboard';
+        } else {
+          throw new Error(result.error || "Credenciais de administrador inválidas");
+        }
+      } catch (err) {
+        console.error(err);
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        errorText.textContent = err.message || "Acesso de administrador não autorizado ou dados incorretos.";
+        errorAlert.classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>

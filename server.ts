@@ -517,6 +517,35 @@ async function startServer() {
     res.sendFile(path.join(process.cwd(), "public", "login.html"));
   });
 
+  app.get("/login.html", (req, res) => {
+    res.sendFile(path.join(process.cwd(), "public", "login.html"));
+  });
+
+  app.get("/admin", (req, res) => {
+    res.redirect("/admin/login");
+  });
+
+  app.get("/admin/login", (req, res) => {
+    res.sendFile(path.join(process.cwd(), "public", "admin", "login.html"));
+  });
+
+  app.get("/admin/login.html", (req, res) => {
+    res.sendFile(path.join(process.cwd(), "public", "admin", "login.html"));
+  });
+
+  app.get("/admin/:page", (req, res) => {
+    const page = req.params.page;
+    if (page === "login" || page === "login.html") {
+      return res.sendFile(path.join(process.cwd(), "public", "admin", "login.html"));
+    }
+    const filePath = path.join(process.cwd(), "public", "app", `${page}.html`);
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        res.redirect("/admin/dashboard");
+      }
+    });
+  });
+
   app.get("/app/:page", (req, res) => {
     const page = req.params.page;
     const filePath = path.join(process.cwd(), "public", "app", `${page}.html`);

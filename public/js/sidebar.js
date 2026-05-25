@@ -66,25 +66,28 @@ function renderSidebar() {
   if (!container) return;
 
   const currentPath = window.location.pathname;
+  const isAdmin = currentPath.startsWith('/admin');
+  const basePath = isAdmin ? '/admin' : '/app';
+  const dashboardUrl = `${basePath}/dashboard`;
 
   let html = `
     <!-- Desktop Sidebar Wrapper -->
     <div class="hidden lg:flex flex-col w-64 h-screen bg-slate-900 border-r border-white/5 text-slate-300 select-none overflow-y-auto no-scrollbar py-6">
       
       <!-- Logo Section -->
-      <a href="/app/dashboard" class="flex items-center gap-3 px-6 mb-8 group shrink-0">
+      <a href="${dashboardUrl}" class="flex items-center gap-3 px-6 mb-8 group shrink-0">
         <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white scale-100 group-hover:scale-105 group-hover:rotate-3 transition-all duration-300">
           <i data-lucide="shield-check" class="w-6 h-6"></i>
         </div>
         <div>
           <h2 class="text-lg font-black text-white px-0.5 tracking-tight group-hover:text-indigo-400 transition-colors">TrataTudo</h2>
-          <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest block -mt-1">Super Admin Panel</span>
+          <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest block -mt-1">${isAdmin ? 'Super Admin' : 'Client Hub'}</span>
         </div>
       </a>
 
       <!-- Home dashboard button -->
       <div class="px-3 mb-6 shrink-0">
-        <a href="/app/dashboard" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${
+        <a href="${dashboardUrl}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${
           currentPath.endsWith('dashboard') || currentPath.endsWith('dashboard.html')
             ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
             : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
@@ -106,9 +109,10 @@ function renderSidebar() {
     `;
 
     cat.items.forEach(item => {
-      const isActive = currentPath.endsWith(item.url) || currentPath.endsWith(item.rawUrl);
+      const resolvedUrl = item.url.replace('/app', basePath);
+      const isActive = currentPath.endsWith(resolvedUrl) || currentPath.endsWith(item.rawUrl);
       html += `
-        <a href="${item.url}" class="flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${
+        <a href="${resolvedUrl}" class="flex items-center gap-3 px-4 py-2 rounded-xl transition-all font-bold text-xs ${
           isActive 
             ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/10' 
             : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent'
@@ -131,12 +135,12 @@ function renderSidebar() {
       <!-- User footer inside sidebar -->
       <div class="mt-8 px-4 pt-4 border-t border-white/5 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-3">
-          <div id="header-admin-initial" class="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/20 flex items-center justify-center font-bold text-xs text-indigo-400">
+          <div id="header-admin-initial" class="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/20 flex items-center justify-center font-bold text-xs text-indigo-400 font-black">
             A
           </div>
           <div class="truncate max-w-[120px]">
-            <p id="header-admin-name" class="text-xs font-bold text-white truncate">Admin</p>
-            <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Estabilidade</span>
+            <p id="header-admin-name" class="text-xs font-bold text-white truncate">Utilizador</p>
+            <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">${isAdmin ? 'Super Admin' : 'Cliente'}</span>
           </div>
         </div>
         <button id="logout-btn" class="p-2 hover:bg-white/5 text-slate-500 hover:text-rose-400 rounded-lg transition-colors" title="Sair do painel">
@@ -166,7 +170,7 @@ function renderSidebar() {
         </div>
 
         <div class="flex-1 overflow-y-auto no-scrollbar space-y-6">
-          <a href="/app/dashboard" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${
+          <a href="${dashboardUrl}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${
             currentPath.endsWith('dashboard') || currentPath.endsWith('dashboard.html')
               ? 'bg-indigo-600 text-white'
               : 'text-slate-400 hover:bg-white/5'
@@ -180,9 +184,10 @@ function renderSidebar() {
               <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest px-4">${cat.title}</span>
               <div class="space-y-0.5 mt-2">
                 ${cat.items.map(item => {
-                  const isActive = currentPath.endsWith(item.url) || currentPath.endsWith(item.rawUrl);
+                  const resolvedUrl = item.url.replace('/app', basePath);
+                  const isActive = currentPath.endsWith(resolvedUrl) || currentPath.endsWith(item.rawUrl);
                   return `
-                    <a href="${item.url}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${
+                    <a href="${resolvedUrl}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs ${
                       isActive 
                         ? 'bg-indigo-500/10 text-indigo-400' 
                         : 'text-slate-400 hover:bg-white/5'
@@ -199,8 +204,8 @@ function renderSidebar() {
 
         <div class="pt-4 border-t border-white/5 mt-6 flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-indigo-600/20 flex items-center justify-center font-bold text-xs text-indigo-400">SA</div>
-            <span class="text-xs font-bold text-white text-slate-300">Super Admin</span>
+            <div class="w-8 h-8 rounded-lg bg-indigo-600/20 flex items-center justify-center font-bold text-xs text-indigo-400 font-black">U</div>
+            <span class="text-xs font-bold text-slate-300">${isAdmin ? 'Super Admin' : 'Cliente'}</span>
           </div>
           <button onclick="handleAdminLogout()" class="p-2 text-rose-500 hover:bg-white/5 rounded-lg">
             <i data-lucide="log-out" class="w-4 h-4"></i>
