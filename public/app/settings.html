@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Definições | TrataTudo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex selection:bg-indigo-500/30">
+  <div id="sidebar-container" class="shrink-0"></div>
+  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+    <header id="header-container"></header>
+    <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-6">
+      <div>
+        <h1 class="text-2xl font-black text-white">Configurações Globais</h1>
+        <p class="text-xs text-slate-400 font-medium">Parâmetros operacionais do super-utilizador e políticas de segurança.</p>
+      </div>
+      <div class="bg-slate-900 border border-white/5 rounded-3xl p-6">
+        <p class="text-xs text-slate-400 font-semibold leading-relaxed font-bold">Configuração de credenciais gerais da plataforma, tempos de expiração da sessão JSON Web Token, limites de logins e modos de segurança acrescida.</p>
+      </div>
+    </main>
+  </div>
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/sidebar.js"></script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pedidos | TrataTudo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex selection:bg-indigo-500/30">
+  <div id="sidebar-container" class="shrink-0"></div>
+  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+    <header id="header-container"></header>
+    <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-6">
+      <div>
+        <h1 class="text-2xl font-black text-white">Pedidos e Subscrições</h1>
+        <p class="text-xs text-slate-400 font-medium">Histórico de compras de instâncias e aditivos de inteligência artificial.</p>
+      </div>
+      <div class="bg-slate-900 border border-white/5 rounded-3xl p-6 space-y-4">
+        <h3 class="text-sm font-black text-white uppercase tracking-wider">Histórico de Transações Recentes</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300 font-semibold border-collapse">
+            <thead>
+              <tr class="border-b border-white/5 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                <th class="py-3 px-1">ID Fatura</th>
+                <th>Cliente Tenant</th>
+                <th>Aditivo Alocado</th>
+                <th>Montante</th>
+                <th>Canal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-white/5">
+                <td class="py-4 px-1 text-indigo-400">#INV-892</td>
+                <td>Alfa Lda</td>
+                <td>Bot Plus Core (Unlimited)</td>
+                <td>49.00€ <span class="text-[9px] text-slate-500 block">/mês</span></td>
+                <td><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/10 text-[9px]">PAGO</span></td>
+              </tr>
+              <tr class="border-b border-white/5">
+                <td class="py-4 px-1 text-indigo-400">#INV-891</td>
+                <td>Clínica Sorrisos</td>
+                <td>WhatsApp Trunk Evolution (Dedicated)</td>
+                <td>89.00€ <span class="text-[9px] text-slate-500 block">/mês</span></td>
+                <td><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/10 text-[9px]">PAGO</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/sidebar.js"></script>
+</body>
+</html>

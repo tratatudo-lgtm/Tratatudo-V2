@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard | TrataTudo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex selection:bg-indigo-500/30">
+
+  <!-- Sidebar Container -->
+  <div id="sidebar-container" class="shrink-0"></div>
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+    <!-- Header Container -->
+    <header id="header-container"></header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-8">
+      
+      <!-- Welcome Page Heading -->
+      <div>
+        <h1 class="text-2xl font-black tracking-tight mb-1 text-white">Dashboard Principal</h1>
+        <p class="text-xs text-slate-400 font-medium">Balanço operacional e fluxo de processamento global do SaaS.</p>
+      </div>
+
+      <!-- KPI Metrics Row -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Card 1 -->
+        <div class="bg-slate-900 border border-white/5 rounded-2xl p-5 relative overflow-hidden group hover:border-indigo-500/30 transition-all duration-300">
+          <div class="absolute -right-6 -top-6 w-20 h-20 bg-indigo-600/5 blur-2xl rounded-full group-hover:bg-indigo-600/10 transition-colors"></div>
+          <div class="flex justify-between items-start">
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+              <i data-lucide="users" class="w-5 h-5"></i>
+            </div>
+            <span class="text-[9px] font-black uppercase text-slate-500 tracking-wider">Clientes Ativos</span>
+          </div>
+          <div class="mt-4">
+            <h3 id="stat-active-clients" class="text-3xl font-black text-white">0</h3>
+            <p class="text-[10px] text-slate-500 font-bold mt-1">Sincronizado via Supabase</p>
+          </div>
+        </div>
+        <!-- Card 2 -->
+        <div class="bg-slate-900 border border-white/5 rounded-2xl p-5 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
+          <div class="absolute -right-6 -top-6 w-20 h-20 bg-emerald-600/5 blur-2xl rounded-full group-hover:bg-emerald-600/10 transition-colors"></div>
+          <div class="flex justify-between items-start">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+              <i data-lucide="ticket" class="w-5 h-5"></i>
+            </div>
+            <span class="text-[9px] font-black uppercase text-slate-500 tracking-wider">Tickets Pendentes</span>
+          </div>
+          <div class="mt-4">
+            <h3 id="stat-pending-tickets" class="text-3xl font-black text-white">0</h3>
+            <p class="text-[10px] text-slate-500 font-bold mt-1">Resposta prioritária ativa</p>
+          </div>
+        </div>
+        <!-- Card 3 -->
+        <div class="bg-slate-900 border border-white/5 rounded-2xl p-5 relative overflow-hidden group hover:border-rose-500/30 transition-all duration-300">
+          <div class="absolute -right-6 -top-6 w-20 h-20 bg-rose-600/5 blur-2xl rounded-full group-hover:bg-rose-600/10 transition-colors"></div>
+          <div class="flex justify-between items-start">
+            <div class="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-400">
+              <i data-lucide="shield-alert" class="w-5 h-5"></i>
+            </div>
+            <span class="text-[9px] font-black uppercase text-slate-500 tracking-wider">Expiradas</span>
+          </div>
+          <div class="mt-4">
+            <h3 id="stat-expired-subs" class="text-3xl font-black text-white">0</h3>
+            <p class="text-[10px] text-rose-500/80 font-bold mt-1">Subscrições terminadas</p>
+          </div>
+        </div>
+        <!-- Card 4 -->
+        <div class="bg-slate-900 border border-white/5 rounded-2xl p-5 relative overflow-hidden group hover:border-indigo-500/30 transition-all duration-300">
+          <div class="absolute -right-6 -top-6 w-20 h-20 bg-indigo-600/5 blur-2xl rounded-full group-hover:bg-indigo-600/10 transition-colors"></div>
+          <div class="flex justify-between items-start">
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+              <i data-lucide="cpu" class="w-5 h-5"></i>
+            </div>
+            <span class="text-[9px] font-black uppercase text-slate-500 tracking-wider">Estado de Rede</span>
+          </div>
+          <div class="mt-4">
+            <h3 class="text-lg font-black text-white flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+              <span>ESTÁVEL</span>
+            </h3>
+            <p class="text-[10px] text-slate-500 font-bold mt-1">Evolution API Conectada</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Graph & Logs Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Flow Graph -->
+        <div class="lg:col-span-2 bg-slate-900 border border-white/5 rounded-2xl p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-black text-white uppercase tracking-wider">Tráfego de Mensagens</h3>
+              <p class="text-xs text-slate-500 font-medium">Fluxo total processado em tempo-real de respostas automatizadas.</p>
+            </div>
+            <span class="text-[9px] font-black text-emerald-400 bg-emerald-400/5 border border-emerald-400/10 px-2.5 py-1 rounded-full uppercase tracking-widest">+12% HOJE</span>
+          </div>
+          <div class="relative h-64 w-full">
+            <canvas id="messagesTrafficChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Recent Logs Activity -->
+        <div class="bg-slate-900 border border-white/5 rounded-2xl p-6 flex flex-col h-[340px]">
+          <div class="flex items-center justify-between pb-4 border-b border-white/5 shrink-0">
+            <h3 class="text-sm font-black text-white uppercase tracking-wider">Logs Operacionais</h3>
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          </div>
+          <div id="logs-container" class="flex-1 overflow-y-auto no-scrollbar space-y-4 mt-4">
+            <!-- Simulated streaming activity logs -->
+            <div class="flex items-start gap-3 animate-fade-in">
+              <span class="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 shrink-0"></span>
+              <div>
+                <p class="text-xs font-bold text-slate-300">Nova instância provisionada automática</p>
+                <span class="text-[9px] font-bold text-slate-600 block mt-0.5">Há 2 m</span>
+              </div>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 shrink-0"></span>
+              <div>
+                <p class="text-xs font-bold text-slate-300">Sync de IA com Evolution bem sucedido</p>
+                <span class="text-[9px] font-bold text-slate-600 block mt-0.5">Há 15 m</span>
+              </div>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="w-2 h-2 rounded-full bg-rose-500 mt-1.5 shrink-0"></span>
+              <div>
+                <p class="text-xs font-bold text-slate-300">Chamada webhook Stripe faturada</p>
+                <span class="text-[9px] font-bold text-slate-600 block mt-0.5">Há 1 h</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/sidebar.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

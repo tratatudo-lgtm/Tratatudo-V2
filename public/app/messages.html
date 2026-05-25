@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conversas | TrataTudo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex selection:bg-indigo-500/30">
+
+  <!-- Sidebar Container -->
+  <div id="sidebar-container" class="shrink-0"></div>
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden pb-12">
+    <!-- Header Container -->
+    <header id="header-container"></header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-6">
+      
+      <div>
+        <h1 class="text-2xl font-black tracking-tight mb-1 text-white">Central de Mensagens IA</h1>
+        <p class="text-xs text-slate-400 font-medium">Monitorização em tempo-real das conversas automatizadas pelos agentes nas instâncias ativas.</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Live Numbers/Channels (Left) -->
+        <div class="bg-slate-900 border border-white/5 rounded-3xl p-5 space-y-4">
+          <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Instâncias Conectadas</h3>
+          
+          <div class="space-y-2">
+            <div class="p-3 bg-indigo-650/10 border border-indigo-500/20 rounded-2xl flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <div>
+                  <h4 class="text-xs font-black text-white">Instância #305 (Evolution)</h4>
+                  <p class="text-[9px] text-slate-500 font-bold font-medium">Empresa Alfa Lda</p>
+                </div>
+              </div>
+              <span class="text-[8px] bg-slate-900 px-2 py-0.5 rounded text-indigo-400 font-bold">LIVE</span>
+            </div>
+
+            <div class="p-3 bg-slate-900 border border-white/5 rounded-2xl flex items-center justify-between opacity-80">
+              <div class="flex items-center gap-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <div>
+                  <h4 class="text-xs font-black text-white">Instância #291 (Evolution)</h4>
+                  <p class="text-[9px] text-slate-500 font-bold font-medium">Clínica Sorrisos</p>
+                </div>
+              </div>
+              <span class="text-[8px] bg-slate-950 px-2 py-0.5 rounded text-indigo-400 font-bold">LIVE</span>
+            </div>
+
+            <div class="p-3 bg-slate-900 border border-white/5 rounded-2xl flex items-center justify-between opacity-60">
+              <span class="w-2 h-2 rounded-full bg-rose-500 shrink-0"></span>
+              <div class="flex-1 px-3">
+                <h4 class="text-xs font-black text-white">Instância #102</h4>
+                <p class="text-[9px] text-slate-600 font-bold">Oficina Veloz</p>
+              </div>
+              <span class="text-[8px] bg-slate-950 px-2 py-0.5 rounded text-rose-500 font-bold">DOWN</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Simulated WhatsApp Dialog View (Right) -->
+        <div class="lg:col-span-2 bg-slate-900 border border-white/5 rounded-3xl h-[60vh] flex flex-col overflow-hidden">
+          <div class="p-4 border-b border-white/5 flex items-center gap-3 bg-slate-950/20 shrink-0">
+            <div class="w-10 h-10 bg-indigo-600/10 rounded-2xl flex items-center justify-center text-indigo-400 font-black text-xs">WA</div>
+            <div>
+              <h4 class="text-xs font-black text-white">+351 912 345 678 (Cliente Final)</h4>
+              <p class="text-[9px] text-emerald-400 font-bold flex items-center gap-1 mt-0.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                <span>IA do TrataTudo de piquete (Alfa Lda)</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 no-scrollbar bg-slate-950/10">
+            <div class="flex justify-start w-full">
+              <div class="max-w-[70%] bg-slate-900 border border-white/5 rounded-2xl rounded-tl-none p-4 text-xs font-semibold text-slate-300">
+                <p class="leading-normal">Olá, gostaria de saber os horários disponíveis para marcar um orçamento técnico desta semana, por favor.</p>
+                <span class="text-[8px] opacity-40 block mt-2 text-right">Ontem 18:40</span>
+              </div>
+            </div>
+            
+            <div class="flex justify-end w-full">
+              <div class="max-w-[70%] bg-indigo-600 border border-indigo-500 rounded-2xl rounded-tr-none p-4 text-xs text-white">
+                <p class="leading-normal">Olá! Claro, posso ajudar com isso. Na nossa agenda para esta semana temos as seguintes opções de orçamento técnico: Quinta-feira às 10:00 e Sexta-feira às 14:30. Qual destes horários prefere marcar?</p>
+                <span class="text-[8px] opacity-65 block mt-2 text-right">Ontem 18:41 (Agente IA)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-4 border-t border-white/5 bg-slate-950/20 flex items-center justify-between shrink-0">
+            <span class="text-[10px] text-slate-500 font-bold">Modo Monitorização Passivo. A inteligência artificial está encarregue da conversa.</span>
+            <button class="bg-indigo-600/15 text-indigo-400 hover:bg-indigo-600 hover:text-white px-3 py-1.5 rounded-xl border border-indigo-500/10 font-bold text-[10px] transition-all">ASSUMIR CHAT</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/sidebar.js"></script>
+</body>
+</html>

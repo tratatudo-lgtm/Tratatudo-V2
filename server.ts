@@ -4,7 +4,6 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import { createClient } from "@supabase/supabase-js";
-import { createServer as createViteServer } from "vite";
 
 // --- ENV & CONFIG ---
 const PORT = 3000;
@@ -505,20 +504,33 @@ async function startServer() {
     }
   });
 
-  // --- VITE MIDDLEWARE ---
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
+  // --- SERVE VANILLA FRONTEND ---
+  // Serve static assets (CSS, JS, etc.) from the public folder
+  app.use(express.static(path.join(process.cwd(), "public")));
+
+  // Clean URL mappings
+  app.get("/", (req, res) => {
+    res.sendFile(path.join(process.cwd(), "public", "index.html"));
+  });
+
+  app.get("/login", (req, res) => {
+    res.sendFile(path.join(process.cwd(), "public", "login.html"));
+  });
+
+  app.get("/app/:page", (req, res) => {
+    const page = req.params.page;
+    const filePath = path.join(process.cwd(), "public", "app", `${page}.html`);
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        res.redirect("/app/dashboard");
+      }
     });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
+  });
+
+  // Global Fallback
+  app.get("*", (req, res) => {
+    res.redirect("/");
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`[SERVER] TrataTudo Super Admin running on port ${PORT}`);

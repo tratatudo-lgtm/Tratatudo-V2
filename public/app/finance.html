@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Financeiro | TrataTudo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex selection:bg-indigo-500/30">
+  <div id="sidebar-container" class="shrink-0"></div>
+  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+    <header id="header-container"></header>
+    <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-6">
+      <div>
+        <h1 class="text-2xl font-black text-white">Painel Financeiro</h1>
+        <p class="text-xs text-slate-400 font-medium">Balanço geral, faturas pendentes e fluxo de pagamentos unificado.</p>
+      </div>
+      <div class="bg-slate-900 border border-white/5 rounded-3xl p-6">
+        <h3 class="text-sm font-black text-white uppercase tracking-wider mb-4">Sumário Operacional</h3>
+        <p class="text-xs text-slate-400 font-semibold leading-relaxed">Este módulo de tesouraria do Super Admin consolida as transações efetuadas através do processador central Stripe e sincroniza-as em tempo-real com a contabilidade.</p>
+      </div>
+    </main>
+  </div>
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/sidebar.js"></script>
+</body>
+</html>
