@@ -3,28 +3,136 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Automações | TrataTudo</title>
+  <title data-i18n="automations.page_title">Automações | TrataTudo</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="/js/i18n.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex selection:bg-indigo-500/30">
+
+  <!-- Sidebar container -->
   <div id="sidebar-container" class="shrink-0"></div>
-  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden pb-12">
+    
+    <!-- Top Header -->
     <header id="header-container"></header>
+
+    <!-- MAIN VIEWPORT -->
     <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-6">
-      <div>
-        <h1 class="text-2xl font-black text-white">Automações & Webhooks</h1>
-        <p class="text-xs text-slate-400 font-medium">Fluxos de triggers automáticos para faturas vencidas ou expirações.</p>
+      
+      <!-- Top Title -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-black tracking-tight mb-1 text-white" data-i18n="automations.title">Automações de Fluxo</h1>
+          <p class="text-xs text-slate-400 font-medium" data-i18n="automations.subtitle">Crie rotinas condicionais gatilho-ação para automatizar respostas via WhatsApp, alertas por e-mail ou registos de auditoria.</p>
+        </div>
+        <button 
+          id="btn-open-automation-modal"
+          class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 group self-start"
+        >
+          <i data-lucide="git-branch" class="w-4 h-4 group-hover:rotate-12 transition-transform"></i>
+          <span data-i18n="automations.nova_regra">Criar Regra de Automação</span>
+        </button>
       </div>
-      <div class="bg-slate-900 border border-white/5 rounded-3xl p-6">
-        <p class="text-xs text-slate-400 font-semibold leading-relaxed">Painel de coordenação de eventos de ciclo de vida (webhooks Stripe, ativação Evolution, regeneração de chaves Supabase).</p>
+
+      <!-- Loading Section -->
+      <div id="auto-loading" class="flex flex-col items-center justify-center py-20">
+        <i data-lucide="loader" class="w-8 h-8 text-indigo-500 animate-spin mb-4"></i>
+        <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">A obter regras de processamento condicional...</p>
       </div>
+
+      <!-- Automations Grid -->
+      <div id="auto-grid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Javascript populated deck -->
+      </div>
+
+      <!-- Empty status -->
+      <div id="auto-empty" class="hidden flex flex-col items-center justify-center py-20 text-center bg-slate-900 border border-white/5 rounded-3xl">
+        <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 mb-4 text-slate-500">
+          <i data-lucide="zap-off" class="w-8 h-8 text-slate-650"></i>
+        </div>
+        <h4 class="text-sm font-bold text-slate-300">Nenhuma automação activa</h4>
+        <p class="text-xs text-slate-500 max-w-xs mt-1">Crie as suas próprias regras condicionais para aumentar a velocidade comercial do seu hub.</p>
+      </div>
+
     </main>
   </div>
+
+  <!-- ==============================================
+       AUTOMATION CREATE/EDIT FORM MODAL
+       ============================================== -->
+  <div id="auto-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-950/90 backdrop-blur-md" id="auto-modal-backdrop"></div>
+    <div class="bg-slate-900 border border-white/10 rounded-[2rem] w-full max-w-md relative z-10 overflow-hidden shadow-2xl animate-fade-in">
+      <div class="p-6 border-b border-white/5 flex items-center justify-between">
+        <div>
+          <h3 id="auto-modal-title" class="text-lg font-black tracking-tight text-white">Criar Regra Condicional</h3>
+          <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Automatizador Operacional</p>
+        </div>
+        <button id="auto-modal-close" class="p-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full transition-colors">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <form id="auto-form" class="p-6 space-y-4">
+        <input type="hidden" id="auto-id">
+        
+        <div class="space-y-1">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block font-bold">Título da Automação *</label>
+          <input type="text" id="auto-name" required placeholder="Ex: Alerta de Fatura Vencida" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Quando isto acontecer... (Gatilho / Trigger) *</label>
+          <select id="auto-trigger" required class="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+            <option value="Cliente Criado">👤 Cliente Criado</option>
+            <option value="Fatura Vencida">⏳ Fatura Vencida</option>
+            <option value="Mensagem Recebida">💬 Mensagem Recebida</option>
+            <option value="Ticket Aberto">🎫 Ticket Aberto</option>
+          </select>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Executar com este atraso (Espera) *</label>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="number" id="auto-delay-num" required value="0" placeholder="0" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+            <select id="auto-delay-unit" required class="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+              <option value="minutos">Minutos</option>
+              <option value="horas">Horas</option>
+              <option value="dias">Dias</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Executar esta Acção (Action) *</label>
+          <select id="auto-action" required class="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+            <option value="Enviar Mensagem Whatsapp">Enviar Mensagem Whatsapp</option>
+            <option value="Enviar E-mail">Enviar E-mail</option>
+            <option value="Registrar Atividade">Registrar Atividade Auditória</option>
+          </select>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Registo de Estado (Regra activa)</label>
+          <select id="auto-status" class="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-350 col-span-2">
+            <option value="active">Activa (Em execução)</option>
+            <option value="inactive">Pausada</option>
+          </select>
+        </div>
+
+        <button type="submit" id="auto-submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3.5 font-black text-xs transition-all active:scale-[0.98]">
+          Compilar e Registar Automação
+        </button>
+      </form>
+    </div>
+  </div>
+
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/sidebar.js"></script>
+  <script src="/js/automations.js"></script>
 </body>
 </html>

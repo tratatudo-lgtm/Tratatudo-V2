@@ -3,28 +3,113 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Atividade | TrataTudo</title>
+  <title data-i18n="activity.page_title">Histórico | TrataTudo</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="/js/i18n.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex selection:bg-indigo-500/30">
+
+  <!-- Sidebar container -->
   <div id="sidebar-container" class="shrink-0"></div>
-  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden pb-12">
+    
+    <!-- Top Header -->
     <header id="header-container"></header>
+
+    <!-- MAIN VIEWPORT -->
     <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-6">
+      
+      <!-- Top Title Bar -->
       <div>
-        <h1 class="text-2xl font-black text-white">Atividade Geral do Sistema</h1>
-        <p class="text-xs text-slate-400 font-medium font-bold">Rastreamento de auditorias de alteração e sessões administrativas.</p>
+        <h1 class="text-2xl font-black tracking-tight mb-1 text-white" data-i18n="activity.title">Auditoria e Atividades</h1>
+        <p class="text-xs text-slate-400 font-medium" data-i18n="activity.subtitle">Historial de ações disparadas pelos agentes, chamadas de automação e comandos do sistema.</p>
       </div>
-      <div class="bg-slate-900 border border-white/5 rounded-3xl p-6">
-        <p class="text-xs text-slate-400 font-semibold leading-relaxed">Painel de logs consolidados de modificações de instâncias, ajustes manuais de subscrição e sessões de alteração efetuadas.</p>
+
+      <!-- Filters Grid -->
+      <div class="bg-slate-900 border border-white/5 rounded-3xl p-5 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- User name filter -->
+          <div>
+            <label class="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2 block">Filtrar por Colaborador</label>
+            <select id="filter-user" class="w-full bg-slate-950 border border-white/5 rounded-xl p-2.5 text-xs font-bold text-slate-300 focus:outline-none">
+              <option value="all">Qualquer Agente / Sistema</option>
+              <!-- Populate dynamically with team list -->
+            </select>
+          </div>
+          <!-- Modules filter -->
+          <div>
+            <label class="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2 block">Filtrar por Módulo</label>
+            <select id="filter-module" class="w-full bg-slate-950 border border-white/5 rounded-xl p-2.5 text-xs font-bold text-slate-300 focus:outline-none">
+              <option value="all">Qualquer Módulo</option>
+              <option value="Clientes">Clientes (CRM)</option>
+              <option value="Equipa">Equipa & Permissões</option>
+              <option value="Financeiro">Financeiro (Caixa)</option>
+              <option value="Agenda">Agenda (Planeamento)</option>
+              <option value="Tarefas">Tarefas (Kanban)</option>
+              <option value="Servidor SMTP">Servidor SMTP</option>
+              <option value="Automações">Automações</option>
+              <option value="Faturação">Faturação Fiscal</option>
+            </select>
+          </div>
+        </div>
       </div>
+
+      <!-- Loading Indicator -->
+      <div id="activity-loading" class="flex flex-col items-center justify-center py-10">
+        <i data-lucide="loader" class="w-7 h-7 text-indigo-500 animate-spin mb-3"></i>
+        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">A obter registos de auditoria do sistema...</p>
+      </div>
+
+      <!-- Activity Tables -->
+      <div id="activity-table-container" class="hidden bg-slate-900 border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse font-semibold">
+            <thead>
+              <tr class="border-b border-white/5 bg-slate-950 text-slate-400 text-[10px] uppercase font-black tracking-wider">
+                <th class="p-4">Utilizador / Canal</th>
+                <th class="p-4">Módulo</th>
+                <th class="p-4">Ação Principal</th>
+                <th class="p-4">Mais Detalhes</th>
+                <th class="p-4">Estampa Temporal</th>
+              </tr>
+            </thead>
+            <tbody id="activity-tbody" class="divide-y divide-white/5 text-xs text-slate-300">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Controls Bar -->
+        <div class="p-4 bg-slate-950/45 border-t border-white/5 flex items-center justify-between">
+          <button id="btn-page-prev" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-xl border border-white/5 text-[10px] font-black uppercase transition-all disabled:opacity-40 disabled:pointer-events-none">
+            Anterior
+          </button>
+          <span id="page-label" class="text-[10px] font-black uppercase tracking-widest text-slate-500">Página 1 de 1</span>
+          <button id="btn-page-next" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-xl border border-white/5 text-[10px] font-black uppercase transition-all disabled:opacity-40 disabled:pointer-events-none">
+            Seguinte
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div id="activity-empty" class="hidden flex flex-col items-center justify-center py-20 text-center bg-slate-900 border border-white/5 rounded-3xl">
+        <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 mb-4 text-slate-500">
+          <i data-lucide="eye-off" class="w-8 h-8 text-slate-655 text-slate-600"></i>
+        </div>
+        <h4 class="text-sm font-bold text-slate-300">Nenhum registo de auditoria</h4>
+        <p class="text-xs text-slate-500 max-w-xs mt-1">Nenhum log corresponde aos filtros seleccionados no momento.</p>
+      </div>
+
     </main>
   </div>
+
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/sidebar.js"></script>
+  <script src="/js/activity.js"></script>
 </body>
 </html>

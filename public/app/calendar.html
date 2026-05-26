@@ -3,28 +3,192 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agenda | TrataTudo</title>
+  <title data-i18n="calendar.page_title">Agenda | TrataTudo</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="/js/i18n.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex selection:bg-indigo-500/30">
+
+  <!-- Sidebar container -->
   <div id="sidebar-container" class="shrink-0"></div>
-  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden pb-12">
+    
+    <!-- Top Header -->
     <header id="header-container"></header>
+
+    <!-- MAIN VIEWPORT -->
     <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-6">
-      <div>
-        <h1 class="text-2xl font-black text-white">Agenda Administrativa</h1>
-        <p class="text-xs text-slate-400 font-medium">Eventos agendados, reuniões de onboarding e auditorias com tenants.</p>
+      
+      <!-- Calendar Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-black tracking-tight mb-1 text-white" data-i18n="calendar.title">Agenda de Operações</h1>
+          <p class="text-xs text-slate-400 font-medium" data-i18n="calendar.subtitle">Agendamento de reuniões comerciais, visitas de suporte técnico e instalações em cliente.</p>
+        </div>
+        <button 
+          id="btn-open-calendar-modal"
+          class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 group self-start"
+        >
+          <i data-lucide="calendar-plus" class="w-4 h-4 group-hover:scale-110 transition-transform"></i>
+          <span data-i18n="calendar.novo_evento">Agendar Compromisso</span>
+        </button>
       </div>
-      <div class="bg-slate-900 border border-white/5 rounded-3xl p-6">
-        <p class="text-xs text-slate-400 font-semibold leading-relaxed">Sincronização de calendários operacionais integrados para onboarding automático de novos clientes da plataforma.</p>
+
+      <!-- Main Calendar Grid Shell -->
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        <!-- Interactive Sidebar Info (Sidebar inside Calendar Layout) -->
+        <div class="space-y-4 lg:col-span-1">
+          <div class="bg-slate-900 border border-white/5 rounded-3xl p-5 space-y-4">
+            <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Legenda de Tipos</h3>
+            <div class="space-y-2 text-xs font-bold text-slate-300">
+              <div class="flex items-center gap-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                <span>Visita de Venda</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                <span>Instalação</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                <span>Suporte Técnico</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                <span>Reunião Interna</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                <span>Outros</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-slate-900 border border-white/5 rounded-3xl p-5 space-y-3">
+            <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Eventos do Dia Seleccionado</h3>
+            <div id="day-events-list" class="space-y-3 max-h-[300px] overflow-y-auto no-scrollbar">
+              <p class="text-[11px] text-slate-500 font-semibold italic text-center py-4">Seleccione um dia no calendário para ver eventos específicos.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- MAIN CALENDAR GRID CONTAINER -->
+        <div class="lg:col-span-3 bg-slate-900 border border-white/5 rounded-[2rem] p-6 space-y-6">
+          
+          <!-- Month Picker Controls -->
+          <div class="flex items-center justify-between border-b border-white/5 pb-4">
+            <div class="flex items-center gap-2">
+              <button id="btn-month-prev" class="p-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-xl border border-white/5 transition-all">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+              </button>
+              <h2 id="calendar-month-year" class="text-md font-black tracking-tight text-white uppercase min-w-[140px] text-center">Maio 2026</h2>
+              <button id="btn-month-next" class="p-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-xl border border-white/5 transition-all">
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+              </button>
+            </div>
+            <span class="text-[8px] font-black uppercase text-slate-500 tracking-widest bg-slate-950 px-2.5 py-1 rounded-md border border-white/5 select-none">UTC Engine</span>
+          </div>
+
+          <!-- Calendar Days Layout -->
+          <div class="space-y-2">
+            <!-- Day terms -->
+            <div class="grid grid-cols-7 gap-1 text-center font-black text-[9px] uppercase tracking-wider text-slate-500">
+              <div>Dom</div>
+              <div>Seg</div>
+              <div>Ter</div>
+              <div>Qua</div>
+              <div>Qui</div>
+              <div>Sex</div>
+              <div>Sáb</div>
+            </div>
+
+            <!-- Days Grid -->
+            <div id="calendar-days-grid" class="grid grid-cols-7 gap-1.5 pt-2">
+              <!-- JS rendered days -->
+            </div>
+          </div>
+
+        </div>
+
       </div>
+
     </main>
   </div>
+
+  <!-- ==============================================
+       SCHEDULING FORM MODAL (Add/Edit Appointment)
+       ============================================== -->
+  <div id="calendar-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-950/90 backdrop-blur-md" id="calendar-modal-backdrop"></div>
+    <div class="bg-slate-900 border border-white/10 rounded-[2rem] w-full max-w-md relative z-10 overflow-hidden shadow-2xl animate-fade-in">
+      <div class="p-6 border-b border-white/5 flex items-center justify-between">
+        <div>
+          <h3 id="calendar-modal-title" class="text-lg font-black tracking-tight text-white">Novo Compromisso</h3>
+          <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Controlador de Compromissos</p>
+        </div>
+        <button id="calendar-modal-close" class="p-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full transition-colors">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <form id="calendar-form" class="p-6 space-y-4">
+        <input type="hidden" id="event-id">
+        <div class="space-y-1">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Título do Compromisso *</label>
+          <input type="text" id="event-title" required placeholder="Ex: Suporte de Configuração Final" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Data Início *</label>
+            <input type="date" id="event-start-date" required class="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Hora Início</label>
+            <input type="time" id="event-start-time" class="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Tipo de Compromisso *</label>
+            <select id="event-type" required class="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+              <option value="venda">Visita de Venda</option>
+              <option value="instalacao">Instalação</option>
+              <option value="suporte">Suporte Técnico</option>
+              <option value="reuniao">Reunião Interna</option>
+              <option value="outro">Outro</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Prioridade *</label>
+            <select id="event-priority" required class="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+              <option value="baixa">Baixa</option>
+              <option value="media">Média</option>
+              <option value="alta">Alta</option>
+            </select>
+          </div>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Notas / Descrição Detalhada</label>
+          <textarea id="event-description" rows="3" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-semibold text-slate-300" placeholder="Insira dados de morada, contactos ou detalhes do serviço..."></textarea>
+        </div>
+        
+        <div class="flex gap-2">
+          <button type="button" id="btn-delete-event" class="hidden flex-1 bg-rose-500/10 hover:bg-rose-500 border border-rose-500/20 hover:text-white text-rose-500 rounded-xl py-3.5 font-black text-xs transition-colors">
+            Eliminar
+          </button>
+          <button type="submit" id="event-submit-btn" class="flex-[2] bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3.5 font-black text-xs transition-all active:scale-[0.98]">
+            Guardar Compromisso
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/sidebar.js"></script>
+  <script src="/js/calendar.js"></script>
 </body>
 </html>

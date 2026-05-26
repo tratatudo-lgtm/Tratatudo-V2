@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Clientes | TrataTudo</title>
+  <title data-i18n="clients.page_title">Clientes | TrataTudo</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -11,85 +11,158 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex selection:bg-indigo-500/30">
 
-  <!-- Sidebar Container -->
+  <!-- Sidebar container -->
   <div id="sidebar-container" class="shrink-0"></div>
 
   <!-- Main Content Wrapper -->
   <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden pb-12">
-    <!-- Header Container -->
+    
+    <!-- Top Header -->
     <header id="header-container"></header>
 
-    <!-- Main Content Area -->
-    <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-6">
+    <!-- MAIN VIEWPORT -->
+    <main id="main-content" class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-6">
       
-      <!-- Top banner + action button -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-black tracking-tight mb-1 text-white">Gestão de Clientes</h1>
-          <p class="text-xs text-slate-400 font-medium">Controlo total de subscrições, estados de rede e engines de IA multitenant.</p>
-        </div>
-        <button 
-          id="btn-open-create-trial"
-          class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 group self-start"
-        >
-          <i data-lucide="plus" class="w-4 h-4 group-hover:rotate-90 transition-transform"></i>
-          <span>Novo Trial</span>
-        </button>
-      </div>
-
-      <!-- Live Search & Filtering segment bar -->
-      <div class="flex flex-col gap-4">
-        <!-- Search -->
-        <div class="relative w-full">
-          <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
-          <input 
-            type="text" 
-            id="clients-search-input" 
-            placeholder="Pesquisar por empresa ou número de telefone..."
-            class="w-full bg-slate-900 border border-white/5 rounded-2xl py-3.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-semibold placeholder:text-slate-600"
+      <!-- ==============================================
+           ADMIN VIEW (Tenants Control)
+           ============================================== -->
+      <div id="admin-view" class="hidden space-y-6">
+        <!-- Title and actions -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-black tracking-tight mb-1 text-white" data-i18n="clients_admin.title">Gestão de Tenants</h1>
+            <p class="text-xs text-slate-400 font-medium" data-i18n="clients_admin.subtitle">Controlo total de subscrições, estados de rede e engines de IA multitenant.</p>
+          </div>
+          <button 
+            id="btn-open-create-trial"
+            class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 group self-start"
           >
+            <i data-lucide="plus" class="w-4 h-4 group-hover:rotate-90 transition-transform"></i>
+            <span data-i18n="clients_admin.novo_trial">Novo Trial</span>
+          </button>
         </div>
 
-        <!-- Filter Segmented Button -->
-        <div class="flex bg-slate-900 border border-white/5 p-1 rounded-xl self-start overflow-x-auto no-scrollbar max-w-full">
-          <button data-filter="all" class="px-5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap bg-indigo-600 text-white shadow shadow-indigo-600/10">Todos</button>
-          <button data-filter="active" class="px-5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap text-slate-400 hover:text-slate-200">Ativos</button>
-          <button data-filter="trial" class="px-5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap text-slate-400 hover:text-slate-200">Trial</button>
-          <button data-filter="suspended" class="px-5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap text-slate-400 hover:text-slate-200">Suspensos</button>
+        <!-- Search & Filter -->
+        <div class="flex flex-col gap-4">
+          <div class="relative w-full">
+            <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
+            <input type="text" id="admin-search-input" placeholder="Pesquisar por empresa ou número de telefone..." class="w-full bg-slate-900 border border-white/5 rounded-2xl py-3.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-semibold placeholder:text-slate-600" data-i18n-placeholder="clients_admin.placeholder_search">
+          </div>
+
+          <div class="flex bg-slate-900 border border-white/5 p-1 rounded-xl self-start overflow-x-auto no-scrollbar max-w-full">
+            <button data-filter="all" class="px-5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap bg-indigo-600 text-white shadow shadow-indigo-600/10" data-i18n="clients_admin.filter_all">Todos</button>
+            <button data-filter="active" class="px-5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap text-slate-400 hover:text-slate-200" data-i18n="clients_admin.filter_active">Ativos</button>
+            <button data-filter="trial" class="px-5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap text-slate-400 hover:text-slate-200" data-i18n="clients_admin.filter_trial">Trial</button>
+            <button data-filter="suspended" class="px-5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap text-slate-400 hover:text-slate-200" data-i18n="clients_admin.filter_subs">Suspensos</button>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="admin-loading" class="flex flex-col items-center justify-center py-20">
+          <i data-lucide="loader" class="w-8 h-8 text-indigo-500 animate-spin mb-4"></i>
+          <p class="text-xs text-slate-500 font-bold tracking-wider uppercase" data-i18n="clients_admin.loading">Lendo base de tenants do Supabase...</p>
+        </div>
+
+        <!-- Grid Container -->
+        <div id="admin-clients-grid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+        <!-- Empty State -->
+        <div id="admin-clients-empty" class="hidden flex flex-col items-center justify-center py-20 text-center">
+          <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 mb-4">
+            <i data-lucide="bot" class="w-8 h-8 text-slate-600"></i>
+          </div>
+          <h4 class="text-lg font-bold text-slate-300" data-i18n="clients_admin.empty_title">Nenhum cliente detetado</h4>
+          <p class="text-xs text-slate-500 max-w-xs mt-1" data-i18n="clients_admin.empty_desc">Crie um novo trial hub para começar ou alterne os filtros de pesquisa.</p>
         </div>
       </div>
 
-      <!-- Loading State -->
-      <div id="clients-loading" class="flex flex-col items-center justify-center py-20">
-        <i data-lucide="loader" class="w-8 h-8 text-indigo-500 animate-spin mb-4"></i>
-        <p class="text-xs text-slate-500 font-bold tracking-wider uppercase">Lendo base de tenants do Supabase...</p>
-      </div>
 
-      <!-- Clients List Cards (Mobile-first Layout) -->
-      <div id="clients-grid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <!-- Injected via JavaScript -->
-      </div>
-
-      <!-- Empty State -->
-      <div id="clients-empty" class="hidden flex flex-col items-center justify-center py-20 text-center">
-        <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 mb-4">
-          <i data-lucide="bot" class="w-8 h-8 text-slate-600"></i>
+      <!-- ==============================================
+           CLIENT HUB VIEW (CRM Customers List)
+           ============================================== -->
+      <div id="client-crm-view" class="hidden space-y-6">
+        <!-- Title and action -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-black tracking-tight mb-1 text-white" data-i18n="clients.crm_title">Os Meus Clientes</h1>
+            <p class="text-xs text-slate-400 font-medium" data-i18n="clients.crm_subtitle">Gestão comercial de clientes, dados de facturação (NIF) e históricos.</p>
+          </div>
+          <button 
+            id="btn-open-create-client"
+            class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 group self-start"
+          >
+            <i data-lucide="user-plus" class="w-4 h-4 group-hover:scale-110 transition-transform"></i>
+            <span data-i18n="clients.adicionar_cliente">Adicionar Cliente</span>
+          </button>
         </div>
-        <h4 class="text-lg font-bold text-slate-300">Nenhum cliente detetado</h4>
-        <p class="text-xs text-slate-500 max-w-xs mt-1">Crie um novo trial hub para começar ou alterne os filtros de pesquisa.</p>
+
+        <!-- Search, Date Filter & Clear Controls -->
+        <div class="bg-slate-900 border border-white/5 rounded-3xl p-5 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="relative w-full">
+              <label class="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2 block" data-i18n="clients.pesquisa">Pesquisa</label>
+              <i data-lucide="search" class="absolute left-4 bottom-3.5 w-4 h-4 text-slate-500"></i>
+              <input type="text" id="crm-search-input" placeholder="Nome ou telefone..." class="w-full bg-slate-950 border border-white/5 rounded-xl py-3 pl-11 pr-4 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all font-semibold placeholder:text-slate-600">
+            </div>
+            <div>
+              <label class="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2 block" data-i18n="clients.data_inicio">Data de Criação (Início)</label>
+              <input type="date" id="crm-date-start" class="w-full bg-slate-950 border border-white/5 rounded-xl py-2.5 px-4 text-xs font-semibold focus:outline-none select-none text-slate-350">
+            </div>
+            <div>
+              <label class="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2 block" data-i18n="clients.data_fim">Data de Criação (Fim)</label>
+              <input type="date" id="crm-date-end" class="w-full bg-slate-950 border border-white/5 rounded-xl py-2.5 px-4 text-xs font-semibold focus:outline-none select-none text-slate-350">
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="crm-loading" class="flex flex-col items-center justify-center py-10">
+          <i data-lucide="loader" class="w-6 h-6 text-indigo-500 animate-spin mb-3"></i>
+          <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider" data-i18n="clients.loading_crm">Carregando lista de contactos CRM...</p>
+        </div>
+
+        <!-- CRM Clients Table -->
+        <div id="crm-table-container" class="hidden bg-slate-900 border border-white/5 rounded-3xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-white/5 bg-slate-950 text-slate-400 text-[10px] uppercase font-black tracking-wider">
+                  <th class="p-4" data-i18n="clients.tbl_nome">Nome / Empresa</th>
+                  <th class="p-4" data-i18n="clients.tbl_telefone">Telefone</th>
+                  <th class="p-4" data-i18n="clients.tbl_email">E-mail</th>
+                  <th class="p-4" data-i18n="clients.tbl_morada">Morada</th>
+                  <th class="p-4" data-i18n="clients.tbl_nif">NIF</th>
+                  <th class="p-4" data-i18n="clients.tbl_criado_em">Data de Criação</th>
+                  <th class="p-4 text-center" data-i18n="clients.tbl_acoes">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="crm-clients-tbody" class="divide-y divide-white/5 text-xs font-semibold text-slate-300">
+                <!-- Javascript populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Empty state CRM -->
+        <div id="crm-clients-empty" class="hidden flex flex-col items-center justify-center py-16 text-center bg-slate-900 rounded-3xl border border-white/5">
+          <div class="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center mb-3 text-slate-500 border border-white/5">
+            <i data-lucide="user-x" class="w-6 h-6"></i>
+          </div>
+          <h4 class="text-sm font-bold text-slate-300" data-i18n="clients.crm_empty">Nenhum cliente no CRM</h4>
+          <p class="text-[11px] text-slate-500 mt-0.5" data-i18n="clients.crm_empty_desc">Adicione o seu primeiro cliente comercial para começar.</p>
+        </div>
       </div>
 
     </main>
   </div>
 
-  <!-- DETAILS PANEL DRAWER -->
+
+  <!-- ==============================================
+       SUPER ADMIN DRAWER & MODALS
+       ============================================== -->
   <div id="client-drawer" class="fixed inset-0 z-40 hidden pointer-events-none">
-    <!-- Backdrop overlay -->
     <div id="drawer-backdrop" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm pointer-events-auto"></div>
-    
-    <!-- Drawer panel sliding from right -->
-    <div id="drawer-panel" class="absolute right-0 top-0 bottom-0 w-full md:w-[450px] bg-slate-900 border-l border-white/10 pointer-events-auto shadow-2xl flex flex-col transform translate-x-full transition-transform duration-300 ease-out">
-      <!-- Drawer Header -->
+    <div id="drawer-panel" class="absolute right-0 top-0 bottom-0 w-full md:w-[450px] bg-slate-900 border-l border-white/15 pointer-events-auto shadow-2xl flex flex-col transform translate-x-full transition-transform duration-300 ease-out">
       <div class="p-6 border-b border-white/5 flex items-center justify-between">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 bg-indigo-600/10 rounded-2xl flex items-center justify-center text-indigo-400">
@@ -105,29 +178,23 @@
         </button>
       </div>
 
-      <!-- Drawer Content -->
       <div class="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 no-scrollbar">
-        <!-- Giant Zap Trigger Button (Only for trials) -->
-        <button 
-          id="btn-activate-production"
-          class="hidden w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-3xl p-5 font-black text-sm tracking-wide shadow-xl shadow-emerald-600/10 flex flex-col items-center justify-center gap-1 transition-all group shrink-0 active:scale-[0.98] animate-pulse"
-        >
-          <i data-lucide="zap" class="w-6 h-6 text-white mb-0.5"></i>
-          <span>ATIVAR MODO PRODUÇÃO</span>
+        <button id="btn-activate-production" class="hidden w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-3xl p-5 font-black text-sm tracking-wide shadow-xl flex flex-col items-center justify-center gap-1 transition-all group shrink-0 active:scale-[0.98]">
+          <i data-lucide="zap" class="w-6 h-6 text-white mb-0.5 animate-bounce"></i>
+          <span data-i18n="clients.btn_activate">ATIVAR MODO PRODUÇÃO</span>
           <span class="text-[9px] font-black opacity-80 uppercase tracking-widest">Alocar Instância Dedicada do Whatsapp</span>
         </button>
 
-        <!-- Contract Info Group -->
         <div class="bg-white/5 rounded-2xl p-5 border border-white/5 space-y-4">
           <h4 class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Metadados de Conta</h4>
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Plano Atual</label>
-              <span id="drawer-plan" class="text-xs font-black text-indigo-400 uppercase">Pro</span>
+              <span id="drawer-plan" class="text-xs font-black text-indigo-400 uppercase">Starter</span>
             </div>
             <div>
               <label class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Instância Atribuidor</label>
-              <div id="drawer-instance" class="text-xs font-bold text-slate-250 truncate">Dedicated Engine</div>
+              <div id="drawer-instance" class="text-xs font-bold text-slate-200 truncate">N/A</div>
             </div>
             <div class="col-span-2">
               <label class="text-[9px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Vencimento da Subscrição</label>
@@ -139,12 +206,11 @@
           </div>
         </div>
 
-        <!-- Contact details -->
         <div class="bg-white/5 rounded-2xl p-5 border border-white/5 space-y-3">
           <h4 class="text-[9px] font-black text-slate-500 uppercase tracking-wider block">Dados e Contacto</h4>
           <div class="flex items-center gap-3 bg-slate-950 p-3 rounded-xl border border-white/5">
             <i data-lucide="phone" class="w-4 h-4 text-slate-500"></i>
-            <span id="drawer-phone" class="text-xs font-bold text-slate-300">+351 000 000 000</span>
+            <span id="drawer-phone" class="text-xs font-bold text-slate-300">--</span>
           </div>
           <div class="flex items-center gap-3 bg-slate-950 p-3 rounded-xl border border-white/5">
             <i data-lucide="mail" class="w-4 h-4 text-slate-500"></i>
@@ -152,14 +218,9 @@
           </div>
         </div>
 
-        <!-- Operational and strategical controls -->
         <div class="space-y-3">
           <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest block px-1">Comandos de Negócio</label>
-          
-          <button 
-            id="btn-open-bot-config"
-            class="w-full flex items-center justify-between p-4 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/20 font-bold text-xs transition-colors group"
-          >
+          <button id="btn-open-bot-config" class="w-full flex items-center justify-between p-4 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/20 font-bold text-xs transition-colors group">
             <div class="flex items-center gap-3">
               <i data-lucide="bot" class="w-4 h-4"></i>
               <span>Configurar Engine de IA</span>
@@ -168,150 +229,195 @@
           </button>
 
           <div class="grid grid-cols-2 gap-3">
-            <button 
-              id="btn-edit-client"
-              class="flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 font-bold text-xs border border-white/5 transition-all"
-            >
+            <button id="btn-edit-client" class="flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 font-bold text-xs border border-white/5 transition-all">
               <i data-lucide="edit" class="w-4 h-4 text-indigo-400"></i>
-              Editar Dados
+              <span>Editar Dados</span>
             </button>
-            <button 
-              id="btn-toggle-status"
-              class="flex items-center justify-center gap-2 p-3 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 rounded-xl font-bold text-xs transition-all"
-            >
+            <button id="btn-toggle-status" class="flex items-center justify-center gap-2 p-3 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 rounded-xl font-bold text-xs transition-all">
               <i data-lucide="shield-alert" class="w-4 h-4"></i>
               <span>Suspender</span>
             </button>
           </div>
 
-          <button 
-            id="btn-delete-tenant"
-            class="w-full flex items-center justify-center gap-2 p-4 bg-white/5 hover:bg-rose-500 text-slate-400 hover:text-white rounded-xl font-bold text-xs border border-white/5 hover:border-rose-500 transition-colors mt-6"
-          >
+          <button id="btn-delete-tenant" class="w-full flex items-center justify-center gap-2 p-4 bg-white/5 hover:bg-rose-500 text-slate-400 hover:text-white rounded-xl font-bold text-xs border border-white/5 hover:border-rose-500 transition-colors mt-6">
             <i data-lucide="trash-2" class="w-4 h-4"></i>
             <span>ELIMINAR TENANT DEFINITIVAMENTE</span>
           </button>
-
         </div>
       </div>
     </div>
   </div>
 
-  <!-- NEW TRIAL CONTA MODAL -->
+  <!-- Create Trial Modal (Super Admin) -->
   <div id="create-trial-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-slate-950/90 backdrop-blur-md" id="create-trial-backdrop"></div>
     <div class="bg-slate-900 border border-white/10 rounded-[2rem] w-full max-w-lg relative z-10 overflow-hidden shadow-2xl animate-fade-in">
       <div class="p-6 border-b border-white/5 flex items-center justify-between">
         <div>
-          <h3 class="text-lg font-black text-white">Criar Conta Trial</h3>
-          <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-0.5">Alocador Instantâneo Hub</p>
+          <h3 class="text-lg font-black tracking-tight text-white">Criar Tenant (Trial Hub)</h3>
+          <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Provisionador Automatizado Supabase</p>
         </div>
-        <button id="create-trial-close" class="p-2 bg-white/5 rounded-full text-slate-400 hover:text-white">
+        <button id="create-trial-close" class="p-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full transition-colors">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
-      <form id="create-trial-form" class="p-6 space-y-4 max-h-[75vh] overflow-y-auto no-scrollbar">
+      <form id="create-trial-form" class="p-6 space-y-4">
         <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-1">
-            <label class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Empresa</label>
-            <input type="text" id="trial-company" required placeholder="Lda" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-bold">
+          <div class="col-span-2 space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Nome do Cliente / Empresa *</label>
+            <input type="text" id="trial-company" required class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
           </div>
           <div class="space-y-1">
-            <label class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Whatsapp</label>
-            <input type="text" id="trial-phone" required placeholder="+351" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-bold">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Telemóvel (WhatsApp) *</label>
+            <input type="text" id="trial-phone" required placeholder="Ex: 351912345678" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Responsável Interno</label>
+            <input type="text" id="trial-contact" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+          </div>
+          <div class="col-span-2 space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">E-mail Corporativo</label>
+            <input type="email" id="trial-email" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-1">
-            <label class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Responsável</label>
-            <input type="text" id="trial-contact" placeholder="Nome" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-bold">
-          </div>
-          <div class="space-y-1">
-            <label class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Email</label>
-            <input type="email" id="trial-email" placeholder="admin@empresa" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-bold">
-          </div>
-        </div>
-        <div class="space-y-1">
-          <label class="text-[9px] font-black text-slate-500 uppercase tracking-wider block">Escolha do Plano</label>
+        <div class="space-y-2">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Selecionar Tipo de Plano</label>
           <div class="grid grid-cols-3 gap-2">
-            <button type="button" data-plan="starter" class="py-2 rounded-lg text-[9px] font-black uppercase border border-indigo-500 bg-indigo-500/10 text-indigo-400">STARTER</button>
-            <button type="button" data-plan="pro" class="py-2 rounded-lg text-[9px] font-black uppercase border border-white/10 text-slate-400 hover:border-white/20">PRO</button>
-            <button type="button" data-plan="enterprise" class="py-2 rounded-lg text-[9px] font-black uppercase border border-white/10 text-slate-400 hover:border-white/20">ENTERPRISE</button>
+            <button type="button" data-plan="starter" class="py-2 rounded-lg text-[9px] font-black uppercase border border-indigo-500 bg-indigo-500/10 text-indigo-400">Starter</button>
+            <button type="button" data-plan="pro" class="py-2 rounded-lg text-[9px] font-black uppercase border border-white/10 text-slate-400 hover:border-white/20">Pro Multi-Hub</button>
+            <button type="button" data-plan="enterprise" class="py-2 rounded-lg text-[9px] font-black uppercase border border-white/10 text-slate-400 hover:border-white/20">Enterprise</button>
           </div>
         </div>
         <div class="space-y-1">
-          <label class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Instruções de IA Iniciais</label>
-          <textarea id="trial-instructions" rows="3" placeholder="Insira o prompt inicial..." class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 min-h-[80px]"></textarea>
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Manual do Bot IA (Initial Instructions)</label>
+          <textarea id="trial-instructions" rows="3" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-semibold text-slate-300">Responde sempre de forma polida e profissional...</textarea>
         </div>
-        <button type="submit" id="submit-trial-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3.5 font-black text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
-          <i data-lucide="send" class="w-4 h-4"></i>
-          <span>Ativar Provisioner do Trial</span>
+        <button type="submit" id="submit-trial-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3.5 font-black text-xs transition-all active:scale-[0.98]">
+          Ativar Provisioner do Trial
         </button>
       </form>
     </div>
   </div>
 
-  <!-- IA ENGINE BOTS OVERLAY -->
+
+  <!-- ==============================================
+       CLIENT CRM ADD/EDIT MODAL
+       ============================================== -->
+  <div id="crm-client-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-950/90 backdrop-blur-md" id="crm-client-backdrop"></div>
+    <div class="bg-slate-900 border border-white/10 rounded-[2rem] w-full max-w-xl relative z-10 overflow-hidden shadow-2xl animate-fade-in">
+      <div class="p-6 border-b border-white/5 flex items-center justify-between">
+        <div>
+          <h3 id="crm-modal-title" class="text-lg font-black tracking-tight text-white" data-i18n="clients.crm_add_title">Adicionar Novo Cliente</h3>
+          <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5" data-i18n="clients.crm_add_subtitle">Dados gerais, morada e NIF corporativo</p>
+        </div>
+        <button id="crm-client-close" class="p-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full transition-colors">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <form id="crm-client-form" class="p-6 space-y-4">
+        <input type="hidden" id="crm-client-id">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2 space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block" data-i18n="clients.lbl_nome_completo">Nome / Empresa *</label>
+            <input type="text" id="crm-company-name" required class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block" data-i18n="clients.lbl_telefone_completo">Telefone *</label>
+            <input type="text" id="crm-phone" required placeholder="Ex: 351912345678" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block" data-i18n="clients.lbl_email_completo">Email</label>
+            <input type="email" id="crm-email" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+          </div>
+          <div class="sm:col-span-2 space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block" data-i18n="clients.lbl_morada_completa">Morada</label>
+            <input type="text" id="crm-address" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block" data-i18n="clients.lbl_cidade">Cidade</label>
+            <input type="text" id="crm-city" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block" data-i18n="clients.lbl_postal">Código Postal</label>
+            <input type="text" id="crm-zip" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+          </div>
+          <div class="sm:col-span-2 space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block" data-i18n="clients.lbl_nif">NIF (Número Contribuinte)</label>
+            <input type="text" id="crm-nif" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+          </div>
+          <div class="sm:col-span-2 space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block" data-i18n="clients.lbl_notas">Notas adicionais</label>
+            <textarea id="crm-notes" rows="2" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-semibold text-slate-350"></textarea>
+          </div>
+        </div>
+        <button type="submit" id="crm-submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3.5 font-black text-xs transition-all active:scale-[0.98]" data-i18n="clients.btn_guardar">
+          Guardar Dados do Contacto
+        </button>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Super Admin Support Modals -->
   <div id="bot-config-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-slate-950/90 backdrop-blur-md" id="bot-config-backdrop"></div>
-    <div class="bg-slate-900 border border-white/10 rounded-[2rem] w-full max-w-2xl relative z-10 overflow-hidden shadow-2xl animate-fade-in">
+    <div class="bg-slate-900 border border-white/10 rounded-[2rem] w-full max-w-xl relative z-10 overflow-hidden shadow-2xl">
       <div class="p-6 border-b border-white/5 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <i data-lucide="bot" class="w-5 h-5 text-indigo-400"></i>
-          <div>
-            <h3 class="text-md font-black text-white">Sincronizador AI Evolution</h3>
-            <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-0.5">Prompt Engineering & Hub Connectors</p>
-          </div>
+        <div>
+          <h3 class="text-lg font-black tracking-tight text-white">Configurar Engine de IA</h3>
+          <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Sincronizador Directo Evolution API</p>
         </div>
-        <button id="bot-config-close" class="p-2 bg-white/5 rounded-full text-slate-400 hover:text-white">
+        <button id="bot-config-close" class="p-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
-      <form id="bot-config-form" class="p-6 space-y-4 max-h-[75vh] overflow-y-auto no-scrollbar">
+      <form id="bot-config-form" class="p-6 space-y-4">
         <div class="space-y-1">
-          <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest block">Master Prompt (Comportamento/Estratégia)</label>
-          <textarea id="ia-master-prompt" rows="3" class="w-full bg-slate-950 font-mono text-xs p-3 rounded-xl border border-white/10 focus:border-indigo-500/50 focus:outline-none transition-all placeholder:text-slate-700" placeholder="Comportamento mestre..."></textarea>
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">System Context (Master Prompt)</label>
+          <textarea id="ia-master-prompt" rows="3" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 text-slate-300 font-semibold"></textarea>
         </div>
         <div class="space-y-1">
-          <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest block">Bot Instructions (Manual Completo)</label>
-          <textarea id="ia-bot-instructions" rows="4" class="w-full bg-slate-950 font-mono text-xs p-3 rounded-xl border border-white/10 focus:border-indigo-500/50 focus:outline-none transition-all placeholder:text-slate-700" placeholder="Manual completo..."></textarea>
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Bot Operations Manual</label>
+          <textarea id="ia-bot-instructions" rows="4" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 text-slate-300 font-semibold"></textarea>
         </div>
         <div class="space-y-1">
-          <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest block">Bot Instructions Compact (Prompt Leve)</label>
-          <textarea id="ia-compact" rows="2" class="w-full bg-slate-950 font-mono text-xs p-3 rounded-xl border border-white/10 focus:border-indigo-500/50 focus:outline-none transition-all placeholder:text-slate-700" placeholder="Compactado para rapidez de buffers..."></textarea>
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Compact Prompt (Memory-Friendly)</label>
+          <textarea id="ia-compact" rows="2" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 text-slate-300 font-semibold"></textarea>
         </div>
-        <button type="submit" id="submit-bot-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3.5 font-black text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 mt-4">
-          <i data-lucide="sliders" class="w-4 h-4"></i>
-          <span>Atualizar & Sincronizar Engine IA</span>
+        <button type="submit" id="submit-bot-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3.5 font-black text-xs transition-all active:scale-[0.98]">
+          Atualizar & Sincronizar Engine IA
         </button>
       </form>
     </div>
   </div>
 
-  <!-- CADASTRO EDITING OVERLAY -->
   <div id="edit-client-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-slate-950/90 backdrop-blur-md" id="edit-client-backdrop"></div>
-    <div class="bg-slate-900 border border-white/10 rounded-[2rem] w-full max-w-lg relative z-10 overflow-hidden shadow-2xl animate-fade-in">
+    <div class="bg-slate-900 border border-white/10 rounded-[2rem] w-full max-w-lg relative z-10 overflow-hidden shadow-2xl">
       <div class="p-6 border-b border-white/5 flex items-center justify-between">
-        <h3 class="text-md font-black text-white">Editar Dados Cadastro</h3>
-        <button id="edit-client-close" class="p-2 bg-white/5 rounded-full text-slate-400 hover:text-white">
+        <div>
+          <h3 class="text-lg font-black tracking-tight text-white">Editar Registo Tenant</h3>
+          <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Gestão Cadastral Centralizada</p>
+        </div>
+        <button id="edit-client-close" class="p-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
       <form id="edit-client-form" class="p-6 space-y-4">
         <div class="space-y-1">
-          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Nome da Empresa</label>
-          <input type="text" id="edit-company-name" required class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-bold">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Nome / Empresa Tenant</label>
+          <input type="text" id="edit-company-name" required class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
         </div>
         <div class="space-y-1">
-          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Whatsapp Principal</label>
-          <input type="text" id="edit-phone" required class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-bold">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Nº Whatsapp Principal</label>
+          <input type="text" id="edit-phone" required class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
         </div>
         <div class="space-y-1">
           <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">E-mail Corporativo</label>
-          <input type="email" id="edit-email" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-bold">
+          <input type="email" id="edit-email" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
         </div>
-        <button type="submit" id="submit-edit-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3.5 font-black text-xs mt-4 transition-all active:scale-[0.98]">
+        <button type="submit" id="submit-edit-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3.5 font-black text-xs transition-colors">
           Salvar Dados Cadastro
         </button>
       </form>

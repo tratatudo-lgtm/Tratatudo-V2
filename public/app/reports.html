@@ -3,28 +3,185 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Relatórios | TrataTudo</title>
+  <title data-i18n="reports.page_title">Relatórios | TrataTudo</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="/js/i18n.js"></script>
+  <!-- Chart.js CDN inclusion for high-performance responsive drawings -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex selection:bg-indigo-500/30">
+
+  <!-- Sidebar container -->
   <div id="sidebar-container" class="shrink-0"></div>
-  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden pb-12">
+    
+    <!-- Top Header -->
     <header id="header-container"></header>
+
+    <!-- MAIN VIEWPORT -->
     <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-6">
-      <div>
-        <h1 class="text-2xl font-black text-white">Relatórios Executivos</h1>
-        <p class="text-xs text-slate-400 font-medium">Extração de estatísticas consolidadas mensais em ficheiro estruturado.</p>
+      
+      <!-- Top Title and Period Selector -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-black tracking-tight mb-1 text-white" data-i18n="reports.title">Painel de Analítica</h1>
+          <p class="text-xs text-slate-400 font-medium" data-i18n="reports.subtitle">Métricas e estatísticas em tempo real sobre vendas, performance de agentes e funis de conversão.</p>
+        </div>
+        
+        <!-- Period picker buttons -->
+        <div class="flex bg-slate-900 border border-white/5 p-1 rounded-xl self-start overflow-x-auto no-scrollbar max-w-full">
+          <button data-period="7" class="px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap text-slate-400 hover:text-slate-200" data-i18n="reports.period_7">7 Dias</button>
+          <button data-period="15" class="px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap text-slate-400 hover:text-slate-200" data-i18n="reports.period_15">15 Dias</button>
+          <button data-period="30" class="px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap bg-indigo-600 text-white shadow shadow-indigo-600/10" data-i18n="reports.period_30">30 Dias</button>
+        </div>
       </div>
-      <div class="bg-slate-900 border border-white/5 rounded-3xl p-6">
-        <p class="text-xs text-slate-400 font-semibold leading-relaxed">Gerador de relatórios executivos para exportação em PDF e formato de planilha de tráfego de logs, tickets e MRR.</p>
+
+      <!-- General Statistics Counters Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Sales billing counter -->
+        <div class="bg-slate-900 border border-white/5 rounded-3xl p-5 relative overflow-hidden group">
+          <div class="absolute -right-10 -top-10 w-24 h-24 bg-indigo-600/5 blur-2xl rounded-full"></div>
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+              <i data-lucide="trending-up" class="w-5 h-5"></i>
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">Facturação Estimada</span>
+          </div>
+          <div id="metric-sales" class="text-2xl font-black text-white">0,00 €</div>
+          <p class="text-[9px] text-slate-500 font-bold mt-1 uppercase">Entradas em faturas emitidas</p>
+        </div>
+
+        <!-- Expenses counter -->
+        <div class="bg-slate-900 border border-white/5 rounded-3xl p-5 relative overflow-hidden group">
+          <div class="absolute -right-10 -top-10 w-24 h-24 bg-rose-500/5 blur-2xl rounded-full"></div>
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-450 text-rose-500 flex items-center justify-center">
+              <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">Saídas Estimadas</span>
+          </div>
+          <div id="metric-expenses" class="text-2xl font-black text-white">0,00 €</div>
+          <p class="text-[9px] text-rose-500 font-bold mt-1 uppercase">Despesas declaradas</p>
+        </div>
+
+        <!-- Conversion leads funnel percent class -->
+        <div class="bg-slate-900 border border-white/5 rounded-3xl p-5 relative overflow-hidden group">
+          <div class="absolute -right-10 -top-10 w-24 h-24 bg-emerald-500/5 blur-2xl rounded-full"></div>
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+              <i data-lucide="percent" class="w-5 h-5"></i>
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">Conversão Comercial</span>
+          </div>
+          <div id="metric-conversion" class="text-2xl font-black text-emerald-400">0%</div>
+          <p class="text-[9px] text-emerald-500 font-bold mt-1 uppercase">Taxa de Conclusão de Leads</p>
+        </div>
       </div>
+
+      <!-- MAIN CHARTS PANEL VIEW (Line Plot and Funnel) -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Plot 1: Line Chart of Sales / Expenses over time -->
+        <div class="lg:col-span-2 bg-slate-900 border border-white/5 rounded-[2rem] p-6 space-y-6 flex flex-col justify-between">
+          <div class="border-b border-white/5 pb-3">
+            <h3 class="text-xs font-black text-white uppercase tracking-wider">📈 Curva de Caixa e Fluxos de Caixa</h3>
+            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Sincronização Fiscal Diária</p>
+          </div>
+
+          <!-- Canvas container -->
+          <div class="relative w-full h-[260px]">
+            <canvas id="sales-expenses-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Plot 2: Funnel Channel visual pipeline -->
+        <div class="bg-slate-900 border border-white/5 rounded-[2rem] p-6 space-y-6 flex flex-col justify-between">
+          <div class="border-b border-white/5 pb-3">
+            <h3 class="text-xs font-black text-white uppercase tracking-wider">🛒 Funil Comercial de Contactos</h3>
+            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Taxas de Retenção Ativa</p>
+          </div>
+
+          <!-- CSS Bar Funnel -->
+          <div class="space-y-4 flex-1 flex flex-col justify-center">
+            <!-- Stage 1 -->
+            <div class="space-y-1">
+              <div class="flex justify-between text-[10px] font-black uppercase text-slate-400">
+                <span>Total Leads CRM</span>
+                <span id="funnel-total">0</span>
+              </div>
+              <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-white/5">
+                <div id="bar-total" class="h-full bg-indigo-600 transition-all duration-700" style="width: 100%;"></div>
+              </div>
+            </div>
+            <!-- Stage 2 -->
+            <div class="space-y-1">
+              <div class="flex justify-between text-[10px] font-black uppercase text-slate-400">
+                <span>Contactados</span>
+                <span id="funnel-contacted">0</span>
+              </div>
+              <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-white/5">
+                <div id="bar-contacted" class="h-full bg-indigo-500 transition-all duration-700" style="width: 75%;"></div>
+              </div>
+            </div>
+            <!-- Stage 3 -->
+            <div class="space-y-1">
+              <div class="flex justify-between text-[10px] font-black uppercase text-slate-400">
+                <span>Negociação Ativa</span>
+                <span id="funnel-negotiating">0</span>
+              </div>
+              <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-white/5">
+                <div id="bar-negotiating" class="h-full bg-amber-500 transition-all duration-700" style="width: 45%;"></div>
+              </div>
+            </div>
+            <!-- Stage 4 -->
+            <div class="space-y-1">
+              <div class="flex justify-between text-[10px] font-black uppercase text-slate-400">
+                <span>Convertidos / Ativos</span>
+                <span id="funnel-converted">0</span>
+              </div>
+              <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-white/5">
+                <div id="bar-converted" class="h-full bg-emerald-500 transition-all duration-700" style="width: 25%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Collaborative Agent Performances -->
+      <div class="bg-slate-900 border border-white/5 rounded-[2rem] p-6 space-y-4">
+        <div class="border-b border-white/5 pb-3">
+          <h3 class="text-xs font-black text-white uppercase tracking-wider">👥 Performance Operacional de Agentes</h3>
+          <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Produtividade de Tarefas Concluídas</p>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-white/5 bg-slate-950 text-slate-500 text-[10px] uppercase font-black tracking-wider">
+                <th class="p-4">Colaborador</th>
+                <th class="p-4 text-center">Registos Geridos</th>
+                <th class="p-4 text-center">Sprints Fechados</th>
+                <th class="p-4 text-center">Taxa de Eficiência %</th>
+              </tr>
+            </thead>
+            <tbody id="reports-agents-tbody" class="divide-y divide-white/5 text-xs text-slate-300">
+              <!-- Dynamically rendered -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </main>
   </div>
+
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/sidebar.js"></script>
+  <script src="/js/reports.js"></script>
 </body>
 </html>

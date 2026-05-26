@@ -3,28 +3,160 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tarefas | TrataTudo</title>
+  <title data-i18n="tasks.page_title">Tarefas | TrataTudo</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="/js/i18n.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex selection:bg-indigo-500/30">
+
+  <!-- Sidebar container -->
   <div id="sidebar-container" class="shrink-0"></div>
-  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden pb-12">
+    
+    <!-- Top Header -->
     <header id="header-container"></header>
+
+    <!-- MAIN VIEWPORT -->
     <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-6">
-      <div>
-        <h1 class="text-2xl font-black text-white">Tarefas Operacionais</h1>
-        <p class="text-xs text-slate-400 font-medium">Controlo e atribuição de ações críticas internas e suporte.</p>
+      
+      <!-- Top Title Bar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-black tracking-tight mb-1 text-white" data-i18n="tasks.title">Quadro de Tarefas</h1>
+          <p class="text-xs text-slate-400 font-medium" data-i18n="tasks.subtitle">Gerencie fluxos operacionais internos, sprints corporativas e tarefas individuais.</p>
+        </div>
+        <button 
+          id="btn-open-task-modal"
+          class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 group self-start"
+        >
+          <i data-lucide="check-square" class="w-4 h-4 group-hover:scale-110 transition-transform"></i>
+          <span data-i18n="tasks.nova_tarefa">Nova Tarefa</span>
+        </button>
       </div>
-      <div class="bg-slate-900 border border-white/5 rounded-3xl p-6">
-        <p class="text-xs text-slate-400 font-semibold leading-relaxed">Sprints corporativos, bugs relatados e listas de tarefas táticas de intervenção do Super Admin.</p>
+
+      <!-- Loading Tracker -->
+      <div id="tasks-loading" class="flex flex-col items-center justify-center py-20">
+        <i data-lucide="loader" class="w-8 h-8 text-indigo-500 animate-spin mb-4"></i>
+        <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">A obter metas e sprints operacionais...</p>
       </div>
+
+      <!-- KANBAN COLUMNS SCREEN (Responsive flex/grid columns) -->
+      <div id="tasks-kanban-board" class="hidden grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- COLUMN 1: BACKLOG -->
+        <div class="bg-slate-900 border border-white/5 rounded-[2rem] p-4 flex flex-col min-h-[450px]">
+          <div class="flex items-center justify-between border-b border-white/5 pb-3 mb-4">
+            <div class="flex items-center gap-2.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+              <h3 class="font-black text-xs text-white uppercase tracking-wider">📌 Backlog</h3>
+            </div>
+            <span id="count-backlog" class="px-2 py-0.5 rounded-full text-[9px] font-black bg-white/5 text-slate-400">0</span>
+          </div>
+          <div id="col-backlog" class="flex-1 space-y-3 overflow-y-auto max-h-[500px] no-scrollbar">
+            <!-- Backlog cards -->
+          </div>
+        </div>
+
+        <!-- COLUMN 2: IN PROGRESS -->
+        <div class="bg-slate-900 border border-white/5 rounded-[2rem] p-4 flex flex-col min-h-[450px]">
+          <div class="flex items-center justify-between border-b border-white/5 pb-3 mb-4">
+            <div class="flex items-center gap-2.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+              <h3 class="font-black text-xs text-white uppercase tracking-wider">⚙️ Em Curso</h3>
+            </div>
+            <span id="count-inprogress" class="px-2 py-0.5 rounded-full text-[9px] font-black bg-white/5 text-slate-400">0</span>
+          </div>
+          <div id="col-inprogress" class="flex-1 space-y-3 overflow-y-auto max-h-[500px] no-scrollbar">
+            <!-- In Progress cards -->
+          </div>
+        </div>
+
+        <!-- COLUMN 3: COMPLETED -->
+        <div class="bg-slate-900 border border-white/5 rounded-[2rem] p-4 flex flex-col min-h-[450px]">
+          <div class="flex items-center justify-between border-b border-white/5 pb-3 mb-4">
+            <div class="flex items-center gap-2.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              <h3 class="font-black text-xs text-white uppercase tracking-wider"> Terminado</h3>
+            </div>
+            <span id="count-completed" class="px-2 py-0.5 rounded-full text-[9px] font-black bg-white/5 text-slate-400">0</span>
+          </div>
+          <div id="col-completed" class="flex-1 space-y-3 overflow-y-auto max-h-[500px] no-scrollbar">
+            <!-- Completed cards -->
+          </div>
+        </div>
+
+      </div>
+
     </main>
   </div>
+
+  <!-- ==============================================
+       TASK MANAGER FORM MODAL (Add/Edit Task)
+       ============================================== -->
+  <div id="task-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-950/90 backdrop-blur-md" id="task-modal-backdrop"></div>
+    <div class="bg-slate-900 border border-white/10 rounded-[2rem] w-full max-w-md relative z-10 overflow-hidden shadow-2xl animate-fade-in">
+      <div class="p-6 border-b border-white/5 flex items-center justify-between">
+        <div>
+          <h3 id="task-modal-title" class="text-lg font-black tracking-tight text-white">Criar Nova Tarefa</h3>
+          <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Gestor de Atividades</p>
+        </div>
+        <button id="task-modal-close" class="p-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full transition-colors">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <form id="task-form" class="p-6 space-y-4">
+        <input type="hidden" id="task-id">
+        <div class="space-y-1">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Título do Trabalho / Sprint *</label>
+          <input type="text" id="task-title" required placeholder="Ex: Sincronizar bases de teste" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Data de Entrega</label>
+            <input type="date" id="task-due-date" class="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Prioridade *</label>
+            <select id="task-priority" required class="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+              <option value="baixa">Baixa</option>
+              <option value="media">Média</option>
+              <option value="alta">Alta</option>
+            </select>
+          </div>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Coluna Inicial / Estado *</label>
+          <select id="task-column" required class="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+            <option value="backlog">Backlog / A Fazer</option>
+            <option value="in_progress">Em Curso</option>
+            <option value="completed">Resolvido / Concluído</option>
+          </select>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Especificações e Instruções</label>
+          <textarea id="task-description" rows="3" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-semibold text-slate-300" placeholder="Insira aqui as instruções do sprint..."></textarea>
+        </div>
+        
+        <div class="flex gap-2">
+          <button type="button" id="btn-delete-task" class="hidden flex-1 bg-rose-500/10 hover:bg-rose-500 border border-rose-500/20 hover:text-white text-rose-500 rounded-xl py-3.5 font-black text-xs transition-colors">
+            Eliminar
+          </button>
+          <button type="submit" id="task-submit-btn" class="flex-[3] bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3.5 font-black text-xs transition-all active:scale-[0.98]">
+            Salvar Sprint de Trabalho
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/sidebar.js"></script>
+  <script src="/js/tasks.js"></script>
 </body>
 </html>

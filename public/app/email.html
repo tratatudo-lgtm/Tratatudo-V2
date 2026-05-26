@@ -3,28 +3,125 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Email | TrataTudo</title>
+  <title data-i18n="email.page_title">E-mail SMTP | TrataTudo</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="/js/i18n.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex selection:bg-indigo-500/30">
+
+  <!-- Sidebar container -->
   <div id="sidebar-container" class="shrink-0"></div>
-  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden pb-12">
+    
+    <!-- Top Header -->
     <header id="header-container"></header>
+
+    <!-- MAIN VIEWPORT -->
     <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-6">
+      
+      <!-- Top Title -->
       <div>
-        <h1 class="text-2xl font-black text-white">Mensagens de E-mail</h1>
-        <p class="text-xs text-slate-400 font-medium font-bold">Disparos automáticos e notificações transacionais SMTP.</p>
+        <h1 class="text-2xl font-black tracking-tight mb-1 text-white" data-i18n="email.title">Servidor de Correio (SMTP)</h1>
+        <p class="text-xs text-slate-400 font-medium" data-i18n="email.subtitle">Configure servidores locais ou globais para envio automático de alertas, faturas digitais e actualizações.</p>
       </div>
-      <div class="bg-slate-900 border border-white/5 rounded-3xl p-6">
-        <p class="text-xs text-slate-400 font-semibold leading-relaxed">Configuração de canais SMTP Resend ou Mailgun para notificações transacionais, recuperação de faturas e alertas de OTP.</p>
+
+      <!-- Two-Column Form and Test layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left Column: Master Form settings -->
+        <div class="lg:col-span-2 bg-slate-900 border border-white/5 rounded-[2rem] p-6 space-y-6">
+          <div class="border-b border-white/5 pb-4">
+            <h3 class="text-sm font-black text-white" data-i18n="email.config_smtp">Credenciais do Servidor SMTP</h3>
+            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Sincronização Directa NodeMailer</p>
+          </div>
+
+          <form id="smtp-form" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="space-y-1 sm:col-span-2">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Servidor Host SMTP *</label>
+                <input type="text" id="smtp-host" required placeholder="Ex: smtp.gmail.com ou mail.empresa.com" class="w-full bg-slate-955 bg-slate-950/40 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+              </div>
+              <div class="space-y-1">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Porta de Conexão *</label>
+                <input type="number" id="smtp-port" required placeholder="Ex: 465 ou 587" class="w-full bg-slate-950/40 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+              </div>
+              <div class="space-y-1">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Segurança SSL / TLS</label>
+                <select id="smtp-secure" class="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+                  <option value="tls">STARTTLS (Recomendado - Porta 587)</option>
+                  <option value="ssl">SSL implícito (Porta 465)</option>
+                  <option value="none">Nenhuma segurança (Porta 25)</option>
+                </select>
+              </div>
+              <div class="space-y-1">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Nome de Utilizador *</label>
+                <input type="text" id="smtp-user" required placeholder="Ex: marketing@suaempresa.com" class="w-full bg-slate-950/40 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+              </div>
+              <div class="space-y-1">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Palavra-passe *</label>
+                <input type="password" id="smtp-pass" required placeholder="••••••••••••••" class="w-full bg-slate-950/40 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+              </div>
+              <div class="space-y-1">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">E-mail do Remetente *</label>
+                <input type="email" id="smtp-sender-email" required placeholder="Ex: nao-responder@empresa.com" class="w-full bg-slate-950/40 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+              </div>
+              <div class="space-y-1">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Nome de Remessa (Label)</label>
+                <input type="text" id="smtp-sender-name" placeholder="Ex: TrataTudo Alertas" class="w-full bg-slate-950/40 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+              </div>
+            </div>
+
+            <div class="pt-4 border-t border-white/5 flex justify-end">
+              <button type="submit" id="btn-save-smtp" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs px-6 py-3.5 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/20">
+                Sincronizar Credenciais SMTP
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Right Column: Interactive Test panel -->
+        <div class="space-y-6">
+          <div class="bg-slate-900 border border-white/5 rounded-[2rem] p-6 space-y-4">
+            <div class="border-b border-white/5 pb-3">
+              <h3 class="text-xs font-black text-white">🔥 Testar En Envio Inicial</h3>
+              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Auditor Directo SMTP</p>
+            </div>
+
+            <p class="text-[11px] text-slate-400 leading-relaxed font-semibold">
+              Valide as suas alterações enviando uma mensagem de verificação teste para o seu e-mail do canal de apoio técnico.
+            </p>
+
+            <form id="test-form" class="space-y-3 pt-2">
+              <div class="space-y-1">
+                <label class="text-[9px] font-black uppercase text-slate-500 tracking-wider">E-mail do Destinatário</label>
+                <input type="email" id="test-recipient-email" required placeholder="Ex: teste@empresa.com" class="w-full bg-slate-950 border border-white/5 rounded-xl p-3 text-xs focus:ring-1 focus:ring-indigo-500 font-bold">
+              </div>
+              <button type="submit" id="btn-test-smtp" class="w-full bg-white/5 hover:bg-white/10 border border-white/5 text-slate-200 hover:text-white rounded-xl py-3 font-black text-xs transition-colors flex items-center justify-center gap-2">
+                <i data-lucide="mail" class="w-4 h-4 text-indigo-400"></i>
+                <span>Disparar E-mail Teste</span>
+              </button>
+            </form>
+
+            <!-- Inline Test Response Widget -->
+            <div id="test-response-box" class="hidden rounded-xl p-3 border text-[11px] font-semibold flex items-start gap-2.5">
+              <i id="test-response-icon" class="w-4 h-4 mt-0.5 shrink-0"></i>
+              <span id="test-response-text">--</span>
+            </div>
+          </div>
+        </div>
+
       </div>
+
     </main>
   </div>
+
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/sidebar.js"></script>
+  <script src="/js/email.js"></script>
 </body>
 </html>

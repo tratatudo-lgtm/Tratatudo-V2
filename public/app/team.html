@@ -3,28 +3,464 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Equipa | TrataTudo</title>
+  <title data-i18n="team.page_title">Equipa | TrataTudo</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="/js/i18n.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex selection:bg-indigo-500/30">
+
+  <!-- Sidebar container -->
   <div id="sidebar-container" class="shrink-0"></div>
-  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden pb-12">
+    
+    <!-- Top Header -->
     <header id="header-container"></header>
+
+    <!-- MAIN VIEWPORT -->
     <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-6">
-      <div>
-        <h1 class="text-2xl font-black text-white">Equipa de Administração</h1>
-        <p class="text-xs text-slate-400 font-medium">Gestão de utilizadores com nível Super Admin na plataforma.</p>
+      
+      <!-- Top Section -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-black tracking-tight mb-1 text-white" data-i18n="team.title">Gestão de Equipa</h1>
+          <p class="text-xs text-slate-400 font-medium" data-i18n="team.subtitle">Adicione colaboradores, defina cargos corporativos e configure permissões de acesso granulares.</p>
+        </div>
+        <button 
+          id="btn-open-team-modal"
+          class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 group self-start"
+        >
+          <i data-lucide="user-plus" class="w-4 h-4 group-hover:scale-110 transition-transform"></i>
+          <span data-i18n="team.novo_colaborador">Novo Colaborador</span>
+        </button>
       </div>
-      <div class="bg-slate-900 border border-white/5 rounded-3xl p-6">
-        <p class="text-xs text-slate-400 font-semibold leading-relaxed">Configuração e auditoria de chaves de API individuais, perfis e permissões granulares dos colaboradores.</p>
+
+      <!-- Quick Info Stats -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-slate-900 border border-white/5 rounded-3xl p-5 flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+            <i data-lucide="users-2" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <span class="text-[10px] font-black uppercase text-slate-500 tracking-widerblock">Total Membros</span>
+            <div id="stat-total-members" class="text-xl font-bold text-white mt-0.5">0</div>
+          </div>
+        </div>
+        <div class="bg-slate-900 border border-white/5 rounded-3xl p-5 flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+            <i data-lucide="shield" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <span class="text-[10px] font-black uppercase text-slate-500 tracking-wider block">Admins</span>
+            <div id="stat-admins" class="text-xl font-bold text-white mt-0.5">0</div>
+          </div>
+        </div>
+        <div class="bg-slate-900 border border-white/5 rounded-3xl p-5 flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-450 text-amber-500 flex items-center justify-center">
+            <i data-lucide="workflow" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <span class="text-[10px] font-black uppercase text-slate-500 tracking-wider block">Agentes Activos</span>
+            <div id="stat-agents" class="text-xl font-bold text-white mt-0.5">0</div>
+          </div>
+        </div>
       </div>
+
+      <!-- Loading Section -->
+      <div id="team-loading" class="flex flex-col items-center justify-center py-10">
+        <i data-lucide="loader" class="w-8 h-8 text-indigo-500 animate-spin mb-3"></i>
+        <p class="text-xs text-slate-500 font-bold uppercase tracking-wider" data-i18n="team.loading">A aceder aos registos de permissões do hub...</p>
+      </div>
+
+      <!-- Main Team Table -->
+      <div id="team-table-container" class="hidden bg-slate-900 border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-white/5 bg-slate-950 text-slate-400 text-[10px] uppercase font-black tracking-wider">
+                <th class="p-4" data-i18n="team.tbl_colaborador">Colaborador</th>
+                <th class="p-4" data-i18n="team.tbl_email">E-mail</th>
+                <th class="p-4" data-i18n="team.tbl_cargo">Cargo</th>
+                <th class="p-4" data-i18n="team.tbl_status">Status</th>
+                <th class="p-4 text-center" data-i18n="team.tbl_acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="team-tbody" class="divide-y divide-white/5 text-xs font-semibold text-slate-300">
+              <!-- Dynamically rendered -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Empty Frame -->
+      <div id="team-empty" class="hidden flex flex-col items-center justify-center py-20 text-center bg-slate-900 border border-white/5 rounded-3xl">
+        <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-4 text-slate-500 border border-white/5">
+          <i data-lucide="user-x" class="w-8 h-8"></i>
+        </div>
+        <h4 class="text-lg font-bold text-slate-300" data-i18n="team.empty_title">Sem colaboradores</h4>
+        <p class="text-xs text-slate-500 max-w-sm mt-1" data-i18n="team.empty_desc">Adicione colaboradores da sua equipa e atribua acessos imediatos.</p>
+      </div>
+
     </main>
   </div>
+
+  <!-- ==============================================
+       COLLABORATOR 2-STEP MODAL (Adicionar/Editar)
+       ============================================== -->
+  <div id="team-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-950/90 backdrop-blur-md" id="team-modal-backdrop"></div>
+    <div class="bg-slate-900 border border-white/10 rounded-[2rem] w-full max-w-2xl relative z-10 overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
+      
+      <!-- Header -->
+      <div class="p-6 border-b border-white/5 flex items-center justify-between shrink-0">
+        <div>
+          <h3 id="team-modal-title" class="text-lg font-black tracking-tight text-white">Novo Colaborador</h3>
+          <p id="team-modal-subtitle" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Defina acessos e regras operacionais</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="step-indicator" class="px-2.5 py-1 text-[9px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full">Passo 1/2</span>
+          <button id="team-modal-close" class="p-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full transition-colors">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Form Body with Scroll -->
+      <form id="team-form" class="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
+        <input type="hidden" id="collab-id">
+
+        <!-- ==============================================
+             STEP 1: PROFILE DATA
+             ============================================== -->
+        <div id="step-1-container" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="sm:col-span-2 space-y-1">
+              <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Nome Inteiro *</label>
+              <input type="text" id="collab-name" required class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">E-mail Profissional *</label>
+              <input type="email" id="collab-email" required class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Contacto de Telemóvel</label>
+              <input type="text" id="collab-phone" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Cargo</label>
+              <select id="collab-role" class="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-350">
+                <option value="Agente">Agente de Vendas</option>
+                <option value="Coordenador">Coordenador de Operações</option>
+                <option value="Financeiro">Responsável Financeiro</option>
+                <option value="Admin">Super Administrador de Hub</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Status do Acesso</label>
+              <select id="collab-status" class="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-350">
+                <option value="active">Permitido (Activo)</option>
+                <option value="inactive">Bloqueado (Inactivo)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==============================================
+             STEP 2: PERMISSIONS Badges Checkboxes
+             ============================================== -->
+        <div id="step-2-container" class="hidden space-y-6">
+          <p class="text-[11px] text-slate-400 font-semibold leading-relaxed border-b border-white/5 pb-4">
+            Seleccione as permissões de ecrã e acções permitidas ao utilizador no painel principal.
+          </p>
+
+          <!-- Permissions Category layout -->
+          <div class="space-y-6" id="permissions-grid">
+            
+            <!-- 📊 DASHBOARD -->
+            <div class="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-3">
+              <div class="flex items-center justify-between border-b border-white/5 pb-2">
+                <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                  <i data-lucide="bar-chart-3" class="w-3.5 h-3.5 text-indigo-400"></i>
+                  📊 Dashboard
+                </span>
+                <div class="flex gap-2">
+                  <button type="button" class="btn-check-all text-[8px] font-black uppercase text-indigo-400 hover:text-indigo-350 select-none">Todos</button>
+                  <span class="text-slate-700 text-[8px] font-black">|</span>
+                  <button type="button" class="btn-clear-all text-[8px] font-black uppercase text-slate-500 hover:text-slate-400 select-none">Limpar</button>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="ver_dashboard" class="accent-indigo-500">
+                  <span>Ver Dashboard</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="ver_metricas_financeiras" class="accent-indigo-500">
+                  <span>Ver Métricas Financeiras</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 💬 ATENDIMENTO -->
+            <div class="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-3">
+              <div class="flex items-center justify-between border-b border-white/5 pb-2">
+                <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                  <i data-lucide="message-square" class="w-3.5 h-3.5 text-indigo-400"></i>
+                  💬 Atendimento
+                </span>
+                <div class="flex gap-2">
+                  <button type="button" class="btn-check-all text-[8px] font-black uppercase text-indigo-400 hover:text-indigo-350 select-none">Todos</button>
+                  <span class="text-slate-700 text-[8px] font-black">|</span>
+                  <button type="button" class="btn-clear-all text-[8px] font-black uppercase text-slate-500 hover:text-slate-400 select-none">Limpar</button>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="conversas" class="accent-indigo-500">
+                  <span>Conversas</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="tickets" class="accent-indigo-500">
+                  <span>Tickets</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="pedidos" class="accent-indigo-500">
+                  <span>Pedidos</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="reclamacoes" class="accent-indigo-500 font-bold">
+                  <span>Reclamações</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 👥 CLIENTES -->
+            <div class="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-3">
+              <div class="flex items-center justify-between border-b border-white/5 pb-2">
+                <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                  <i data-lucide="user-check" class="w-3.5 h-3.5 text-indigo-400"></i>
+                  👥 Clientes
+                </span>
+                <div class="flex gap-2">
+                  <button type="button" class="btn-check-all text-[8px] font-black uppercase text-indigo-400 hover:text-indigo-350 select-none">Todos</button>
+                  <span class="text-slate-700 text-[8px] font-black">|</span>
+                  <button type="button" class="btn-clear-all text-[8px] font-black uppercase text-slate-500 hover:text-slate-400 select-none">Limpar</button>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="ver_clientes" class="accent-indigo-500">
+                  <span>Ver Clientes</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="adicionar_editar_clientes" class="accent-indigo-500">
+                  <span>Adicionar/Editar</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="exportar_clientes" class="accent-indigo-500 font-bold">
+                  <span>Exportar</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 🛒 VENDAS -->
+            <div class="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-3">
+              <div class="flex items-center justify-between border-b border-white/5 pb-2">
+                <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                  <i data-lucide="trending-up" class="w-3.5 h-3.5 text-indigo-400"></i>
+                  🛒 Vendas
+                </span>
+                <div class="flex gap-2">
+                  <button type="button" class="btn-check-all text-[8px] font-black uppercase text-indigo-400 hover:text-indigo-350 select-none">Todos</button>
+                  <span class="text-slate-700 text-[8px] font-black">|</span>
+                  <button type="button" class="btn-clear-all text-[8px] font-black uppercase text-slate-500 hover:text-slate-400 select-none">Limpar</button>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="ver_vendas" class="accent-indigo-500">
+                  <span>Ver Vendas</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="criar_vendas" class="accent-indigo-500">
+                  <span>Criar Vendas</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="gerir_pipeline" class="accent-indigo-500 font-bold">
+                  <span>Gerir Pipeline</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 📅 OPERAÇÕES -->
+            <div class="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-3">
+              <div class="flex items-center justify-between border-b border-white/5 pb-2">
+                <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                  <i data-lucide="briefcase" class="w-3.5 h-3.5 text-indigo-400"></i>
+                  📅 Operações
+                </span>
+                <div class="flex gap-2">
+                  <button type="button" class="btn-check-all text-[8px] font-black uppercase text-indigo-400 hover:text-indigo-350 select-none">Todos</button>
+                  <span class="text-slate-700 text-[8px] font-black">|</span>
+                  <button type="button" class="btn-clear-all text-[8px] font-black uppercase text-slate-500 hover:text-slate-400 select-none">Limpar</button>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="agenda" class="accent-indigo-500">
+                  <span>Agenda</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="tarefas" class="accent-indigo-500">
+                  <span>Tarefas</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="documentos" class="accent-indigo-500 font-bold">
+                  <span>Documentos</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 💰 FINANCEIRO -->
+            <div class="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-3">
+              <div class="flex items-center justify-between border-b border-white/5 pb-2">
+                <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                  <i data-lucide="wallet" class="w-3.5 h-3.5 text-indigo-400"></i>
+                  💰 Financeiro
+                </span>
+                <div class="flex gap-2">
+                  <button type="button" class="btn-check-all text-[8px] font-black uppercase text-indigo-400 hover:text-indigo-350 select-none">Todos</button>
+                  <span class="text-slate-700 text-[8px] font-black">|</span>
+                  <button type="button" class="btn-clear-all text-[8px] font-black uppercase text-slate-500 hover:text-slate-400 select-none">Limpar</button>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="ver_financeiro" class="accent-indigo-500">
+                  <span>Ver Financeiro</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="adicionar_transacoes" class="accent-indigo-500">
+                  <span>Adicionar Transações</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="ver_faturacao" class="accent-indigo-500 font-bold">
+                  <span>Ver Faturação</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 👥 EQUIPA -->
+            <div class="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-3">
+              <div class="flex items-center justify-between border-b border-white/5 pb-2">
+                <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                  <i data-lucide="users" class="w-3.5 h-3.5 text-indigo-400"></i>
+                  👥 Equipa
+                </span>
+                <div class="flex gap-2">
+                  <button type="button" class="btn-check-all text-[8px] font-black uppercase text-indigo-400 hover:text-indigo-350 select-none">Todos</button>
+                  <span class="text-slate-700 text-[8px] font-black">|</span>
+                  <button type="button" class="btn-clear-all text-[8px] font-black uppercase text-slate-500 hover:text-slate-400 select-none">Limpar</button>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="ver_equipa" class="accent-indigo-500">
+                  <span>Ver Equipa</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="gerir_equipa" class="accent-indigo-500 font-bold">
+                  <span>Gerir Equipa</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 📈 RELATÓRIOS -->
+            <div class="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-3">
+              <div class="flex items-center justify-between border-b border-white/5 pb-2">
+                <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                  <i data-lucide="pie-chart" class="w-3.5 h-3.5 text-indigo-400"></i>
+                  📈 Relatórios
+                </span>
+                <div class="flex gap-2">
+                  <button type="button" class="btn-check-all text-[8px] font-black uppercase text-indigo-400 hover:text-indigo-350 select-none">Todos</button>
+                  <span class="text-slate-700 text-[8px] font-black">|</span>
+                  <button type="button" class="btn-clear-all text-[8px] font-black uppercase text-slate-500 hover:text-slate-400 select-none">Limpar</button>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="ver_relatorios" class="accent-indigo-500">
+                  <span>Ver Relatórios</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="exportar_relatorios" class="accent-indigo-500 font-bold">
+                  <span>Exportar</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- ⚙️ CONFIGURAÇÕES -->
+            <div class="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-3">
+              <div class="flex items-center justify-between border-b border-white/5 pb-2">
+                <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                  <i data-lucide="sliders" class="w-3.5 h-3.5 text-indigo-400"></i>
+                  ⚙️ Configurações
+                </span>
+                <div class="flex gap-2">
+                  <button type="button" class="btn-check-all text-[8px] font-black uppercase text-indigo-400 hover:text-indigo-350 select-none">Todos</button>
+                  <span class="text-slate-700 text-[8px] font-black">|</span>
+                  <button type="button" class="btn-clear-all text-[8px] font-black uppercase text-slate-500 hover:text-slate-400 select-none">Limpar</button>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="email" class="accent-indigo-500">
+                  <span>Email</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="automacoes" class="accent-indigo-500">
+                  <span>Automações</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="ia" class="accent-indigo-500 font-bold">
+                  <span>IA</span>
+                </label>
+                <label class="flex items-center gap-2 bg-slate-950 px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-white/10 border border-transparent cursor-pointer select-none">
+                  <input type="checkbox" data-permission="definicoes" class="accent-indigo-500 font-bold">
+                  <span>Definições</span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </form>
+
+      <!-- Footer Buttons -->
+      <div class="p-6 border-t border-white/5 bg-slate-950/50 flex items-center justify-between shrink-0">
+        <button type="button" id="btn-voltar" class="hidden px-5 py-3 bg-white/5 hover:bg-white/10 text-slate-350 rounded-xl font-bold text-xs transition-colors">
+          Voltar
+        </button>
+        <div class="flex-1"></div>
+        <button type="button" id="btn-seguinte" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs transition-colors shadow-lg shadow-indigo-600/20 active:scale-95">
+          Próximo Passo
+        </button>
+        <button type="button" id="btn-gravar" class="hidden px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs transition-colors shadow-lg shadow-emerald-600/20 active:scale-95">
+          Concluir e Guardar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/sidebar.js"></script>
+  <script src="/js/team.js"></script>
 </body>
 </html>

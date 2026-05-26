@@ -3,29 +3,236 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Financeiro | TrataTudo</title>
+  <title data-i18n="finance.page_title">Financeiro | TrataTudo</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="/js/i18n.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex selection:bg-indigo-500/30">
+
+  <!-- Sidebar container -->
   <div id="sidebar-container" class="shrink-0"></div>
-  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden pb-12">
+    
+    <!-- Top Header -->
     <header id="header-container"></header>
+
+    <!-- MAIN VIEWPORT -->
     <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-6">
-      <div>
-        <h1 class="text-2xl font-black text-white">Painel Financeiro</h1>
-        <p class="text-xs text-slate-400 font-medium">Balanço geral, faturas pendentes e fluxo de pagamentos unificado.</p>
+      
+      <!-- Top Bar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-black tracking-tight mb-1 text-white" data-i18n="finance.title">Controlo Financeiro</h1>
+          <p class="text-xs text-slate-400 font-medium" data-i18n="finance.subtitle">Análise consolidada de fluxos de caixa, receitas recorrentes e custos operacionais.</p>
+        </div>
+        <button 
+          id="btn-open-finance-modal"
+          class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 group self-start"
+        >
+          <i data-lucide="plus-circle" class="w-4 h-4 group-hover:rotate-90 transition-transform"></i>
+          <span data-i18n="finance.nova_transacao">Nova Transação</span>
+        </button>
       </div>
-      <div class="bg-slate-900 border border-white/5 rounded-3xl p-6">
-        <h3 class="text-sm font-black text-white uppercase tracking-wider mb-4">Sumário Operacional</h3>
-        <p class="text-xs text-slate-400 font-semibold leading-relaxed">Este módulo de tesouraria do Super Admin consolida as transações efetuadas através do processador central Stripe e sincroniza-as em tempo-real com a contabilidade.</p>
+
+      <!-- Consolidado Analytics Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Revenue Card -->
+        <div class="bg-slate-900 border border-white/5 rounded-3xl p-6 relative overflow-hidden group">
+          <div class="absolute -right-10 -top-10 w-24 h-24 bg-emerald-500/5 blur-2xl rounded-full group-hover:bg-emerald-500/10 transition-colors"></div>
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+              <i data-lucide="arrow-down-left" class="w-5 h-5"></i>
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">Receitas Totais</span>
+          </div>
+          <div id="metric-income" class="text-2xl font-black text-white">0,00 €</div>
+          <p class="text-[9px] text-emerald-500 font-bold mt-1 uppercase" data-i18n="finance.total_entradas">Total de Entradas de Caixa</p>
+        </div>
+
+        <!-- Expenses Card -->
+        <div class="bg-slate-900 border border-white/5 rounded-3xl p-6 relative overflow-hidden group">
+          <div class="absolute -right-10 -top-10 w-24 h-24 bg-rose-500/5 blur-2xl rounded-full group-hover:bg-rose-500/10 transition-colors"></div>
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center">
+              <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">Despesas Totais</span>
+          </div>
+          <div id="metric-expense" class="text-2xl font-black text-white">0,00 €</div>
+          <p class="text-[9px] text-rose-500 font-bold mt-1 uppercase" data-i18n="finance.total_saidas">Total de Custos de Caixa</p>
+        </div>
+
+        <!-- Net balance -->
+        <div class="bg-slate-900 border border-white/5 rounded-3xl p-6 relative overflow-hidden group">
+          <div class="absolute -right-10 -top-10 w-24 h-24 bg-indigo-500/5 blur-2xl rounded-full group-hover:bg-indigo-500/10 transition-colors"></div>
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+              <i data-lucide="scale" class="w-5 h-5"></i>
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">Saldo Líquido</span>
+          </div>
+          <div id="metric-balance" class="text-2xl font-black text-indigo-400">0,00 €</div>
+          <p class="text-[9px] text-slate-500 font-bold mt-1 uppercase" data-i18n="finance.delta_caixa">Fluxo Líquido Consolidado</p>
+        </div>
       </div>
+
+      <!-- Advanced Filter Controls -->
+      <div class="bg-slate-900 border border-white/5 rounded-3xl p-5 space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Search -->
+          <div>
+            <label class="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2 block">Pesquisa</label>
+            <div class="relative w-full">
+              <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500"></i>
+              <input type="text" id="filter-search" placeholder="Procurar descrição..." class="w-full bg-slate-950 border border-white/5 rounded-xl py-2.5 pl-10 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 font-bold placeholder:text-slate-650">
+            </div>
+          </div>
+          <!-- Type Filter -->
+          <div>
+            <label class="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2 block">Fluxo de Caixa</label>
+            <select id="filter-type" class="w-full bg-slate-950 border border-white/5 rounded-xl p-2.5 text-xs font-bold text-slate-350 focus:outline-none">
+              <option value="all">Todas as Transações</option>
+              <option value="income">Entradas (+)</option>
+              <option value="expense">Saídas (-)</option>
+            </select>
+          </div>
+          <!-- Category Filter -->
+          <div>
+            <label class="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2 block">Categoria</label>
+            <select id="filter-category" class="w-full bg-slate-950 border border-white/5 rounded-xl p-2.5 text-xs font-bold text-slate-350 focus:outline-none">
+              <option value="all">Todas as Categorias</option>
+              <option value="Vendas">Vendas</option>
+              <option value="Licença">Licenças</option>
+              <option value="Infraestrutura">Infraestrutura</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Serviços">Serviços</option>
+              <option value="Outros">Outros</option>
+            </select>
+          </div>
+          <!-- Status Filter -->
+          <div>
+            <label class="text-[9px] font-black uppercase text-slate-500 tracking-wider mb-2 block">Estado de Pagamento</label>
+            <select id="filter-status" class="w-full bg-slate-950 border border-white/5 rounded-xl p-2.5 text-xs font-bold text-slate-350 focus:outline-none">
+              <option value="all">Qualquer Estado</option>
+              <option value="paid">Pago</option>
+              <option value="unpaid">Pendente</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading Section -->
+      <div id="finance-loading" class="flex flex-col items-center justify-center py-10">
+        <i data-lucide="loader" class="w-7 h-7 text-indigo-500 animate-spin mb-3"></i>
+        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">A obter registos de fluxo de caixa...</p>
+      </div>
+
+      <!-- Financial Table Container -->
+      <div id="finance-table-container" class="hidden bg-slate-900 border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-white/5 bg-slate-950 text-slate-400 text-[10px] uppercase font-black tracking-wider">
+                <th class="p-4">Descrição</th>
+                <th class="p-4">Valor</th>
+                <th class="p-4">Tipo</th>
+                <th class="p-4">Categoria</th>
+                <th class="p-4">Data Vencimento</th>
+                <th class="p-4 text-center">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="finance-tbody" class="divide-y divide-white/5 text-xs font-semibold text-slate-300">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div id="finance-empty" class="hidden flex flex-col items-center justify-center py-20 text-center bg-slate-900 border border-white/5 rounded-3xl">
+        <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5 mb-4 text-slate-500">
+          <i data-lucide="banknote" class="w-8 h-8 text-slate-650"></i>
+        </div>
+        <h4 class="text-sm font-bold text-slate-300">Sem lançamentos financeiros</h4>
+        <p class="text-xs text-slate-500 max-w-xs mt-1">Crie transações para sincronizar o fluxo de caixa do seu workspace.</p>
+      </div>
+
     </main>
   </div>
+
+  <!-- ==============================================
+       NEW TRANSACTION MODAL (Add Transaction)
+       ============================================== -->
+  <div id="finance-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-950/90 backdrop-blur-md" id="finance-modal-backdrop"></div>
+    <div class="bg-slate-900 border border-white/10 rounded-[2rem] w-full max-w-md relative z-10 overflow-hidden shadow-2xl animate-fade-in">
+      <div class="p-6 border-b border-white/5 flex items-center justify-between">
+        <div>
+          <h3 class="text-lg font-black tracking-tight text-white">Criar Lançamento Financeiro</h3>
+          <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Controlador de Lançamentos</p>
+        </div>
+        <button id="finance-modal-close" class="p-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full transition-colors">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <form id="finance-form" class="p-6 space-y-4">
+        <div class="space-y-1">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Descrição do Lançamento *</label>
+          <input type="text" id="fin-description" required placeholder="Ex: Mensalidade Cliente Pro" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Valor (€) *</label>
+            <input type="number" step="0.01" id="fin-amount" required placeholder="Ex: 120.00" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Fluxo / Tipo *</label>
+            <select id="fin-type" required class="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+              <option value="income">Entrada (+)</option>
+              <option value="expense">Saída (-)</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Categoria</label>
+            <select id="fin-category" class="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+              <option value="Vendas">Vendas</option>
+              <option value="Licença">Licença</option>
+              <option value="Infraestrutura">Infraestrutura</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Serviços">Serviços</option>
+              <option value="Outros">Outros</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Data Vencimento *</label>
+            <input type="date" id="fin-due-date" required class="w-full bg-slate-950 border border-white/10 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-300">
+          </div>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Liquidação (Pago) *</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" id="btn-settled-yes" class="py-2 rounded-lg text-[9px] font-black uppercase border border-emerald-500 bg-emerald-500/10 text-emerald-400">PAGO / LIQUIDADO</button>
+            <button type="button" id="btn-settled-no" class="py-2 rounded-lg text-[9px] font-black uppercase border border-white/10 text-slate-500 hover:border-white/20">PENDENTE</button>
+          </div>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Notas / Notas Comerciais</label>
+          <textarea id="fin-notes" rows="2" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-2 focus:ring-indigo-500/20 font-semibold text-slate-350"></textarea>
+        </div>
+        <button type="submit" id="finance-submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3.5 font-black text-xs transition-all active:scale-[0.98]">
+          Efectuar Lançamento Financeiro
+        </button>
+      </form>
+    </div>
+  </div>
+
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/sidebar.js"></script>
+  <script src="/js/finance.js"></script>
 </body>
 </html>
