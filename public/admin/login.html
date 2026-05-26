@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/css/style.css">
   <!-- Lucide icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="/js/i18n.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -40,7 +41,7 @@
         <i data-lucide="shield-check" class="w-8 h-8 text-indigo-400"></i>
       </div>
       <h1 class="text-2xl font-black tracking-tight text-white mb-1">TrataTudo</h1>
-      <p class="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">Painel Super Admin</p>
+      <p class="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none" data-i18n="super_admin">Painel Super Admin</p>
     </div>
 
     <!-- Alert Box -->
@@ -52,7 +53,7 @@
     <!-- Login Form -->
     <form id="login-form" class="space-y-5 relative z-10">
       <div class="space-y-2">
-        <label for="email" class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Administrativo</label>
+        <label for="email" class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1" data-i18n="email_admin_label">E-mail Administrativo</label>
         <div class="relative">
           <i data-lucide="mail" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
           <input 
@@ -67,7 +68,7 @@
       </div>
 
       <div class="space-y-2">
-        <label for="password" class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Palavra-passe</label>
+        <label for="password" class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1" data-i18n="password_label">Palavra-passe</label>
         <div class="relative">
           <i data-lucide="key" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
           <input 
@@ -86,7 +87,7 @@
         id="submit-btn"
         class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 mt-2"
       >
-        <span>Aceder ao Painel</span>
+        <span data-i18n="access_panel">Aceder ao Painel</span>
         <i data-lucide="arrow-right" class="w-4 h-4"></i>
       </button>
     </form>
@@ -94,7 +95,7 @@
     <div class="mt-8 pt-6 border-t border-white/5 text-center relative z-10">
       <a href="/login" class="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-widest flex items-center justify-center gap-1.5 transition-colors">
         <i data-lucide="user" class="w-3.5 h-3.5"></i>
-        <span>Login de Cliente</span>
+        <span data-i18n="client_login">Login de Cliente</span>
       </a>
     </div>
   </div>

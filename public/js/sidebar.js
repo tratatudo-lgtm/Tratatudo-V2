@@ -1,62 +1,68 @@
 /**
- * Dynamic Sidebar & Shared Header Renderer (DRY Architecture)
+ * Dynamic Sidebar & Shared Header Renderer (DRY Architecture) with i18n support
  */
 
 const MENU_CATEGORIES = [
   {
     title: "Atendimento & Relacionamento",
+    key: "menu_relationship",
     icon: "users",
     items: [
-      { name: "Conversas", url: "/app/messages", rawUrl: "messages.html", icon: "message-square" },
-      { name: "Tickets", url: "/app/tickets", rawUrl: "tickets.html", icon: "ticket" },
-      { name: "Pedidos", url: "/app/orders", rawUrl: "orders.html", icon: "shopping-bag" },
-      { name: "Reclamações", url: "/app/complaints", rawUrl: "complaints.html", icon: "alert-octagon" },
-      { name: "Clientes", url: "/app/clients", rawUrl: "clients.html", icon: "user-check" }
+      { name: "Conversas", key: "menu_conversations", url: "/app/messages", rawUrl: "messages.html", icon: "message-square" },
+      { name: "Tickets", key: "menu_tickets", url: "/app/tickets", rawUrl: "tickets.html", icon: "ticket" },
+      { name: "Pedidos", key: "menu_orders", url: "/app/orders", rawUrl: "orders.html", icon: "shopping-bag" },
+      { name: "Reclamações", key: "menu_complaints", url: "/app/complaints", rawUrl: "complaints.html", icon: "alert-octagon" },
+      { name: "Clientes", key: "menu_clients", url: "/app/clients", rawUrl: "clients.html", icon: "user-check" }
     ]
   },
   {
     title: "Vendas & Financeiro",
+    key: "menu_sales_finance",
     icon: "dollar-sign",
     items: [
-      { name: "Vendas", url: "/app/sales", rawUrl: "sales.html", icon: "trending-up" },
-      { name: "Financeiro", url: "/app/finance", rawUrl: "finance.html", icon: "wallet" },
-      { name: "Faturação", url: "/app/invoicing", rawUrl: "invoicing.html", icon: "receipt" }
+      { name: "Vendas", key: "menu_sales", url: "/app/sales", rawUrl: "sales.html", icon: "trending-up" },
+      { name: "Financeiro", key: "menu_finance", url: "/app/finance", rawUrl: "finance.html", icon: "wallet" },
+      { name: "Faturação", key: "menu_invoicing", url: "/app/invoicing", rawUrl: "invoicing.html", icon: "receipt" }
     ]
   },
   {
     title: "Operações & Gestão Interna",
+    key: "menu_operations",
     icon: "briefcase",
     items: [
-      { name: "Agenda", url: "/app/calendar", rawUrl: "calendar.html", icon: "calendar" },
-      { name: "Tarefas", url: "/app/tasks", rawUrl: "tasks.html", icon: "check-square" },
-      { name: "Documentos", url: "/app/documents", rawUrl: "documents.html", icon: "file-text" },
-      { name: "Equipa", url: "/app/team", rawUrl: "team.html", icon: "users-round" }
+      { name: "Agenda", key: "menu_calendar", url: "/app/calendar", rawUrl: "calendar.html", icon: "calendar" },
+      { name: "Tarefas", key: "menu_tasks", url: "/app/tasks", rawUrl: "check-square" },
+      { name: "Documentos", key: "menu_documents", url: "/app/documents", rawUrl: "documents.html", icon: "file-text" },
+      { name: "Equipa", key: "menu_team", url: "/app/team", rawUrl: "team.html", icon: "users-round" }
     ]
   },
   {
     title: "Comunicação & Automação",
+    key: "menu_comm_automation",
     icon: "cpu",
     items: [
-      { name: "Email", url: "/app/email", rawUrl: "email.html", icon: "mail" },
-      { name: "Automações", url: "/app/automations", rawUrl: "automations.html", icon: "git-branch" }
+      { name: "Email", key: "menu_email", url: "/app/email", rawUrl: "email.html", icon: "mail" },
+      { name: "Automações", key: "menu_automations", url: "/app/automations", rawUrl: "automations.html", icon: "git-branch" }
     ]
   },
   {
     title: "Análise & Performance",
+    key: "menu_analysis",
     icon: "bar-chart-2",
     items: [
-      { name: "Relatórios", url: "/app/reports", rawUrl: "reports.html", icon: "pie-chart" },
-      { name: "Atividade", url: "/app/activity", rawUrl: "activity.html", icon: "activity" },
-      { name: "Saúde", url: "/app/health", rawUrl: "health.html", icon: "heart-pulse" }
+      { name: "Relatórios", key: "menu_reports", url: "/app/reports", rawUrl: "reports.html", icon: "pie-chart" },
+      { name: "Atividade", key: "menu_activity", url: "/app/activity", rawUrl: "activity.html", icon: "activity" },
+      { name: "Saúde", key: "menu_health", url: "/app/health", rawUrl: "health.html", icon: "heart-pulse" }
     ]
   },
   {
     title: "Tecnologia & Configurações",
+    key: "menu_tech_config",
     icon: "settings",
     items: [
-      { name: "IA", url: "/app/ai", rawUrl: "ai.html", icon: "bot" },
-      { name: "Instância", url: "/app/instance", rawUrl: "instance.html", icon: "server" },
-      { name: "Definições", url: "/app/settings", rawUrl: "settings.html", icon: "sliders" }
+      { name: "IA", key: "menu_ai", url: "/app/ai", rawUrl: "ai.html", icon: "bot" },
+      { name: "Instância", key: "menu_instance", url: "/app/instance", rawUrl: "instance.html", icon: "server" },
+      { name: "Definições", key: "menu_settings", url: "/app/settings", rawUrl: "settings.html", icon: "sliders" }
     ]
   }
 ];
@@ -73,18 +79,20 @@ function renderSidebar() {
   const menuToRender = isAdmin ? [
     {
       title: "Administração Geral",
+      key: "general_admin",
       items: [
-        { name: "Clientes", url: "/admin/clients", rawUrl: "clients.html", icon: "user-check" },
-        { name: "Faturação Planos", url: "/admin/finance", rawUrl: "finance.html", icon: "wallet" },
-        { name: "Tickets de Suporte", url: "/admin/tickets", rawUrl: "tickets.html", icon: "ticket" }
+        { name: "Clientes", key: "clients", url: "/admin/clients", rawUrl: "clients.html", icon: "user-check" },
+        { name: "Faturação Planos", key: "finance_plans", url: "/admin/finance", rawUrl: "finance.html", icon: "wallet" },
+        { name: "Tickets de Suporte", key: "support_tickets", url: "/admin/tickets", rawUrl: "tickets.html", icon: "ticket" }
       ]
     },
     {
       title: "Tecnologia & Infra",
+      key: "tech_infra",
       items: [
-        { name: "Instâncias Evolution", url: "/admin/instance", rawUrl: "instance.html", icon: "server" },
-        { name: "Mestres de IA", url: "/admin/ai", rawUrl: "ai.html", icon: "bot" },
-        { name: "Definições Gerais", url: "/admin/settings", rawUrl: "settings.html", icon: "sliders" }
+        { name: "Instâncias Evolution", key: "evolution_instances", url: "/admin/instance", rawUrl: "instance.html", icon: "server" },
+        { name: "Mestres de IA", key: "ai_masters", url: "/admin/ai", rawUrl: "ai.html", icon: "bot" },
+        { name: "Definições Gerais", key: "general_settings", url: "/admin/settings", rawUrl: "settings.html", icon: "sliders" }
       ]
     }
   ] : MENU_CATEGORIES;
@@ -100,7 +108,7 @@ function renderSidebar() {
         </div>
         <div>
           <h2 class="text-lg font-black text-white px-0.5 tracking-tight group-hover:text-indigo-400 transition-colors">TrataTudo</h2>
-          <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest block -mt-1">${isAdmin ? 'Super Admin' : 'Client Hub'}</span>
+          <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest block -mt-1" data-i18n="${isAdmin ? 'super_admin' : 'client_hub'}">${isAdmin ? 'Super Admin' : 'Client Hub'}</span>
         </div>
       </a>
 
@@ -112,7 +120,7 @@ function renderSidebar() {
             : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
         }">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
-          <span>Dashboard Principal</span>
+          <span data-i18n="dashboard">Dashboard Principal</span>
         </a>
       </div>
 
@@ -123,7 +131,7 @@ function renderSidebar() {
   menuToRender.forEach(cat => {
     html += `
       <div class="space-y-1">
-        <span class="px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest select-none">${cat.title}</span>
+        <span class="px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest select-none" data-i18n="${cat.key}">${cat.title}</span>
         <div class="space-y-0.5 mt-2">
     `;
 
@@ -137,7 +145,7 @@ function renderSidebar() {
             : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent'
         }">
           <i data-lucide="${item.icon}" class="w-4 h-4"></i>
-          <span>${item.name}</span>
+          <span data-i18n="${item.key}">${item.name}</span>
         </a>
       `;
     });
@@ -158,11 +166,11 @@ function renderSidebar() {
             A
           </div>
           <div class="truncate max-w-[120px]">
-            <p id="header-admin-name" class="text-xs font-bold text-white truncate">Utilizador</p>
-            <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">${isAdmin ? 'Super Admin' : 'Cliente'}</span>
+            <p id="header-admin-name" class="text-xs font-bold text-white truncate" data-i18n="user">Utilizador</p>
+            <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest" data-i18n="${isAdmin ? 'super_admin' : 'user'}">${isAdmin ? 'Super Admin' : 'Cliente'}</span>
           </div>
         </div>
-        <button id="logout-btn" class="p-2 hover:bg-white/5 text-slate-500 hover:text-rose-400 rounded-lg transition-colors" title="Sair do painel">
+        <button id="logout-btn" class="p-2 hover:bg-white/5 text-slate-500 hover:text-rose-400 rounded-lg transition-colors" title="Sair do painel" data-i18n-title="logout">
           <i data-lucide="log-out" class="w-4 h-4"></i>
         </button>
       </div>
@@ -195,12 +203,12 @@ function renderSidebar() {
               : 'text-slate-400 hover:bg-white/5'
           }">
             <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
-            <span>Dashboard Principal</span>
+            <span data-i18n="dashboard">Dashboard Principal</span>
           </a>
 
           ${menuToRender.map(cat => `
             <div class="space-y-1">
-              <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest px-4">${cat.title}</span>
+              <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest px-4" data-i18n="${cat.key}">${cat.title}</span>
               <div class="space-y-0.5 mt-2">
                 ${cat.items.map(item => {
                   const resolvedUrl = item.url.replace('/app', basePath);
@@ -212,7 +220,7 @@ function renderSidebar() {
                         : 'text-slate-400 hover:bg-white/5'
                     }">
                       <i data-lucide="${item.icon}" class="w-4 h-4"></i>
-                      <span>${item.name}</span>
+                      <span data-i18n="${item.key}">${item.name}</span>
                     </a>
                   `;
                 }).join('')}
@@ -224,9 +232,9 @@ function renderSidebar() {
         <div class="pt-4 border-t border-white/5 mt-6 flex items-center justify-between">
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-lg bg-indigo-600/20 flex items-center justify-center font-bold text-xs text-indigo-400 font-black">U</div>
-            <span class="text-xs font-bold text-slate-300">${isAdmin ? 'Super Admin' : 'Cliente'}</span>
+            <span class="text-xs font-bold text-slate-300" data-i18n="${isAdmin ? 'super_admin' : 'user'}">${isAdmin ? 'Super Admin' : 'Cliente'}</span>
           </div>
-          <button onclick="handleAdminLogout()" class="p-2 text-rose-500 hover:bg-white/5 rounded-lg">
+          <button onclick="handleAdminLogout()" class="p-2 text-rose-500 hover:bg-white/5 rounded-lg" data-i18n-title="logout">
             <i data-lucide="log-out" class="w-4 h-4"></i>
           </button>
         </div>
@@ -242,6 +250,9 @@ function renderHeader() {
   const container = document.getElementById('header-container');
   if (!container) return;
 
+  const currentPath = window.location.pathname;
+  const isAdmin = currentPath.startsWith('/admin');
+
   container.setAttribute('class', 'sticky top-0 z-20 bg-slate-950/80 backdrop-blur-md border-b border-white/5 px-4 lg:px-8 py-4 shrink-0');
   
   container.innerHTML = `
@@ -256,7 +267,7 @@ function renderHeader() {
         <div class="hidden sm:block">
           <div class="flex items-center gap-2 mb-0.5">
             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
-            <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest">TrataTudo Core Engine</span>
+            <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest= data-i18n="top_welcome">TrataTudo Core Engine</span>
           </div>
         </div>
       </div>
@@ -266,10 +277,10 @@ function renderHeader() {
         <!-- Floating active status indicator -->
         <div class="flex items-center gap-2 bg-white/5 border border-white/5 rounded-full px-4 py-1.5 text-xs text-slate-400 font-bold max-sm:hidden">
           <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-          <span>Super Admin Mode</span>
+          <span data-i18n="${isAdmin ? 'mode_super_admin' : 'mode_client'}">${isAdmin ? 'Super Admin Mode' : 'Painel do Cliente'}</span>
         </div>
 
-        <button onclick="handleAdminLogout()" class="lg:hidden p-2.5 bg-white/5 rounded-xl text-slate-400 hover:text-rose-400 transition-colors" title="Sair">
+        <button onclick="handleAdminLogout()" class="lg:hidden p-2.5 bg-white/5 rounded-xl text-slate-400 hover:text-rose-400 transition-colors" title="Sair" data-i18n-title="logout">
           <i data-lucide="log-out" class="w-4 h-4"></i>
         </button>
       </div>
@@ -311,6 +322,11 @@ document.addEventListener('DOMContentLoaded', () => {
   renderSidebar();
   renderHeader();
   
+  // Re-translate page in case i18n initialized first
+  if (window.translatePage) {
+    window.translatePage();
+  }
+
   // Re-run lucide icons detection, as sidebar icons are dynamic
   if (window.lucide) {
     window.lucide.createIcons();
