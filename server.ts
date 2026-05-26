@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
@@ -1617,6 +1618,93 @@ async function startServer() {
 
       if (error) throw error;
       res.json({ ok: true, data });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // --- LEAD CAPTURE ENDPOINT (PUBLIC) ---
+  app.post("/api/lead", async (req: any, res: any) => {
+    try {
+      const { name, company, phone, email } = req.body;
+      if (!name || !company || !phone || !email) {
+        return res.status(400).json({ ok: false, error: "Todos os campos (Nome, Empresa, Telefone, Email) são obrigatórios." });
+      }
+
+      // 1. Grava no Supabase
+      const { data, error } = await supabase
+        .from("leads")
+        .insert({
+          name,
+          company,
+          phone,
+          email,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        console.error("Erro ao guardar lead no Supabase:", error);
+        return res.status(500).json({ ok: false, error: error.message });
+      }
+
+      // 2. Envia e-mail de notificação (Nodemailer) com tratamento de erro
+      try {
+        const smtpHost = process.env.SMTP_HOST;
+        const smtpPort = Number(process.env.SMTP_PORT || "587");
+        const smtpUser = process.env.SMTP_USER;
+        const smtpPass = process.env.SMTP_PASS;
+        const smtpFrom = process.env.SMTP_FROM || `"TrataTudo Leads" <geral@tratatudo.pt>`;
+
+        if (smtpHost && smtpUser && smtpPass) {
+          const transporter = nodemailer.createTransport({
+            host: smtpHost,
+            port: smtpPort,
+            secure: smtpPort === 465,
+            auth: {
+              user: smtpUser,
+              pass: smtpPass,
+            },
+          });
+
+          const mailOptions = {
+            from: smtpFrom,
+            to: "geral@tratatudo.pt",
+            subject: `⚡ Nova Lead Capturada: ${name} (${company})`,
+            text: `Olá Equipa TrataTudo,\n\nUma nova lead de contacto foi capturada na Landing Page:\n\n- Nome: ${name}\n- Empresa: ${company}\n- Telefone: ${phone}\n- E-mail: ${email}\n- Data de Registo: ${new Date().toLocaleString("pt-PT")}\n\nTrataTudo.pt - Gestão Operacional Inteligente`,
+            html: `
+              <div style="font-family: sans-serif; padding: 20px; color: #1e293b; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; max-w-xl; margin: auto;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                  <h2 style="color: #6366f1; margin: 0; font-family: 'Space Grotesk', sans-serif;">⚡ Nova Lead Capturada!</h2>
+                  <p style="color: #64748b; font-size: 14px; margin-top: 5px;">Landing Page TrataTudo.pt</p>
+                </div>
+                <div style="background-color: #ffffff; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; line-height: 1.6;">
+                  <p style="margin: 0 0 10px;"><strong>Nome:</strong> <span style="color: #0f172a;">${name}</span></p>
+                  <p style="margin: 0 0 10px;"><strong>Empresa:</strong> <span style="color: #0f172a;">${company}</span></p>
+                  <p style="margin: 0 0 10px;"><strong>Telefone:</strong> <span style="color: #0f172a;">${phone}</span></p>
+                  <p style="margin: 0 0 10px;"><strong>E-mail:</strong> <a href="mailto:${email}" style="color: #4f46e5; text-decoration: none;">${email}</a></p>
+                  <p style="margin: 0;"><strong>Data de Registo:</strong> <span style="color: #64748b;">${new Date().toLocaleString("pt-PT")}</span></p>
+                </div>
+                <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #94a3b8;">
+                  Este e-mail foi gerado automaticamente pelo servidor TrataTudo.pt
+                </div>
+              </div>
+            `,
+          };
+
+          await transporter.sendMail(mailOptions);
+          console.log(`E-mail de notificação enviado para geral@tratatudo.pt para a lead: ${email}`);
+        } else {
+          console.warn("SMTP não configurado inteiramente em .env (SMTP_HOST, SMTP_USER, SMTP_PASS em falta). Notificação enviada para consola.");
+          console.log("SIMULAÇÃO DE REGISTO DE LEAD DE EMAIL (SMTP em falta):");
+          console.log(`[Nova Lead] Nome: ${name}, Empresa: ${company}, Telefone: ${phone}, Email: ${email}`);
+        }
+      } catch (mailErr: any) {
+        console.error("Erro ao enviar e-mail de notificação de lead (lead salva no Supabase):", mailErr);
+      }
+
+      res.status(201).json({ ok: true, message: "Lead criada com sucesso", data });
     } catch (err: any) {
       res.status(500).json({ ok: false, error: err.message });
     }
