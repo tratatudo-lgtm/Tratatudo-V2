@@ -81,26 +81,59 @@
 
       <!-- Desktop Nav Navigation Links -->
       <nav class="hidden lg:flex items-center gap-8">
-        <a href="#servicos" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="landing.nav_services">Serviços</a>
-        <a href="#como-funciona" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="landing.nav_how">Como Funciona</a>
-        <a href="#casos" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="landing.nav_cases">Casos de Sucesso</a>
-        <a href="#planos" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="landing.nav_plans">Planos e Preços</a>
-        <a href="#faq" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="landing.nav_faq">FAQ</a>
+        <a href="#problema" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="nav_problem">Problema</a>
+        <a href="#servicos" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="nav_services">Serviços</a>
+        <a href="#planos" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="nav_pricing">Planos</a>
+        <a href="#empresa" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="nav_company">Empresa</a>
       </nav>
 
       <!-- Language Selector + Action CTAs -->
       <div class="hidden lg:flex items-center gap-4">
-        <!-- Language Selector Pill -->
-        <div class="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/5 rounded-xl">
-          <button data-lang-btn="pt" onclick="translatePage('pt')" class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all border border-transparent flex items-center gap-1">🇵🇹 <span class="tracking-wider">PT</span></button>
-          <button data-lang-btn="en" onclick="translatePage('en')" class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all border border-transparent flex items-center gap-1">🇬🇧 <span class="tracking-wider">EN</span></button>
-          <button data-lang-btn="es" onclick="translatePage('es')" class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all border border-transparent flex items-center gap-1">🇪🇸 <span class="tracking-wider">ES</span></button>
-          <button data-lang-btn="fr" onclick="translatePage('fr')" class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all border border-transparent flex items-center gap-1">🇫🇷 <span class="tracking-wider">FR</span></button>
+        <!-- Language Selector Dropdown -->
+        <div class="relative inline-block text-left" id="desktop-lang-selector">
+          <button onclick="toggleDesktopLangDropdown(event)" id="desktop-lang-btn" class="flex items-center gap-2 px-3 py-2 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 rounded-xl text-xs font-semibold text-slate-300 transition-all cursor-pointer">
+            <span class="text-sm">🌐</span>
+            <span id="active-lang-label" class="tracking-wider uppercase">PT</span>
+            <i data-lucide="chevron-down" id="desktop-lang-chevron" class="w-3.5 h-3.5 transition-transform duration-200"></i>
+          </button>
+          
+          <div id="desktop-lang-dropdown" class="hidden absolute right-0 mt-2 w-40 bg-slate-900/95 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl z-[999] overflow-hidden transition-all duration-200 origin-top-right transform scale-95 opacity-0">
+            <div class="py-1 divide-y divide-white/5">
+              <button onclick="translatePage('pt')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-left font-bold" data-dropdown-lang="pt">
+                <span class="flex items-center gap-2">
+                  <span>🇵🇹</span>
+                  <span>Português</span>
+                </span>
+                <span class="checkmark text-emerald-400 hidden">✓</span>
+              </button>
+              <button onclick="translatePage('en')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-left font-bold" data-dropdown-lang="en">
+                <span class="flex items-center gap-2">
+                  <span>🇬🇧</span>
+                  <span>English</span>
+                </span>
+                <span class="checkmark text-emerald-400 hidden">✓</span>
+              </button>
+              <button onclick="translatePage('es')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-left font-bold" data-dropdown-lang="es">
+                <span class="flex items-center gap-2">
+                  <span>🇪🇸</span>
+                  <span>Español</span>
+                </span>
+                <span class="checkmark text-emerald-400 hidden">✓</span>
+              </button>
+              <button onclick="translatePage('fr')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-left font-bold" data-dropdown-lang="fr">
+                <span class="flex items-center gap-2">
+                  <span>🇫🇷</span>
+                  <span>Français</span>
+                </span>
+                <span class="checkmark text-emerald-400 hidden">✓</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Login / Action buttons -->
-        <a href="/login" class="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 rounded-xl border border-white/5 transition-all" data-i18n="landing.nav_login">Entrar</a>
-        <button onclick="openLeadModal(event)" class="cursor-pointer px-5 py-2.5 text-sm font-bold bg-brand-600 hover:bg-brand-500 text-white rounded-xl shadow-lg shadow-brand-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all" data-i18n="landing.hero_btn_start">Começar Grátis</button>
+        <a href="/login" class="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 rounded-xl border border-white/5 transition-all" data-i18n="nav_login">Entrar</a>
+        <button onclick="openLeadModal(event)" class="cursor-pointer px-5 py-2.5 text-sm font-bold bg-brand-600 hover:bg-brand-500 text-white rounded-xl shadow-lg shadow-brand-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all" data-i18n="hero_cta1">Começar Grátis</button>
       </div>
 
       <!-- Mobile Menu Hamburger Button -->
@@ -132,17 +165,16 @@
       </div>
 
       <nav class="flex flex-col gap-5 pt-8">
-        <a href="#servicos" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="landing.nav_services">Serviços</a>
-        <a href="#como-funciona" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="landing.nav_how">Como Funciona</a>
-        <a href="#casos" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="landing.nav_cases">Casos de Sucesso</a>
-        <a href="#planos" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="landing.nav_plans">Planos e Preços</a>
-        <a href="#faq" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="landing.nav_faq">FAQ</a>
+        <a href="#problema" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="nav_problem">Problema</a>
+        <a href="#servicos" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="nav_services">Serviços</a>
+        <a href="#planos" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="nav_pricing">Planos</a>
+        <a href="#empresa" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="nav_company">Empresa</a>
       </nav>
     </div>
 
     <div class="flex flex-col gap-4">
-      <a href="/login" class="w-full py-3.5 text-center font-bold text-slate-300 border border-white/10 rounded-xl hover:bg-white/5 transition-all" data-i18n="landing.nav_login">Entrar</a>
-      <button onclick="openLeadModal(event)" class="cursor-pointer w-full py-3.5 text-center font-bold bg-brand-600 hover:bg-brand-500 text-white rounded-xl shadow-lg transition-all" data-i18n="landing.hero_btn_start">Começar Grátis</button>
+      <a href="/login" class="w-full py-3.5 text-center font-bold text-slate-300 border border-white/10 rounded-xl hover:bg-white/5 transition-all" data-i18n="nav_login">Entrar</a>
+      <button onclick="openLeadModal(event)" class="cursor-pointer w-full py-3.5 text-center font-bold bg-brand-600 hover:bg-brand-500 text-white rounded-xl shadow-lg transition-all" data-i18n="hero_cta1">Começar Grátis</button>
     </div>
   </div>
 
@@ -158,7 +190,7 @@
       <div class="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
         
         <!-- Hero Text Left -->
-        <div class="lg:col-span-7 flex flex-col items-start text-left">
+        <div class="lg:col-span-12 xl:col-span-7 flex flex-col items-start text-left">
           
           <!-- Badge -->
           <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-brand-500/10 border border-brand-500/25 rounded-full text-brand-300 text-xs font-black tracking-wide mb-6">
@@ -166,34 +198,34 @@
               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
               <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-500"></span>
             </span>
-            <span data-i18n="landing.hero_badge">⚡ Plataforma Tudo-em-Um para Empresas</span>
+            <span data-i18n="hero_badge">⚡ Plataforma Tudo-em-Um para Empresas</span>
           </div>
 
           <!-- Headline / Title -->
-          <h1 class="font-display font-extrabold text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-[1.1] text-white">
-            <span class="bg-gradient-to-r from-brand-300 via-indigo-200 to-indigo-400 bg-clip-text text-transparent text-glow" data-i18n="landing.hero_h1_glow">
+          <h1 class="font-display font-extrabold text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-[1.1] text-white" data-i18n="hero_title">
+            <span class="bg-gradient-to-r from-brand-300 via-indigo-200 to-indigo-400 bg-clip-text text-transparent text-glow">
               Atendimento Inteligente
             </span>
             <br>
-            <span class="text-slate-100" data-i18n="landing.hero_h1_rest">para o seu Negócio</span>
+            <span class="text-slate-100">para o seu Negócio</span>
           </h1>
 
           <!-- Subheadline -->
-          <p class="mt-6 text-base sm:text-lg text-slate-400 leading-relaxed font-medium max-w-xl" data-i18n="landing.hero_p">
+          <p class="mt-6 text-base sm:text-lg text-slate-400 leading-relaxed font-semibold font-medium max-w-xl" data-i18n="hero_sub">
             Automatize o suporte por WhatsApp, sincronize calendários reais, controle tarefas e emita faturamento recorrente automaticamente. Com a plataforma TrataTudo, a sua equipa atinge o potencial máximo.
           </p>
 
           <!-- Buttons -->
           <div class="mt-10 flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
             <button onclick="openLeadModal(event)" class="cursor-pointer flex items-center justify-center gap-2 px-8 py-4 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/25 w-full sm:w-auto hover:translate-y-[-2px] active:translate-y-[0px] transition-all duration-200">
-              <span data-i18n="landing.hero_btn_start">Começar Grátis</span>
+              <span data-i18n="hero_cta1">Começar Agora</span>
               <i data-lucide="arrow-right" class="w-5 h-5"></i>
             </button>
             
             <!-- Safe mock WhatsApp link -->
             <a href="https://wa.me/351923364360" target="_blank" class="flex items-center justify-center gap-2 px-8 py-4 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-semibold rounded-xl border border-white/5 w-full sm:w-auto hover:translate-y-[-2px] active:translate-y-[0px] transition-all duration-200">
               <i data-lucide="message-square" class="w-5 h-5 text-emerald-400"></i>
-              <span data-i18n="landing.hero_btn_whatsapp">Falar por WhatsApp</span>
+              <span data-i18n="hero_cta2">Falar com Consultor IA</span>
             </a>
           </div>
 
@@ -335,17 +367,115 @@
   </section>
 
 
+  <!-- ================= HERO STATS SECTION ================= -->
+  <section class="pb-16 relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 bg-slate-900/45 border border-white/5 backdrop-blur-md p-6 sm:p-8 rounded-3xl">
+        <div class="flex flex-col items-center lg:items-start text-center lg:text-left gap-1">
+          <span class="text-2xl sm:text-3xl font-extrabold text-white">500+</span>
+          <span class="text-xs text-slate-400 font-semibold" data-i18n="hero_stat1_l">Empresas Ativas</span>
+        </div>
+        <div class="flex flex-col items-center lg:items-start text-center lg:text-left gap-1 border-l border-white/5 lg:pl-6 pl-0">
+          <span class="text-2xl sm:text-3xl font-extrabold text-white">2.5M+</span>
+          <span class="text-xs text-slate-400 font-semibold" data-i18n="hero_stat2_l">Mensagens/mês</span>
+        </div>
+        <div class="flex flex-col items-center lg:items-start text-center lg:text-left gap-1 border-l border-white/5 pl-6">
+          <span class="text-2xl sm:text-3xl font-extrabold text-white">99.9%</span>
+          <span class="text-xs text-slate-400 font-semibold" data-i18n="hero_stat3_l">Uptime</span>
+        </div>
+        <div class="flex flex-col items-center lg:items-start text-center lg:text-left gap-1 border-l border-white/5 pl-6">
+          <div class="flex items-center gap-1">
+            <span class="text-2xl sm:text-3xl font-extrabold text-white">4.9/5</span>
+            <i data-lucide="star" class="w-5 h-5 text-amber-400 fill-amber-400"></i>
+          </div>
+          <span class="text-xs text-slate-400 font-semibold" data-i18n="hero_stat4_l">Avaliação</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ================= PROBLEMA SECTION ================= -->
+  <section id="problema" class="py-20 lg:py-32 bg-[#090d16] border-t border-white/5 relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      
+      <!-- Section Header -->
+      <div class="text-center max-w-3xl mx-auto mb-16 sm:mb-20">
+        <span class="text-xs font-bold text-brand-400 uppercase tracking-widest block mb-3 font-mono" data-i18n="problem_label">// Problema</span>
+        <h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-white tracking-tight leading-tight" data-i18n="problem_title">
+          O caos da fragmentação operacional
+        </h2>
+        <p class="mt-4 text-base sm:text-lg text-slate-400 font-medium" data-i18n="problem_sub">
+          A maioria das empresas perde tempo e dinheiro saltando entre dezenas de ferramentas desligadas. Nós unificamos tudo.
+        </p>
+      </div>
+
+      <!-- 3 Problems Grid -->
+      <div class="grid md:grid-cols-3 gap-6 sm:gap-8 mb-16 sm:mb-20">
+        <!-- Problem Card 1 -->
+        <div class="bg-slate-900/40 border border-white/5 p-6 sm:p-8 rounded-2xl relative hover:border-rose-500/20 transition-all group">
+          <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-6 group-hover:scale-110 transition-transform">
+            <i data-lucide="clock" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2" data-i18n="prob1_title">Atendimento lento</h3>
+          <p class="text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="prob1_desc">
+            Clientes esperam horas por respostas simples no WhatsApp comercial, gerando frustração extrema e perda direta de leads quentes.
+          </p>
+        </div>
+
+        <!-- Problem Card 2 -->
+        <div class="bg-slate-900/40 border border-white/5 p-6 sm:p-8 rounded-2xl relative hover:border-rose-500/20 transition-all group">
+          <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-6 group-hover:scale-110 transition-transform">
+            <i data-lucide="calendar-off" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2" data-i18n="prob2_title">Agenda desalinhada</h3>
+          <p class="text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="prob2_desc">
+            Chamadas e marcações manuais que resultam em duplicações de horários e faltas não monitorizadas por falta de aviso inteligente.
+          </p>
+        </div>
+
+        <!-- Problem Card 3 -->
+        <div class="bg-slate-900/40 border border-white/5 p-6 sm:p-8 rounded-2xl relative hover:border-rose-500/20 transition-all group">
+          <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-6 group-hover:scale-110 transition-transform">
+            <i data-lucide="receipt" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2" data-i18n="prob3_title">Faturação manual</h3>
+          <p class="text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="prob3_desc">
+            Emissão manual de faturas e lembretes de cobrança que drenam o tempo valioso e a energia da equipa financeira.
+          </p>
+        </div>
+      </div>
+
+      <!-- Solution callout -->
+      <div class="relative rounded-3xl overflow-hidden p-8 sm:p-12 border border-brand-500/20 bg-gradient-to-r from-brand-950/40 via-indigo-950/20 to-slate-900/50 mt-12 text-center">
+        <div class="absolute inset-0 bg-brand-500/5 blur-2xl opacity-60"></div>
+        <div class="relative z-10 max-w-2xl mx-auto">
+          <div class="w-12 h-12 rounded-full bg-brand-500/20 border border-brand-500/40 flex items-center justify-center text-brand-300 mx-auto mb-6">
+            <i data-lucide="sparkles" class="w-6 h-6"></i>
+          </div>
+          <h3 class="text-2xl sm:text-3xl font-display font-extrabold text-white tracking-tight" data-i18n="sol_title">A Solução TrataTudo</h3>
+          <p class="mt-4 text-base text-slate-350 leading-relaxed font-semibold font-medium" data-i18n="sol_sub">
+            Uma inteligência centralizada que atende, agenda, cobra e coordena as operações do seu negócio em piloto automático.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
   <!-- ================= SERVIÇOS SECTION ================= -->
   <section id="servicos" class="py-20 lg:py-32 relative border-t border-white/5 bg-slate-950">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
       
       <!-- Section Title header -->
       <div class="text-center max-w-3xl mx-auto mb-16 lg:mb-24">
-        <h2 class="font-display font-extrabold text-3xl sm:text-4xl text-white tracking-tight" data-i18n="landing.services_section_title">
+        <span class="text-xs font-bold text-brand-400 uppercase tracking-widest block mb-3 font-mono" data-i18n="svc_label">// Plataforma</span>
+        <h2 class="font-display font-extrabold text-3xl sm:text-4xl text-white tracking-tight" data-i18n="svc_title">
           Tudo o que o seu negócio precisa
         </h2>
-        <p class="mt-4 text-base sm:text-lg text-slate-400" data-i18n="landing.services_section_p">
-          Esqueça a fragmentação de ferramentas. Temos todos os componentes cruciais prontificados numa única consola de alta performance.
+        <p class="mt-4 text-base sm:text-lg text-slate-400 font-medium" data-i18n="svc_sub">
+          Esqueça o software fragmentado. Temos todos os componentes cruciais prontos numa única consola de alto desempenho.
         </p>
       </div>
 
@@ -358,8 +488,8 @@
             <i data-lucide="cpu" class="w-6 h-6"></i>
           </div>
           <div>
-            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="landing.service1_title">Inteligência Artificial (IA)</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-medium" data-i18n="landing.service1_p">
+            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="svc1_title">Inteligência Artificial (IA)</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="svc1_desc">
               Agentes cognitivos formados com o conhecimento da sua empresa para atender, qualificar e fechar vendas no WhatsApp 24/7.
             </p>
           </div>
@@ -371,8 +501,8 @@
             <i data-lucide="users" class="w-6 h-6"></i>
           </div>
           <div>
-            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="landing.service2_title">Central de CRM unificada</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-medium" data-i18n="landing.service2_p">
+            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="svc2_title">Central de CRM unificada</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="svc2_desc">
               Monitorização de conversas, base filtrada de contactos, histórico operacional e perfis enriquecidos em tempo-real.
             </p>
           </div>
@@ -384,8 +514,8 @@
             <i data-lucide="shield" class="w-6 h-6"></i>
           </div>
           <div>
-            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="landing.service3_title">Gestão de Colaboradores</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-medium" data-i18n="landing.service3_p">
+            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="svc3_title">Gestão de Colaboradores</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="svc3_desc">
               Atribua permissões, audite alterações críticias e coordene equipas de suporte em canais dedicados e seguros.
             </p>
           </div>
@@ -397,8 +527,8 @@
             <i data-lucide="credit-card" class="w-6 h-6"></i>
           </div>
           <div>
-            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="landing.service4_title">Painel Financeiro & Stripe</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-medium" data-i18n="landing.service4_p">
+            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="svc4_title">Painel Financeiro & Stripe</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="svc4_desc">
               Sincronização imediata de faturas, subscrições ativas do Stripe e controlo direto de fluxo de tesouraria do SaaS.
             </p>
           </div>
@@ -410,8 +540,8 @@
             <i data-lucide="calendar" class="w-6 h-6"></i>
           </div>
           <div>
-            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="landing.service5_title">Agenda Integrada</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-medium" data-i18n="landing.service5_p">
+            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="svc5_title">Agenda Integrada</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="svc5_desc">
               Onboarding automatizado de clientes e agendamento inteligente sem fricção, totalmente livre de duplicações.
             </p>
           </div>
@@ -423,8 +553,8 @@
             <i data-lucide="layers" class="w-6 h-6"></i>
           </div>
           <div>
-            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="landing.service6_title">Multi-Tenant Seguro</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-medium" data-i18n="landing.service6_p">
+            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="svc6_title">Multi-Tenant Seguro</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="svc6_desc">
               Arbítrio de segurança robusto para gerir múltiplas marcas e instâncias com bases de dados e permissões isoladas.
             </p>
           </div>
@@ -593,10 +723,11 @@
       
       <!-- Headings Title -->
       <div class="text-center max-w-3xl mx-auto mb-16 lg:mb-24">
-        <h2 class="font-display font-extrabold text-3xl sm:text-4xl text-white tracking-tight" data-i18n="landing.plans_section_title">
-          Planos flexíveis para qualquer escala
+        <span class="text-xs font-bold text-brand-400 uppercase tracking-widest block mb-3 font-mono" data-i18n="price_label">// Planos</span>
+        <h2 class="font-display font-extrabold text-3xl sm:text-4xl text-white tracking-tight" data-i18n="price_title">
+          <span class="text-white font-black">Planos flexíveis</span> para qualquer escala
         </h2>
-        <p class="mt-4 text-base sm:text-lg text-slate-400" data-i18n="landing.plans_section_p">
+        <p class="mt-4 text-base sm:text-lg text-slate-400 font-medium" data-i18n="price_sub">
           Sem taxas ocultas ou compromissos complexos. Escolha o plano que melhor se alinha com o volume atual da sua empresa.
         </p>
       </div>
@@ -607,10 +738,10 @@
         <!-- Starter Plan -->
         <div class="bg-slate-900 border border-white/5 rounded-2xl p-8 flex flex-col justify-between text-left hover:border-white/10 transition-colors">
           <div>
-            <span class="text-xs font-black tracking-widest text-slate-400 uppercase" data-i18n="landing.plan1_title">Starter</span>
+            <span class="text-xs font-black tracking-widest text-slate-400 uppercase" data-i18n="plan1_name">Starter</span>
             <div class="mt-4 flex items-baseline gap-2">
-              <span class="text-4xl font-extrabold text-white" data-i18n="landing.plan1_price">49€</span>
-              <span class="text-xs text-slate-500" data-i18n="landing.plan1_period">/mês</span>
+              <span class="text-4xl font-extrabold text-white">49€</span>
+              <span class="text-xs text-slate-500">/mês</span>
             </div>
             
             <ul class="mt-8 space-y-4 text-xs sm:text-sm text-slate-300 font-medium">
@@ -629,7 +760,7 @@
             </ul>
           </div>
 
-          <a href="/login" class="mt-8 w-full py-3 text-center text-xs font-bold text-slate-200 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all block" data-i18n="landing.plan_btn_choose">
+          <a href="/login" class="mt-8 w-full py-3 text-center text-xs font-bold text-slate-200 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all block" data-i18n="plan1_cta">
             Selecionar Plano
           </a>
         </div>
@@ -637,15 +768,15 @@
         <!-- PRO Plan (Popular highlights) -->
         <div class="bg-slate-900/40 border-2 border-brand-500 rounded-2xl p-8 flex flex-col justify-between text-left relative shadow-2xl shadow-brand-500/10">
           <!-- Top badge -->
-          <div class="absolute top-[-13px] left-1/2 -translate-x-1/2 px-3.5 py-0.5 bg-brand-600 text-[10px] font-black uppercase text-white tracking-widest rounded-full shadow">
+          <div class="absolute top-[-13px] left-1/2 -translate-x-1/2 px-3.5 py-0.5 bg-brand-600 text-[10px] font-black uppercase text-white tracking-widest rounded-full shadow" data-i18n="plan2_badge">
             Mais Escolhido
           </div>
 
           <div>
-            <span class="text-xs font-black tracking-widest text-brand-400 uppercase" data-i18n="landing.plan2_title">PRO</span>
+            <span class="text-xs font-black tracking-widest text-brand-400 uppercase" data-i18n="plan2_name">PRO</span>
             <div class="mt-4 flex items-baseline gap-2">
-              <span class="text-4xl font-extrabold text-white" data-i18n="landing.plan2_price">99€</span>
-              <span class="text-xs text-slate-500" data-i18n="landing.plan2_period">/mês</span>
+              <span class="text-4xl font-extrabold text-white">99€</span>
+              <span class="text-xs text-slate-500">/mês</span>
             </div>
             
             <ul class="mt-8 space-y-4 text-xs sm:text-sm text-slate-300 font-medium">
@@ -668,7 +799,7 @@
             </ul>
           </div>
 
-          <a href="/login" class="mt-8 w-full py-3.5 text-center text-xs font-bold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-lg shadow-brand-500/20 transition-all block" data-i18n="landing.plan_btn_choose">
+          <a href="/login" class="mt-8 w-full py-3.5 text-center text-xs font-bold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-lg shadow-brand-500/20 transition-all block" data-i18n="plan2_cta">
             Selecionar Plano
           </a>
         </div>
@@ -676,10 +807,10 @@
         <!-- Enterprise Plan -->
         <div class="bg-slate-900 border border-white/5 rounded-2xl p-8 flex flex-col justify-between text-left hover:border-white/10 transition-colors">
           <div>
-            <span class="text-xs font-black tracking-widest text-slate-400 uppercase" data-i18n="landing.plan3_title">Enterprise</span>
+            <span class="text-xs font-black tracking-widest text-slate-400 uppercase" data-i18n="plan3_name">Enterprise</span>
             <div class="mt-4 flex items-baseline gap-2">
-              <span class="text-4xl font-extrabold text-white" data-i18n="landing.plan3_price">249€</span>
-              <span class="text-xs text-slate-500" data-i18n="landing.plan3_period">/mês</span>
+              <span class="text-4xl font-extrabold text-white">249€</span>
+              <span class="text-xs text-slate-500">/mês</span>
             </div>
             
             <ul class="mt-8 space-y-4 text-xs sm:text-sm text-slate-300 font-medium">
@@ -702,7 +833,7 @@
             </ul>
           </div>
 
-          <a href="/login" class="mt-8 w-full py-3 text-center text-xs font-bold text-slate-200 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all block" data-i18n="landing.plan_btn_choose">
+          <a href="/login" class="mt-8 w-full py-3 text-center text-xs font-bold text-slate-200 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all block" data-i18n="plan3_cta">
             Selecionar Plano
           </a>
         </div>
@@ -788,6 +919,66 @@
   </section>
 
 
+  <!-- ================= CTA SECTION ================= -->
+  <section class="py-20 lg:py-32 bg-[#090d16] border-t border-white/5 relative overflow-hidden">
+    <!-- Subtle glow backgrounds -->
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] rounded-full bg-brand-600/10 blur-[120px] pointer-events-none"></div>
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+      <h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-white tracking-tight" data-i18n="cta_title">
+        Pronto para revolucionar as suas operações?
+      </h2>
+      <p class="mt-4 text-base sm:text-lg text-slate-400 font-medium max-w-2xl mx-auto" data-i18n="cta_sub">
+        Junte-se a centenas de empresas que já automatizaram o seu atendimento, agenda e faturamento hoje mesmo.
+      </p>
+      <div class="mt-8">
+        <button onclick="openLeadModal(event)" class="cursor-pointer inline-flex items-center justify-center gap-2 px-10 py-4 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl shadow-xl shadow-brand-500/25 transition-all hover:scale-105 active:scale-95" data-i18n="cta_btn">
+          Começar Agora
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= EMPRESA SECTION ================= -->
+  <section id="empresa" class="py-20 lg:py-32 bg-slate-950 border-t border-white/5 relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      
+      <!-- Section Header -->
+      <div class="text-left max-w-3xl mb-16 sm:mb-20">
+        <span class="text-xs font-bold text-brand-400 uppercase tracking-widest block mb-3 font-mono" data-i18n="emp_label">// Empresa</span>
+        <h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-white tracking-tight leading-tight" data-i18n="emp_title">
+          Quem somos e a nossa visão
+        </h2>
+      </div>
+
+      <!-- Two column details -->
+      <div class="grid md:grid-cols-2 gap-12 lg:gap-16">
+        <!-- About column -->
+        <div class="bg-white/[0.01] border border-white/5 p-8 rounded-2xl relative">
+          <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <i data-lucide="info" class="w-5 h-5 text-brand-400"></i>
+            <span data-i18n="about_title">Sobre Nós</span>
+          </h3>
+          <p class="text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="about_text">
+            A TrataTudo nasceu com o propósito de democratizar a inteligência artificial para as empresas. A nossa missão é libertar as equipas da burocracia operational, permitindo que se foquem em crescer de forma sustentável e moderna.
+          </p>
+        </div>
+
+        <!-- Careers column -->
+        <div class="bg-white/[0.01] border border-white/5 p-8 rounded-2xl relative">
+          <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <i data-lucide="briefcase" class="w-5 h-5 text-indigo-400"></i>
+            <span data-i18n="careers_title">Carreiras</span>
+          </h3>
+          <p class="text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="careers_text">
+            Estamos sempre à procura de talentos apaixonados por tecnologia, IA e inovação. Se queres transformar a forma como as empresas trabalham a nível global, junta-te à nossa equipa distribuída.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
   <!-- ================= FOOTER SECTION ================= -->
   <footer class="bg-[#070b12] border-t border-white/5 py-12 lg:py-20 relative">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-left">
@@ -795,44 +986,54 @@
       <div class="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 pb-12 border-b border-white/5">
         
         <!-- About column -->
-        <div class="md:col-span-5 flex flex-col gap-4">
+        <div class="md:col-span-3 flex flex-col gap-4">
           <a href="#" class="flex items-center gap-2">
             <div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white">
               <i data-lucide="zap" class="w-4 h-4"></i>
             </div>
             <span class="font-display font-extrabold text-lg text-white">TrataTudo.pt</span>
           </a>
-          <p class="text-xs text-slate-400 leading-relaxed font-medium max-w-sm" data-i18n="landing.footer_about">
-            A plataforma premium tudo-em-um de automatização empresarial para Portugal. Atendimento inteligente, sincronização de dados e faturamento simplificado.
+          <p class="text-xs text-slate-400 leading-relaxed font-semibold font-medium max-w-sm" data-i18n="footer_desc">
+            A plataforma premium tudo-em-um de automatização empresarial. Atendimento inteligente, sincronização de dados e faturamento simplificado.
           </p>
         </div>
 
-        <!-- Links column -->
+        <!-- Services column (4 links) -->
         <div class="md:col-span-3 flex flex-col gap-4">
-          <h4 class="text-xs font-black uppercase text-white tracking-widest" data-i18n="landing.footer_links">Links Rápidos</h4>
-          <ul class="space-y-2 text-xs text-slate-400 font-medium">
-            <li><a href="#servicos" class="hover:text-white transition-colors" data-i18n="landing.nav_services">Serviços</a></li>
-            <li><a href="#como-funciona" class="hover:text-white transition-colors" data-i18n="landing.nav_how">Como Funciona</a></li>
-            <li><a href="#casos" class="hover:text-white transition-colors" data-i18n="landing.nav_cases">Casos de Sucesso</a></li>
-            <li><a href="#planos" class="hover:text-white transition-colors" data-i18n="landing.nav_plans">Planos e Preços</a></li>
+          <h4 class="text-xs font-black uppercase text-white tracking-widest" data-i18n="footer_services">Serviços</h4>
+          <ul class="space-y-2 text-xs text-slate-400 font-semibold font-medium">
+            <li><a href="#servicos" class="hover:text-white transition-colors" data-i18n="footer_svc1">Inteligência Artificial</a></li>
+            <li><a href="#servicos" class="hover:text-white transition-colors" data-i18n="footer_svc2">Central CRM</a></li>
+            <li><a href="#servicos" class="hover:text-white transition-colors" data-i18n="footer_svc3">Gestão de Equipas</a></li>
+            <li><a href="#servicos" class="hover:text-white transition-colors" data-i18n="footer_svc4">Facturação Stripe</a></li>
           </ul>
         </div>
 
-        <!-- Contact column -->
-        <div class="md:col-span-4 flex flex-col gap-4">
-          <h4 class="text-xs font-black uppercase text-white tracking-widest" data-i18n="landing.footer_contact">Contacto Oficial</h4>
-          <ul class="space-y-3.5 text-xs text-slate-400 font-medium">
-            <li class="flex items-center gap-2.5">
-              <i data-lucide="mail" class="w-4 h-4 text-brand-500"></i>
+        <!-- Company column (3 links) -->
+        <div class="md:col-span-3 flex flex-col gap-4">
+          <h4 class="text-xs font-black uppercase text-white tracking-widest" data-i18n="footer_company">Empresa</h4>
+          <ul class="space-y-2 text-xs text-slate-400 font-semibold font-medium">
+            <li><a href="#empresa" class="hover:text-white transition-colors" data-i18n="footer_about">Sobre Nós</a></li>
+            <li><a href="#contacto" class="hover:text-white transition-colors" data-i18n="footer_contact">Contacto</a></li>
+            <li><a href="#empresa" class="hover:text-white transition-colors" data-i18n="footer_careers">Carreiras</a></li>
+          </ul>
+        </div>
+
+        <!-- Contact column (3 links) -->
+        <div class="md:col-span-3 flex flex-col gap-4">
+          <h4 class="text-xs font-black uppercase text-white tracking-widest" data-i18n="footer_contacts">Contactos</h4>
+          <ul class="space-y-3 text-xs text-slate-400 font-semibold font-medium font-medium">
+            <li class="flex flex-col gap-0.5">
+              <span class="text-[9px] uppercase font-black text-brand-400 font-mono">Email</span>
               <span><a href="mailto:geral@tratatudo.pt" class="hover:underline">geral@tratatudo.pt</a></span>
             </li>
-            <li class="flex items-center gap-2.5">
-              <i data-lucide="phone" class="w-4 h-4 text-brand-500"></i>
+            <li class="flex flex-col gap-0.5">
+              <span class="text-[9px] uppercase font-black text-emerald-400 font-mono">WhatsApp IA</span>
               <span><a href="https://wa.me/351923364360" target="_blank" class="hover:underline">+351 923 364 360</a></span>
             </li>
-            <li class="flex items-center gap-2.5">
-              <i data-lucide="map-pin" class="w-4 h-4 text-brand-500"></i>
-              <span>Avenida da Liberdade 110, Lisboa, Portugal</span>
+            <li class="flex flex-col gap-0.5">
+              <span class="text-[9px] uppercase font-black text-indigo-400 font-mono">Telefone</span>
+              <span><a href="tel:+351923364360" class="hover:underline">+351 923 364 360</a></span>
             </li>
           </ul>
         </div>
@@ -841,7 +1042,7 @@
 
       <!-- Bottom trademark -->
       <div class="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-[11px] font-medium">
-        <span data-i18n="landing.footer_rights">© 2026 Todos os direitos reservados. TrataTudo.pt</span>
+        <span data-i18n="footer_copy">© 2026 Todos os direitos reservados. TrataTudo.pt</span>
         <div class="flex items-center gap-6">
           <a href="#" class="hover:text-slate-300">Termos de Serviço</a>
           <a href="#" class="hover:text-slate-300">Política de Privacidade</a>
@@ -950,8 +1151,48 @@
       }
     }
 
-    // Main translation load and binding function
-    async function translatePage(lang) {
+    // Toggle dropdown UI
+    function toggleDesktopLangDropdown(e) {
+      if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+      const dropdown = document.getElementById('desktop-lang-dropdown');
+      const chevron = document.getElementById('desktop-lang-chevron');
+      if (!dropdown) return;
+      
+      const isHidden = dropdown.classList.contains('hidden');
+      if (isHidden) {
+        dropdown.classList.remove('hidden');
+        setTimeout(() => {
+          dropdown.classList.remove('scale-95', 'opacity-0');
+          dropdown.classList.add('scale-100', 'opacity-100');
+          if (chevron) chevron.classList.add('rotate-180');
+        }, 10);
+      } else {
+        closeDesktopLangDropdown();
+      }
+    }
+
+    function closeDesktopLangDropdown() {
+      const dropdown = document.getElementById('desktop-lang-dropdown');
+      const chevron = document.getElementById('desktop-lang-chevron');
+      if (!dropdown) return;
+      
+      dropdown.classList.remove('scale-100', 'opacity-100');
+      dropdown.classList.add('scale-95', 'opacity-0');
+      if (chevron) chevron.classList.remove('rotate-180');
+      setTimeout(() => {
+        dropdown.classList.add('hidden');
+      }, 200);
+    }
+
+    // Close on outside clicks
+    document.addEventListener('click', () => {
+      closeDesktopLangDropdown();
+    });
+
+    async function applyLang(lang) {
       if (!AVAILABLE_LANGS.includes(lang)) lang = 'pt';
       
       try {
@@ -963,7 +1204,11 @@
         document.querySelectorAll('[data-i18n]').forEach(el => {
           const key = el.getAttribute('data-i18n');
           if (translations && translations[key]) {
-            el.textContent = translations[key];
+            if (key === 'hero_title' || key === 'price_title') {
+              el.innerHTML = translations[key];
+            } else {
+              el.textContent = translations[key];
+            }
           }
         });
 
@@ -975,17 +1220,27 @@
           }
         });
 
-        // Apply visual active configuration inside header language toggle
-        document.querySelectorAll('[data-lang-btn]').forEach(btn => {
-          const btnLang = btn.getAttribute('data-lang-btn');
+        // Update active checkmarks inside Desktop dropdown
+        document.querySelectorAll('[data-dropdown-lang]').forEach(btn => {
+          const btnLang = btn.getAttribute('data-dropdown-lang');
+          const checkmark = btn.querySelector('.checkmark');
           if (btnLang === lang) {
-            btn.classList.add('bg-indigo-600/20', 'text-indigo-400', 'border-indigo-500/30');
-            btn.classList.remove('text-slate-400', 'border-transparent', 'hover:bg-white/5');
+            btn.classList.add('bg-white/5', 'text-brand-400');
+            btn.classList.remove('text-slate-305');
+            if (checkmark) checkmark.classList.remove('hidden');
           } else {
-            btn.classList.remove('bg-indigo-600/20', 'text-indigo-400', 'border-indigo-500/30');
-            btn.classList.add('text-slate-400', 'border-transparent', 'hover:bg-white/5');
+            btn.classList.remove('bg-white/5', 'text-brand-400');
+            btn.classList.add('text-slate-300');
+            if (checkmark) checkmark.classList.add('hidden');
           }
         });
+
+        // Update active flag inside pill trigger button
+        const activeLabel = document.getElementById('active-lang-label');
+        if (activeLabel) {
+          const flags = { pt: '🇵🇹 PT', en: '🇬🇧 EN', es: '🇪🇸 ES', fr: '🇫🇷 FR' };
+          activeLabel.innerHTML = flags[lang] || '🌐';
+        }
 
         // Align the mobile selector synched
         const mobileSelect = document.getElementById('mobile-lang-select');
@@ -993,11 +1248,8 @@
           mobileSelect.value = lang;
         }
 
-        // Save preference safely inside local storage
-        localStorage.setItem('tratatudo_lang', lang);
         document.documentElement.lang = lang;
-        currentLang = lang;
-
+        
         // Reconstruct Lucide Icons for dynamic tags or updates
         if (window.lucide) {
           window.lucide.createIcons();
@@ -1005,6 +1257,17 @@
       } catch (err) {
         console.error("Translation engine error: ", err);
       }
+    }
+
+    async function setLang(lang) {
+      currentLang = lang;
+      localStorage.setItem('tratatudo_lang', lang);
+      await applyLang(lang);
+    }
+
+    // Main translation load and binding function
+    async function translatePage(lang) {
+      await setLang(lang);
     }
 
     // Modal lead actions
