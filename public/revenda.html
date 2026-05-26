@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="pt" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrataTudo.pt | Programa de Revenda White Label</title>
+  
+  <!-- Google Fonts: Inter for UI, Space Grotesk for Heading Display -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#fffbf0',
+              100: '#fef3c7',
+              500: '#f59e0b', // Custom Amber theme for Premium Revenda vibe
+              600: '#d97706',
+              700: '#b45309',
+            },
+            slate: {
+              950: '#0a0f1a', // Custom deep slate black requested
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    .gold-glow {
+      text-shadow: 0 0 30px rgba(245, 158, 11, 0.4);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(245, 158, 11, 0.1);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(245, 158, 11, 0.3);
+    }
+    /* Intersection Observer Scroll reveal */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans selection:bg-amber-500/30 selection:text-white custom-scrollbar overflow-x-hidden antialiased">
+
+  <!-- ================= HEADER SECTION ================= -->
+  <header class="sticky top-0 w-full z-40 bg-slate-950/80 backdrop-blur-md border-b border-white/5 transition-all duration-300">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <a href="/" class="flex items-center gap-2 group">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-amber-300 flex items-center justify-center shadow-lg shadow-amber-500/20 group-hover:scale-105 transition-all">
+          <i data-lucide="zap" class="w-5 h-5 text-slate-950 fill-white/15"></i>
+        </div>
+        <span class="font-display font-extrabold text-xl tracking-tight bg-gradient-to-r from-white via-amber-100 to-amber-450 bg-clip-text text-transparent">
+          TrataTudo<span class="text-amber-500">.pt</span>
+        </span>
+      </a>
+
+      <!-- Desktop Navigation Links -->
+      <nav class="hidden lg:flex items-center gap-8">
+        <a href="#como-funciona" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="nav_como">Como Funciona</a>
+        <a href="#calculadora" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="nav_calculadora">Calculadora</a>
+        <a href="#planos" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="nav_planos">Planos</a>
+        <a href="#faq" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="nav_faq">FAQ</a>
+      </nav>
+
+      <!-- Language Selector + CTAs -->
+      <div class="hidden lg:flex items-center gap-4">
+        <!-- Language Selector Dropdown -->
+        <div class="relative inline-block text-left" id="desktop-lang-selector">
+          <button onclick="toggleDesktopLangDropdown(event)" id="desktop-lang-btn" class="flex items-center gap-2 px-3 py-2 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 rounded-xl text-xs font-semibold text-slate-300 transition-all cursor-pointer">
+            <span class="text-sm">🌐</span>
+            <span id="active-lang-label" class="tracking-wider uppercase">PT</span>
+            <i data-lucide="chevron-down" id="desktop-lang-chevron" class="w-3.5 h-3.5 transition-transform duration-200"></i>
+          </button>
+          
+          <div id="desktop-lang-dropdown" class="hidden absolute right-0 mt-2 w-40 bg-slate-900/95 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl z-[999] overflow-hidden transition-all duration-200 origin-top-right transform scale-95 opacity-0">
+            <div class="py-1 divide-y divide-white/5">
+              <button onclick="translatePage('pt')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-left font-bold" data-dropdown-lang="pt">
+                <span class="flex items-center gap-2">
+                  <span>🇵🇹</span>
+                  <span>Português</span>
+                </span>
+                <span class="checkmark text-amber-500 hidden">✓</span>
+              </button>
+              <button onclick="translatePage('en')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-left font-bold" data-dropdown-lang="en">
+                <span class="flex items-center gap-2">
+                  <span>🇬🇧</span>
+                  <span>English</span>
+                </span>
+                <span class="checkmark text-amber-500 hidden">✓</span>
+              </button>
+              <button onclick="translatePage('es')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-left font-bold" data-dropdown-lang="es">
+                <span class="flex items-center gap-2">
+                  <span>🇪🇸</span>
+                  <span>Español</span>
+                </span>
+                <span class="checkmark text-amber-500 hidden">✓</span>
+              </button>
+              <button onclick="translatePage('fr')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-left font-bold" data-dropdown-lang="fr">
+                <span class="flex items-center gap-2">
+                  <span>🇫🇷</span>
+                  <span>Français</span>
+                </span>
+                <span class="checkmark text-amber-500 hidden">✓</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <a href="/login" class="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 rounded-xl border border-white/5 transition-all" data-i18n="nav_entrar">Entrar</a>
+      </div>
+
+      <!-- Mobile Menu Button -->
+      <div class="flex items-center gap-3 lg:hidden">
+        <select onchange="translatePage(this.value)" id="mobile-lang-select" class="bg-slate-900 border border-white/10 text-xs text-slate-300 px-2 py-1.5 rounded-lg focus:outline-none">
+          <option value="pt">🇵🇹 PT</option>
+          <option value="en">🇬🇧 EN</option>
+          <option value="es">🇪🇸 ES</option>
+          <option value="fr">🇫🇷 FR</option>
+        </select>
+        
+        <button onclick="toggleMobileMenu()" class="p-2 text-slate-400 hover:text-white focus:outline-none">
+          <i data-lucide="menu" class="w-6 h-6"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Drawer Overlay -->
+    <div id="mobile-menu" class="fixed inset-y-0 right-0 w-full max-w-sm bg-slate-950/98 backdrop-blur-2xl z-50 border-l border-white/5 p-6 shadow-2xl flex flex-col justify-between transition-transform duration-300 transform translate-x-full">
+      <div>
+        <div class="flex items-center justify-between pb-8 border-b border-white/5">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-amber-600 flex items-center justify-center text-slate-950">
+              <i data-lucide="zap" class="w-4 h-4 text-slate-950 fill-white/10"></i>
+            </div>
+            <span class="font-display font-extrabold text-base text-white">TrataTudo.pt</span>
+          </div>
+          <button onclick="toggleMobileMenu()" class="p-2 text-slate-450 hover:text-white focus:outline-none">
+            <i data-lucide="x" class="w-6 h-6"></i>
+          </button>
+        </div>
+
+        <nav class="flex flex-col gap-6 pt-10">
+          <a href="#como-funciona" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="nav_como">Como Funciona</a>
+          <a href="#calculadora" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="nav_calculadora">Calculadora</a>
+          <a href="#planos" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="nav_planos">Planos</a>
+          <a href="#faq" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="nav_faq">FAQ</a>
+        </nav>
+      </div>
+
+      <div class="pt-8 border-t border-white/5 flex flex-col gap-4">
+        <a href="/login" class="w-full py-3.5 text-center font-bold text-slate-300 border border-white/10 rounded-xl hover:bg-white/5 transition-all" data-i18n="nav_entrar">Entrar</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= HERO SECTION ================= -->
+  <section class="relative pt-16 pb-20 lg:pt-24 lg:pb-32 overflow-hidden">
+    <!-- Subtle Golden Background Glow -->
+    <div class="absolute top-[20%] left-1/2 -translate-x-1/2 w-[500px] h-[300px] rounded-full bg-amber-500/5 blur-[120px] pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+      <!-- Badge -->
+      <div class="reveal inline-flex items-center gap-2 px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-400 text-xs font-black tracking-wide mb-8">
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+        </span>
+        <span data-i18n="hero_badge">💼 Programa de Revenda Oficial</span>
+      </div>
+
+      <!-- Headline -->
+      <h1 class="reveal font-display font-black text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-[1.1] text-white max-w-4xl mx-auto" data-i18n="hero_title">
+        Constrói o Teu Próprio <span class="bg-gradient-to-r from-amber-400 via-amber-200 to-amber-500 bg-clip-text text-transparent gold-glow">Negócio de Automação</span>
+      </h1>
+
+      <!-- Subheadline -->
+      <p class="reveal mt-6 text-base sm:text-lg text-slate-400 leading-relaxed font-semibold max-w-2xl mx-auto font-medium" data-i18n="hero_subtitle">
+        Revende a plataforma TrataTudo com a TUA marca. Nós tratamos de toda a infraestrutura e tecnologia. Tu ficas com 100% do lucro.
+      </p>
+
+      <!-- Action CTAs -->
+      <div class="reveal mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">
+        <a href="#planos" class="flex items-center justify-center gap-2 px-8 py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold rounded-xl shadow-lg shadow-amber-500/20 w-full sm:w-auto hover:translate-y-[-2px] transition-all duration-200">
+          <span data-i18n="hero1_btn">Ver Planos</span>
+          <i data-lucide="arrow-right" class="w-5 h-5"></i>
+        </a>
+        <a href="https://wa.me/351923364360?text=Olá!%20Gostaria%20de%20saber%20mais%20sobre%20o%20programa%20de%20revenda%20White%20Label%20do%20TrataTudo." target="_blank" class="flex items-center justify-center gap-2 px-8 py-4 bg-white/5 hover:bg-white/10 text-slate-200 font-bold rounded-xl border border-white/5 w-full sm:w-auto hover:translate-y-[-2px] transition-all duration-200">
+          <i data-lucide="message-square" class="w-5 h-5 text-amber-500 fill-amber-500/10"></i>
+          <span data-i18n="hero2_btn">Falar Connosco</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= COMO FUNCIONA SECTION ================= -->
+  <section id="como-funciona" class="py-20 lg:py-32 bg-[#090d16] border-t border-white/5 relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      
+      <!-- Section Header -->
+      <div class="text-center max-w-3xl mx-auto mb-16 sm:mb-20">
+        <span class="text-xs font-bold text-amber-500 uppercase tracking-widest block mb-3 font-mono" data-i18n="how_label">// Como Funciona</span>
+        <h2 class="text-3xl sm:text-4xl font-display font-extrabold text-white tracking-tight" data-i18n="how_title">Três passos simples para o sucesso</h2>
+      </div>
+
+      <!-- Steps Grid -->
+      <div class="grid md:grid-cols-3 gap-8">
+        <!-- Step 1 -->
+        <div class="reveal bg-slate-900 border border-white/5 p-8 rounded-2xl relative hover:border-amber-500/20 transition-all group">
+          <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-6 font-display font-bold text-xl" data-i18n="how1_step">①</div>
+          <h3 class="text-lg font-bold text-white mb-2" data-i18n="how1_title">Escolhes o plano</h3>
+          <p class="text-sm text-slate-400 leading-relaxed font-semibold" data-i18n="how1_desc">Seleciona a licença de revendedor ideal fundada no número de clientes que pretendes ativar.</p>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="reveal bg-slate-900 border border-white/5 p-8 rounded-2xl relative hover:border-amber-500/20 transition-all group">
+          <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-6 font-display font-bold text-xl" data-i18n="how2_step">②</div>
+          <h3 class="text-lg font-bold text-white mb-2" data-i18n="how2_title">Recebes a tua marca</h3>
+          <p class="text-sm text-slate-400 leading-relaxed font-semibold" data-i18n="how2_desc">Entrega imediata da plataforma personalizada com os teus logótipos, cores e domínio próprio em 24h.</p>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="reveal bg-slate-900 border border-white/5 p-8 rounded-2xl relative hover:border-amber-500/20 transition-all group">
+          <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-6 font-display font-bold text-xl" data-i18n="how3_step">③</div>
+          <h3 class="text-lg font-bold text-white mb-2" data-i18n="how3_title">Lucro de 100%</h3>
+          <p class="text-sm text-slate-400 leading-relaxed font-semibold" data-i18n="how3_desc">Angaria clientes sob o teu modelo de faturamento. Todo o dinheiro cobrado entra diretamente para a tua conta.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CALCULADORA DE LUCRO ================= -->
+  <section id="calculadora" class="py-20 lg:py-32 bg-slate-950 border-t border-white/5 relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      
+      <!-- Section Header -->
+      <div class="text-center max-w-3xl mx-auto mb-16">
+        <span class="text-xs font-bold text-amber-500 uppercase tracking-widest block mb-3 font-mono" data-i18n="calc_label">// Calculadora de Lucro</span>
+        <h2 class="text-3xl sm:text-4xl font-display font-extrabold text-white tracking-tight" data-i18n="calc_title">Calcula o Teu Retorno Real</h2>
+        <p class="mt-4 text-base text-slate-400" data-i18n="calc_sub">Ajusta o número de clientes e o valor cobrado para veres o teu lucro potencial em tempo real.</p>
+      </div>
+
+      <div class="reveal max-w-4xl mx-auto bg-slate-900 border border-white/10 rounded-3xl p-6 sm:p-10 relative overflow-hidden shadow-2xl">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 blur-[80px] pointer-events-none"></div>
+
+        <div class="grid md:grid-cols-2 gap-8 items-center relative z-10">
+          
+          <!-- Inputs Column -->
+          <div class="space-y-6">
+            <!-- Billing periodicity factor for license calculation -->
+            <div class="flex flex-col gap-2">
+              <span class="text-xs font-bold text-slate-400 uppercase tracking-wide" data-i18n="plans_label">// Ciclo da Licença</span>
+              <div class="flex p-1 bg-slate-950 rounded-xl border border-white/5">
+                <button onclick="setCalcCycle('mensal')" id="cc-mensal" class="flex-1 py-2 text-xs font-bold rounded-lg bg-amber-500 text-slate-950 transition-all">1m</button>
+                <button onclick="setCalcCycle('trimestral')" id="cc-trimestral" class="flex-1 py-2 text-xs font-bold text-slate-400 rounded-lg transition-all">3m (-10%)</button>
+                <button onclick="setCalcCycle('semestral')" id="cc-semestral" class="flex-1 py-2 text-xs font-bold text-slate-400 rounded-lg transition-all">6m (-20%)</button>
+                <button onclick="setCalcCycle('anual')" id="cc-anual" class="flex-1 py-2 text-xs font-bold text-slate-400 rounded-lg transition-all">1y (-30%)</button>
+              </div>
+            </div>
+
+            <!-- Client Count Slider -->
+            <div class="flex flex-col gap-2">
+              <div class="flex justify-between items-center text-sm font-bold text-white">
+                <span data-i18n="calc_clients_label">Quantos clientes queres angariar?</span>
+                <span class="text-amber-400 font-mono text-lg bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20" id="calc-client-display">25</span>
+              </div>
+              <input type="range" id="calc-client-slider" min="1" max="150" value="25" oninput="updateCalculator()" class="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500">
+              <div class="flex justify-between text-[11px] text-slate-500 font-semibold px-1">
+                <span>1</span>
+                <span>10 (Starter)</span>
+                <span>50 (Profissional)</span>
+                <span>150+ (Enterprise)</span>
+              </div>
+            </div>
+
+            <!-- Price Count Slider -->
+            <div class="flex flex-col gap-2">
+              <div class="flex justify-between items-center text-sm font-bold text-white">
+                <span data-i18n="calc_price_label">Quanto vais cobrar por cliente/mês?</span>
+                <span class="text-amber-400 font-mono text-lg bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20" id="calc-price-display">49€</span>
+              </div>
+              <input type="range" id="calc-price-slider" min="10" max="250" value="49" step="5" oninput="updateCalculator()" class="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500">
+              <div class="flex justify-between text-[11px] text-slate-500 font-semibold px-1">
+                <span>10€</span>
+                <span>49€ (Sugerido)</span>
+                <span>100€</span>
+                <span>250€</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Outputs Column -->
+          <div class="p-6 bg-slate-950 rounded-2xl border border-white/5 flex flex-col gap-6">
+            <div class="flex justify-between items-center pb-4 border-b border-white/5">
+              <span class="text-xs font-bold text-slate-400 uppercase tracking-wide" data-i18n="calc_reseller_license">Custo da licença de revenda:</span>
+              <span class="text-sm font-extrabold text-slate-300 font-mono" id="calc-license-tier">Profissional (<span id="calc-license-cost">599</span>€/mês)</span>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <span class="text-xs font-bold text-slate-450 uppercase tracking-wide" data-i18n="calc_monthly_profit">Lucro Mensal:</span>
+              <span class="text-4xl font-black text-amber-400 font-mono tracking-tight" id="calc-monthly-total">626.00€</span>
+            </div>
+
+            <div class="flex flex-col gap-1 pt-2 border-t border-white/5">
+              <span class="text-xs font-bold text-slate-450 uppercase tracking-wide" data-i18n="calc_annual_profit">Lucro Anual:</span>
+              <span class="text-5xl font-black text-white font-mono tracking-tight text-glow" id="calc-annual-total">7,512.00€</span>
+            </div>
+
+            <div class="flex gap-2 items-center bg-amber-500/5 p-3 rounded-lg border border-amber-500/10 mt-2">
+              <i data-lucide="info" class="w-4 h-4 text-amber-500 shrink-0"></i>
+              <span class="text-[10px] sm:text-xs text-slate-300 leading-normal" data-i18n="calc_note">O simulador escolhe automaticamente a licença ideal (Starter &le;10, Pro &le;50, Enterprise &gt;50) com base no total de clientes.</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PLANOS DE REVENDA ================= -->
+  <section id="planos" class="py-20 lg:py-32 bg-[#090d16] border-t border-white/5 relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      
+      <!-- Section Header -->
+      <div class="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
+        <span class="text-xs font-bold text-amber-500 uppercase tracking-widest block mb-3 font-mono" data-i18n="plans_label">// Planos de Revenda</span>
+        <h2 class="text-3xl sm:text-4xl font-display font-extrabold text-white tracking-tight" data-i18n="plans_title">Escolhe o Teu Plano Ideal</h2>
+        <p class="mt-4 text-base text-slate-400" data-i18n="plans_sub">Opções flexíveis desenhadas para crescer contigo. Muda de plano ou cancela quando quiseres.</p>
+      </div>
+
+      <!-- Segmented Periodicity Control -->
+      <div class="reveal flex justify-center mb-16">
+        <div class="flex p-1.5 bg-slate-900 rounded-2xl border border-white/5 overflow-x-auto max-w-lg w-full">
+          <button onclick="setBillingCycle('mensal')" id="bc-mensal" class="flex-1 whitespace-nowrap px-4 py-2.5 text-xs font-extrabold rounded-xl bg-amber-500 text-slate-950 transition-all font-sans" data-i18n="billing_monthly">Mensal</button>
+          <button onclick="setBillingCycle('trimestral')" id="bc-trimestral" class="flex-1 whitespace-nowrap px-4 py-2.5 text-xs font-extrabold text-slate-400 rounded-xl transition-all font-sans" data-i18n="billing_quarterly">Trimestral (-10%)</button>
+          <button onclick="setBillingCycle('semestral')" id="bc-semestral" class="flex-1 whitespace-nowrap px-4 py-2.5 text-xs font-extrabold text-slate-400 rounded-xl transition-all font-sans" data-i18n="billing_semiannually">Semestral (-20%)</button>
+          <button onclick="setBillingCycle('anual')" id="bc-anual" class="flex-1 whitespace-nowrap px-4 py-2.5 text-xs font-extrabold text-slate-400 rounded-xl transition-all font-sans" data-i18n="billing_annually">Anual (-30%)</button>
+        </div>
+      </div>
+
+      <!-- Plans Cards Grid -->
+      <div class="grid lg:grid-cols-3 gap-8 items-stretch">
+        
+        <!-- Starter Plan -->
+        <div class="reveal bg-slate-900 border border-white/5 rounded-3xl p-8 flex flex-col justify-between text-left hover:border-white/10 transition-colors">
+          <div>
+            <div class="flex justify-between items-start">
+              <span class="text-xs font-black tracking-widest text-slate-400 uppercase">Starter</span>
+            </div>
+            <p class="mt-2 text-xs text-slate-400 font-semibold" data-i18n="plan_starter_desc">Perfeito para agências em início de atividade.</p>
+            
+            <div class="mt-6 flex items-baseline gap-2">
+              <span class="text-5xl font-black text-white font-mono" id="price-starter">299€</span>
+              <span class="text-xs text-slate-500 font-semibold">/mês</span>
+            </div>
+            <div class="text-[11px] text-amber-500 font-bold bg-amber-500/10 px-2 py-1 rounded w-fit mt-1 hidden" id="price-starter-saving">Poupas 0€</div>
+
+            <ul class="mt-8 space-y-4 text-xs sm:text-sm text-slate-350 font-medium border-t border-white/5 pt-6">
+              <li class="flex items-center gap-2.5 text-white font-bold">
+                <i data-lucide="check" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span data-i18n="plan_limits_starter">Até 10 clientes ativos</span>
+              </li>
+              <li class="flex items-center gap-2.5">
+                <i data-lucide="check" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span data-i18n="inc6_title">White Label & Multi-Tenant</span>
+              </li>
+              <li class="flex items-center gap-2.5">
+                <i data-lucide="check" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span data-i18n="inc7_title">Personalização Completa</span>
+              </li>
+              <li class="flex items-center gap-2.5">
+                <i data-lucide="check" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span data-i18n="inc8_title">Suporte Técnico Incluído</span>
+              </li>
+            </ul>
+          </div>
+
+          <a href="#" id="cta-starter-btn" target="_blank" class="mt-8 w-full py-4 text-center text-xs font-bold text-slate-200 bg-white/5 hover:bg-amber-500 hover:text-slate-950 rounded-xl border border-white/5 transition-all duration-200 block" data-i18n="plan_cta">Começar Agora</a>
+        </div>
+
+        <!-- PROFISSIONAL Plan -->
+        <div class="reveal bg-slate-900 border-2 border-amber-500 rounded-3xl p-8 flex flex-col justify-between text-left relative shadow-2xl shadow-amber-500/5">
+          <!-- Top badge -->
+          <div class="absolute top-[-15px] left-1/2 -translate-x-1/2 px-4 py-1 bg-amber-500 text-[10px] font-black uppercase text-slate-950 tracking-widest rounded-full shadow-lg font-mono">
+            Mais Escolhido
+          </div>
+
+          <div>
+            <div class="flex justify-between items-start">
+              <span class="text-xs font-black tracking-widest text-amber-400 uppercase">Profissional</span>
+            </div>
+            <p class="mt-2 text-xs text-slate-350 font-semibold" data-i18n="plan_pro_desc">A escolha ideal para crescer exponencialmente.</p>
+            
+            <div class="mt-6 flex items-baseline gap-2">
+              <span class="text-5xl font-black text-white font-mono" id="price-pro">599€</span>
+              <span class="text-xs text-slate-500 font-semibold uppercase font-mono">/mês</span>
+            </div>
+            <div class="text-[11px] text-amber-500 font-bold bg-amber-500/10 px-2 py-1 rounded w-fit mt-1 hidden" id="price-pro-saving">Poupas 0€</div>
+
+            <ul class="mt-8 space-y-4 text-xs sm:text-sm text-slate-300 font-medium border-t border-white/5 pt-6">
+              <li class="flex items-center gap-2.5 text-white font-bold">
+                <i data-lucide="check" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span data-i18n="plan_limits_pro">Até 50 clientes ativos</span>
+              </li>
+              <li class="flex items-center gap-2.5">
+                <i data-lucide="check" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span data-i18n="inc1_title">WhatsApp Bot com IA</span>
+              </li>
+              <li class="flex items-center gap-2.5">
+                <i data-lucide="check" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span data-i18n="inc3_title">Financeiro & Faturação</span>
+              </li>
+              <li class="flex items-center gap-2.5">
+                <i data-lucide="check" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span data-i18n="inc6_title">White Label & Multi-Tenant</span>
+              </li>
+              <li class="flex items-center gap-2.5">
+                <i data-lucide="check" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span data-i18n="inc8_title">Suporte Técnico Dedicado</span>
+              </li>
+            </ul>
+          </div>
+
+          <a href="#" id="cta-pro-btn" target="_blank" class="mt-8 w-full py-4 text-center text-xs font-black text-slate-950 bg-amber-500 hover:bg-amber-400 rounded-xl shadow-lg shadow-amber-500/20 transition-all duration-200 block animate-pulse" data-i18n="plan_cta">Começar Agora</a>
+        </div>
+
+        <!-- Enterprise Plan -->
+        <div class="reveal bg-slate-900 border border-white/5 rounded-3xl p-8 flex flex-col justify-between text-left hover:border-white/10 transition-colors">
+          <div>
+            <div class="flex justify-between items-start">
+              <span class="text-xs font-black tracking-widest text-slate-400 uppercase">Enterprise</span>
+            </div>
+            <p class="mt-2 text-xs text-slate-400 font-semibold" data-i18n="plan_enterprise_desc">Sem barreiras. Volume total ilimitado.</p>
+            
+            <div class="mt-6 flex items-baseline gap-2">
+              <span class="text-5xl font-black text-white font-mono" id="price-enterprise">899€</span>
+              <span class="text-xs text-slate-500 font-semibold font-mono">/mês</span>
+            </div>
+            <div class="text-[11px] text-amber-500 font-bold bg-amber-500/10 px-2 py-1 rounded w-fit mt-1 hidden" id="price-enterprise-saving">Poupas 0€</div>
+
+            <ul class="mt-8 space-y-4 text-xs sm:text-sm text-slate-350 font-medium border-t border-white/5 pt-6">
+              <li class="flex items-center gap-2.5 text-white font-bold">
+                <i data-lucide="check" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span data-i18n="plan_limits_enterprise">Clientes ILIMITADOS</span>
+              </li>
+              <li class="flex items-center gap-2.5">
+                <i data-lucide="check" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span>Multi-tenant Premium</span>
+              </li>
+              <li class="flex items-center gap-2.5">
+                <i data-lucide="check" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span>Domínios independentes</span>
+              </li>
+              <li class="flex items-center gap-2.5">
+                <i data-lucide="check" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span>Prioridade no R&D</span>
+              </li>
+            </ul>
+          </div>
+
+          <a href="#" id="cta-enterprise-btn" target="_blank" class="mt-8 w-full py-4 text-center text-xs font-bold text-slate-200 bg-white/5 hover:bg-amber-500 hover:text-slate-950 rounded-xl border border-white/5 transition-all duration-200 block" data-i18n="plan_cta">Começar Agora</a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= O QUE ESTÁ INCLUÍDO ================= -->
+  <section class="py-20 lg:py-32 bg-slate-950 border-t border-white/5 relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      
+      <!-- Section Header -->
+      <div class="text-center max-w-3xl mx-auto mb-16 lg:mb-24">
+        <span class="text-xs font-bold text-amber-500 uppercase tracking-widest block mb-3 font-mono" data-i18n="included_label">// O que está incluído</span>
+        <h2 class="text-3xl sm:text-4xl font-display font-extrabold text-white tracking-tight" data-i18n="included_title">Uma solução completa e pronta a faturar</h2>
+      </div>
+
+      <!-- Features Grid -->
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        
+        <!-- Feature 1 -->
+        <div class="reveal bg-slate-900/60 p-6 rounded-2xl border border-white/5 flex flex-col gap-4">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <i data-lucide="message-square" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h4 class="text-base font-bold text-white" data-i18n="inc1_title">WhatsApp Bot com IA</h4>
+            <p class="mt-2 text-xs text-slate-450 leading-relaxed font-semibold" data-i18n="inc1_desc">Agentes inteligentes personalizados para responder, agendar e converter leads automaticamente nos teus clientes.</p>
+          </div>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="reveal bg-slate-900/60 p-6 rounded-2xl border border-white/5 flex flex-col gap-4">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <i data-lucide="users" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h4 class="text-base font-bold text-white" data-i18n="inc2_title">CRM & Pipeline</h4>
+            <p class="mt-2 text-xs text-slate-450 leading-relaxed font-semibold" data-i18n="inc2_desc">Gestão unificada de conversas, perfis de clientes enriquecidos e histórico de suporte completo.</p>
+          </div>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="reveal bg-slate-900/60 p-6 rounded-2xl border border-white/5 flex flex-col gap-4">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <i data-lucide="credit-card" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h4 class="text-base font-bold text-white" data-i18n="inc3_title">Financeiro & Faturação</h4>
+            <p class="mt-2 text-xs text-slate-450 leading-relaxed font-semibold" data-i18n="inc3_desc">Emissão automatizada de faturas e pagamentos recorrentes simples integrando as contas Stripe.</p>
+          </div>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="reveal bg-slate-900/60 p-6 rounded-2xl border border-white/5 flex flex-col gap-4">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <i data-lucide="shield" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h4 class="text-base font-bold text-white" data-i18n="inc4_title">Gestão de Equipa</h4>
+            <p class="mt-2 text-xs text-slate-450 leading-relaxed font-semibold" data-i18n="inc4_desc">Permissões avançadas, múltiplos utilizadores e canais de comunicação com segurança impecável.</p>
+          </div>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="reveal bg-slate-900/60 p-6 rounded-2xl border border-white/5 flex flex-col gap-4">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <i data-lucide="calendar" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h4 class="text-base font-bold text-white" data-i18n="inc5_title">Agenda & Tarefas</h4>
+            <p class="mt-2 text-xs text-slate-450 leading-relaxed font-semibold" data-i18n="inc5_desc">Calendário inteligente sem duplicações de marcações e fluxos de onboarding automatizados.</p>
+          </div>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="reveal bg-slate-900/60 p-6 rounded-2xl border border-white/5 flex flex-col gap-4">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <i data-lucide="layers" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h4 class="text-base font-bold text-white" data-i18n="inc6_title">White Label & Multi-Tenant</h4>
+            <p class="mt-2 text-xs text-slate-450 leading-relaxed font-semibold" data-i18n="inc6_desc">Gere múltiplas contas de clientes de forma totalmente isolada sob um único painel de administração.</p>
+          </div>
+        </div>
+
+        <!-- Feature 7 -->
+        <div class="reveal bg-slate-900/60 p-6 rounded-2xl border border-white/5 flex flex-col gap-4">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <i data-lucide="sliders" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h4 class="text-base font-bold text-white" data-i18n="inc7_title">Personalização total</h4>
+            <p class="mt-2 text-xs text-slate-450 leading-relaxed font-semibold" data-i18n="inc7_desc">Adapta totalmente o nome, cores, logótipo, e-mails de sistema e aponta o teu domínio personalizado.</p>
+          </div>
+        </div>
+
+        <!-- Feature 8 -->
+        <div class="reveal bg-slate-900/60 p-6 rounded-2xl border border-white/5 flex flex-col gap-4">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <i data-lucide="phone-call" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h4 class="text-base font-bold text-white" data-i18n="inc8_title">Suporte técnico dedicado</h4>
+            <p class="mt-2 text-xs text-slate-450 leading-relaxed font-semibold" data-i18n="inc8_desc">Equipa especializada de nível à tua disposição. Novas atualizações gratuitas de segurança incluídas.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FAQ SECTION ================= -->
+  <section id="faq" class="py-20 lg:py-32 bg-[#090d16] border-t border-white/5 relative">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 relative z-10 text-left">
+      
+      <!-- Section Header -->
+      <div class="text-center max-w-3xl mx-auto mb-16">
+        <span class="text-xs font-bold text-amber-500 uppercase tracking-widest block mb-3 font-mono" data-i18n="faq_label">// FAQ</span>
+        <h2 class="text-3xl sm:text-4xl font-display font-extrabold text-white tracking-tight" data-i18n="faq_title">Perguntas Frequentes</h2>
+      </div>
+
+      <!-- FAQ Accordions -->
+      <div class="space-y-4">
+        <!-- FAQ 1 -->
+        <div class="reveal bg-slate-900 border border-white/5 overflow-hidden rounded-2xl transition-all duration-350">
+          <button onclick="toggleFaq(1)" class="w-full flex items-center justify-between text-left p-6 font-bold text-sm sm:text-base text-white focus:outline-none shrink-0">
+            <span data-i18n="faq_q1">Preciso de saber programar?</span>
+            <i data-lucide="chevron-down" id="faq-icon-1" class="w-5 h-5 text-amber-500 transition-transform duration-250"></i>
+          </button>
+          <div id="faq-answer-1" class="max-h-0 overflow-hidden transition-all duration-350 ease-in-out">
+            <p class="px-6 pb-6 text-xs sm:text-sm text-slate-400 leading-relaxed font-medium" data-i18n="faq_a1">Não. A plataforma é totalmente plug-and-play. Nós tratamos de toda a configuração do servidor, manutenção e atualizações técnicas para que possas focar-te inteiramente nas vendas.</p>
+          </div>
+        </div>
+
+        <!-- FAQ 2 -->
+        <div class="reveal bg-slate-900 border border-white/5 overflow-hidden rounded-2xl transition-all duration-350">
+          <button onclick="toggleFaq(2)" class="w-full flex items-center justify-between text-left p-6 font-bold text-sm sm:text-base text-white focus:outline-none shrink-0">
+            <span data-i18n="faq_q2">Quanto posso ganhar?</span>
+            <i data-lucide="chevron-down" id="faq-icon-2" class="w-5 h-5 text-amber-500 transition-transform duration-250"></i>
+          </button>
+          <div id="faq-answer-2" class="max-h-0 overflow-hidden transition-all duration-350 ease-in-out">
+            <p class="px-6 pb-6 text-xs sm:text-sm text-slate-400 leading-relaxed font-medium" data-i18n="faq_a2">O teu ganho é ilimitado! Por exemplo, se subscreveres o plano Profissional (599€/mês) e angariares 20 clientes cobrando-lhes 99€/mês cada, vais faturar 1.980€/mês, resultando num lucro limpo de 1.381€/mês.</p>
+          </div>
+        </div>
+
+        <!-- FAQ 3 -->
+        <div class="reveal bg-slate-900 border border-white/5 overflow-hidden rounded-2xl transition-all duration-350">
+          <button onclick="toggleFaq(3)" class="w-full flex items-center justify-between text-left p-6 font-bold text-sm sm:text-base text-white focus:outline-none shrink-0">
+            <span data-i18n="faq_q3">Posso usar o meu domínio?</span>
+            <i data-lucide="chevron-down" id="faq-icon-3" class="w-5 h-5 text-amber-500 transition-transform duration-250"></i>
+          </button>
+          <div id="faq-answer-3" class="max-h-0 overflow-hidden transition-all duration-350 ease-in-out">
+            <p class="px-6 pb-6 text-xs sm:text-sm text-slate-400 leading-relaxed font-medium" data-i18n="faq_a3">Sim, absolutamente. A plataforma funcionará integralmente sob o domínio que escolheres (ex: app.asuaempresa.com) sem qualquer menção ao TrataTudo.</p>
+          </div>
+        </div>
+
+        <!-- FAQ 4 -->
+        <div class="reveal bg-slate-900 border border-white/5 overflow-hidden rounded-2xl transition-all duration-350">
+          <button onclick="toggleFaq(4)" class="w-full flex items-center justify-between text-left p-6 font-bold text-sm sm:text-base text-white focus:outline-none shrink-0">
+            <span data-i18n="faq_q4">Quanto tempo demora a configurar?</span>
+            <i data-lucide="chevron-down" id="faq-icon-4" class="w-5 h-5 text-amber-500 transition-transform duration-250"></i>
+          </button>
+          <div id="faq-answer-4" class="max-h-0 overflow-hidden transition-all duration-350 ease-in-out">
+            <p class="px-6 pb-6 text-xs sm:text-sm text-slate-400 leading-relaxed font-medium" data-i18n="faq_a4">Entregamos a tua plataforma White Label completamente pronta e configurada no teu domínio em menos de 24 horas úteis.</p>
+          </div>
+        </div>
+
+        <!-- FAQ 5 -->
+        <div class="reveal bg-slate-900 border border-white/5 overflow-hidden rounded-2xl transition-all duration-350">
+          <button onclick="toggleFaq(5)" class="w-full flex items-center justify-between text-left p-6 font-bold text-sm sm:text-base text-white focus:outline-none shrink-0">
+            <span data-i18n="faq_q5">Há fidelização?</span>
+            <i data-lucide="chevron-down" id="faq-icon-5" class="w-5 h-5 text-amber-500 transition-transform duration-250"></i>
+          </button>
+          <div id="faq-answer-5" class="max-h-0 overflow-hidden transition-all duration-350 ease-in-out">
+            <p class="px-6 pb-6 text-xs sm:text-sm text-slate-400 leading-relaxed font-medium" data-i18n="faq_a5">Não. O nosso compromisso é recorrente dependendo do ciclo escolhido. Podes cancelar, fazer upgrade ou downgrade de licença a qualquer momento sem custos adicionais ou multas.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= CTA FINAL SECTION ================= -->
+  <section class="py-20 lg:py-32 bg-[#090d16] border-t border-white/5 relative overflow-hidden">
+    <!-- Subtle glow background -->
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] rounded-full bg-amber-500/5 blur-[120px] pointer-events-none"></div>
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+      <h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-white tracking-tight" data-i18n="cta_title">Pronto para começar o teu negócio?</h2>
+      <p class="mt-4 text-base sm:text-lg text-slate-400 font-medium max-w-2xl mx-auto text-center" data-i18n="cta_sub">Ativa a tua plataforma White Label hoje mesmo e abre novas fontes de receita recorrente.</p>
+      <div class="mt-8">
+        <a href="https://wa.me/351923364360?text=Olá!%20Estou%20pronto%20para%20começar%20um%20negócio%20de%20revenda%2520White%20Label%20com%20o%20TrataTudo." target="_blank" class="inline-flex items-center justify-center gap-2 px-10 py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold rounded-xl shadow-xl shadow-amber-500/20 transition-all hover:scale-105 active:scale-95" data-i18n="cta_btn">
+          Falar com Consultor
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FOOTER SECTION ================= -->
+  <footer class="bg-slate-950 border-t border-white/5 py-12 relative text-center">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-xs font-semibold">
+      <span>&copy; 2026 TrataTudo.pt</span>
+      <div class="flex items-center gap-6">
+        <a href="/" class="hover:text-slate-350 transition-colors">Website Principal</a>
+        <a href="#" class="hover:text-slate-350 transition-colors">Termos de Serviço</a>
+        <a href="#" class="hover:text-slate-350 transition-colors">Privacidade</a>
+      </div>
+    </div>
+  </footer>
+
+
+  <!-- ================= TRANSLATION & LOGIC SCRIPT ================= -->
+  <script>
+    // 1. INLINE TRANSLATION DICTIONARIES
+    const translations = {
+      pt: {
+        nav_como: "Como Funciona",
+        nav_calculadora: "Calculadora",
+        nav_planos: "Planos",
+        nav_faq: "FAQ",
+        nav_entrar: "Entrar",
+        hero_badge: "💼 Programa de Revenda Oficial",
+        hero_title: "Constrói o Teu Próprio <span class='bg-gradient-to-r from-amber-400 via-amber-200 to-amber-500 bg-clip-text text-transparent gold-glow font-black'>Negócio de Automação</span>",
+        hero_subtitle: "Revende a plataforma TrataTudo com a TUA marca. Nós tratamos da tecnologia. Tu ficas com 100% do lucro.",
+        hero1_btn: "Ver Planos",
+        hero2_btn: "Falar Connosco",
+        how_label: "// Como Funciona",
+        how_title: "Três passos simples para o sucesso",
+        how1_step: "①",
+        how1_title: "Escolhes o plano",
+        how1_desc: "Seleciona a licença de revendedor ideal fundada no número de clientes que pretendes ativar.",
+        how2_step: "②",
+        how2_title: "Recebes a tua marca",
+        how2_desc: "Entrega imediata da plataforma personalizada com os teus logótipos, cores e domínio próprio em 24h.",
+        how3_step: "③",
+        how3_title: "Lucro de 100%",
+        how3_desc: "Angaria clientes sob o teu modelo de faturamento. Todo o dinheiro cobrado entra diretamente para a tua conta.",
+        calc_label: "// Calculadora de Lucro",
+        calc_title: "Calcula o Teu Retorno Real",
+        calc_sub: "Ajusta o número de clientes e o valor cobrado para veres o teu lucro potencial em tempo real.",
+        calc_clients_label: "Quantos clientes queres angariar?",
+        calc_price_label: "Quanto vais cobrar por cliente/mês?",
+        calc_reseller_license: "Custo da licença de revenda:",
+        calc_monthly_profit: "Lucro Mensal:",
+        calc_annual_profit: "Lucro Anual:",
+        calc_note: "O simulador escolhe automaticamente a licença ideal (Starter &le; 10, Pro &le; 50, Enterprise &gt; 50) com base no total de clientes.",
+        plans_label: "// Planos de Revenda",
+        plans_title: "Escolhe o Teu Plano Ideal",
+        plans_sub: "Opções flexíveis desenhadas para crescer contigo. Muda de plano ou cancela quando quiseres.",
+        billing_monthly: "Mensal",
+        billing_quarterly: "Trimestral",
+        billing_semiannually: "Semestral",
+        billing_annually: "Anual",
+        plan_starter_desc: "Perfeito para agências em início de atividade.",
+        plan_pro_desc: "A escolha ideal para crescer exponencialmente.",
+        plan_enterprise_desc: "Sem barreiras. Volume total ilimitado.",
+        plan_limits_starter: "Até 10 clientes ativos",
+        plan_limits_pro: "Até 50 clientes ativos",
+        plan_limits_enterprise: "Clientes ILIMITADOS",
+        plan_cta: "Começar Agora",
+        included_label: "// O que está incluído",
+        included_title: "Uma solução completa e pronta a faturar",
+        inc1_title: "WhatsApp Bot com IA",
+        inc1_desc: "Agentes inteligentes personalizados para responder, agendar e converter leads automaticamente nos teus clientes.",
+        inc2_title: "CRM & Pipeline",
+        inc2_desc: "Gestão unificada de conversas, perfis de clientes enriquecidos e histórico de suporte completo.",
+        inc3_title: "Financeiro & Faturação",
+        inc3_desc: "Emissão automatizada de faturas e pagamentos recorrentes simples integrando as contas Stripe.",
+        inc4_title: "Gestão de Equipa",
+        inc4_desc: "Permissões avançadas, múltiplos utilizadores e canais de comunicação com segurança impecável.",
+        inc5_title: "Agenda & Tarefas",
+        inc5_desc: "Calendário inteligente sem duplicações de marcações e fluxos de onboarding automatizados.",
+        inc6_title: "White Label & Multi-Tenant",
+        inc6_desc: "Gere múltiplas contas de clientes de forma totalmente isolada sob um único painel de administração.",
+        inc7_title: "Personalização total",
+        inc7_desc: "Adapta totalmente o nome, cores, logótipo, e-mails de sistema e aponta o teu domínio personalizado.",
+        inc8_title: "Suporte técnico dedicado",
+        inc8_desc: "Equipa especializada de nível à tua disposição. Novas atualizações gratuitas de segurança incluídas.",
+        faq_label: "// FAQ",
+        faq_title: "Perguntas Frequentes",
+        faq_q1: "Preciso de saber programar?",
+        faq_a1: "Não. A plataforma é totalmente plug-and-play. Nós tratamos de toda a configuração do servidor, manutenção e atualizações técnicas para que possas focar-te inteiramente nas vendas.",
+        faq_q2: "Quanto posso ganhar?",
+        faq_a2: "O teu ganho é ilimitado! Por exemplo, se subscreveres o plano Profissional (599€/mês) e angariares 20 clientes cobrando-les 99€/mês cada, vais faturar 1.980€/mês, resultando num lucro limpo de 1.381€/mês.",
+        faq_q3: "Posso usar o meu domínio?",
+        faq_a3: "Sim, absolutamente. A plataforma funcionará integralmente sob o domínio que escolheres (ex: app.asuaempresa.com) sem qualquer menção ao TrataTudo.",
+        faq_q4: "Quanto tempo demora a configurar?",
+        faq_a4: "Entregamos a tua plataforma White Label completamente pronta e configurada no teu domínio em menos de 24 horas úteis.",
+        faq_q5: "Há fidelização?",
+        faq_a5: "Não. O nosso compromisso é recorrente dependendo do ciclo escolhido. Podes cancelar, fazer upgrade ou downgrade de licença a qualquer momento sem custos adicionais ou multas.",
+        cta_title: "Pronto para começar o teu negócio?",
+        cta_sub: "Ativa a tua plataforma White Label hoje mesmo e abre novas fontes de receita recorrente.",
+        cta_btn: "Falar com Consultor"
+      },
+      en: {
+        nav_como: "How It Works",
+        nav_calculadora: "Calculator",
+        nav_planos: "Plans",
+        nav_faq: "FAQ",
+        nav_entrar: "Log In",
+        hero_badge: "💼 Official Reseller Program",
+        hero_title: "Build Your Own <span class='bg-gradient-to-r from-amber-400 via-amber-200 to-amber-500 bg-clip-text text-transparent gold-glow font-black'>Automation Business</span>",
+        hero_subtitle: "Resell the TrataTudo platform under YOUR own brand. We handle the technology. You keep 100% of the profits.",
+        hero1_btn: "View Plans",
+        hero2_btn: "Talk to Us",
+        how_label: "// How It Works",
+        how_title: "Three Simple Steps to Success",
+        how1_step: "①",
+        how1_title: "Choose your plan",
+        how1_desc: "Select the ideal reseller license based on the number of clients you want to activate.",
+        how2_step: "②",
+        how2_title: "Get your brand",
+        how2_desc: "Immediate delivery of your customized platform with your logos, colors, and own domain in 24h.",
+        how3_step: "③",
+        how3_title: "100% Retained Profit",
+        how3_desc: "Acquire clients under your billing model. All charged money goes directly to your bank account.",
+        calc_label: "// Profit Calculator",
+        calc_title: "Calculate Your Real Revenue",
+        calc_sub: "Adjust the number of clients and the monthly charged price to see your potential real-time profit.",
+        calc_clients_label: "How many clients do you want to acquire?",
+        calc_price_label: "How much will you charge per client/month?",
+        calc_reseller_license: "Reseller license cost:",
+        calc_monthly_profit: "Monthly Profit:",
+        calc_annual_profit: "Annual Profit:",
+        calc_note: "The simulator automatically selects the ideal license tier (Starter &le; 10, Pro &le; 50, Enterprise &gt; 50) based on clients.",
+        plans_label: "// Reseller Plans",
+        plans_title: "Select Your Ideal Plan",
+        plans_sub: "Flexible options designed to scale with you. Change plans or cancel whenever you want.",
+        billing_monthly: "Monthly",
+        billing_quarterly: "Quarterly",
+        billing_semiannually: "Semi-annual",
+        billing_annually: "Annual",
+        plan_starter_desc: "Perfect for agencies starting their operations.",
+        plan_pro_desc: "The ideal choice to grow exponentially.",
+        plan_enterprise_desc: "No barriers. Unlimited master volume.",
+        plan_limits_starter: "Up to 10 active clients",
+        plan_limits_pro: "Up to 50 active clients",
+        plan_limits_enterprise: "UNLIMITED clients",
+        plan_cta: "Get Started Now",
+        included_label: "// What's Included",
+        included_title: "A complete solution ready to invoice",
+        inc1_title: "AI WhatsApp Bot",
+        inc1_desc: "Smart customized assistant bots to reply, schedule and convert leads automatically for your clients.",
+        inc2_title: "CRM & Pipelines",
+        inc2_desc: "Unified conversations, enriched client profiles, and full operational support histories.",
+        inc3_title: "Finance & Invoicing",
+        inc3_desc: "Automated billing and recurring invoicing integrated with client Stripe accounts.",
+        inc4_title: "Team Management",
+        inc4_desc: "Advanced permissions, multiple users, and secure dedicated support communication channels.",
+        inc5_title: "Calendar & Tasks",
+        inc5_desc: "Intelligent scheduling without calendar duplicates and automated onboarding workflows.",
+        inc6_title: "White Label & Multi-Tenant",
+        inc6_desc: "Manage multiple client accounts fully isolated under a single administration dashboard.",
+        inc7_title: "Full Customization",
+        inc7_desc: "Fully adapt the brand, colors, logo, system emails, and point to your custom domain.",
+        inc8_title: "Dedicated Support & Updates",
+        inc8_desc: "Specialized support team at your service. New security updates and features included for free.",
+        faq_label: "// FAQ",
+        faq_title: "Frequently Asked Questions",
+        faq_q1: "Do I need coding skills?",
+        faq_a1: "No, not at all. The platform is completely plug-and-play. We handle all server configurations, maintenance, and technical updates so you can focus entirely on sales.",
+        faq_q2: "How much can I earn?",
+        faq_a2: "Your earnings are unlimited! For example, if you subscribe to the Professional plan (599€/month) and grab 20 clients, charging them 99€/month each, you'll invoice 1,980€/month, making a net profit of 1,381€/month.",
+        faq_q3: "Can I use my custom domain?",
+        faq_a3: "Yes, absolutely. The platform will run fully under the domain you select (e.g., app.votreentreprise.com) with no reference to TrataTudo whatsoever.",
+        faq_q4: "How long does setup take?",
+        faq_a4: "We deliver your fully configured White Label platform on your custom domain in less than 24 business hours.",
+        faq_q5: "Is there a minimum contract period?",
+        faq_a5: "No, our plans are billed monthly or periodically based on the cycle you choose. You can upgrade, downgrade, or cancel at any time.",
+        cta_title: "Ready to start your own business?",
+        cta_sub: "Activate your White Label platform today and open up new streams of recurring revenue.",
+        cta_btn: "Talk to a Consultant"
+      },
+      es: {
+        nav_como: "Cómo Funciona",
+        nav_calculadora: "Calculadora",
+        nav_planos: "Planes",
+        nav_faq: "FAQ",
+        nav_entrar: "Acceder",
+        hero_badge: "💼 Programa de Distribución Oficial",
+        hero_title: "Crea tu Propio <span class='bg-gradient-to-r from-amber-400 via-amber-200 to-amber-500 bg-clip-text text-transparent gold-glow font-black'>Negocio de Automatización</span>",
+        hero_subtitle: "Revende la plataforma TrataTudo con TU propia marca. Nosotros nos encargamos de la tecnología. Tú te quedas con el 100% de los beneficios.",
+        hero1_btn: "Ver Planes",
+        hero2_btn: "Hablar con Nosotros",
+        how_label: "// Cómo Funciona",
+        how_title: "Tres pasos sencillos para el éxito",
+        how1_step: "①",
+        how1_title: "Eliges tu plan",
+        how1_desc: "Selecciona la licencia de distribución ideal basada en el número de clientes que planeas activar.",
+        how2_step: "②",
+        how2_title: "Recibes tu marca",
+        how2_desc: "Entrega inmediata de la plataforma personalizada con tus logotipos, colores y dominio propio en 24h.",
+        how3_step: "③",
+        how3_title: "100% de Ganancia",
+        how3_desc: "Consigue clientes bajo tu propio modelo de facturación. Todo el dinero cobrado va directo a tu cuenta bancaria.",
+        calc_label: "// Calculadora de Beneficio",
+        calc_title: "Calcula tu Retorno Real",
+        calc_sub: "Ajusta el número de clientes y el valor cobrado para visualizar tus ganancias potenciales mensuales y anuales.",
+        calc_clients_label: "¿Cuántos clientes quieres conseguir?",
+        calc_price_label: "¿Cuánto cobrarás por cliente/mes?",
+        calc_reseller_license: "Costo de la licencia de distribuidor:",
+        calc_monthly_profit: "Beneficio Mensual:",
+        calc_annual_profit: "Beneficio Anual:",
+        calc_note: "El simulador elige automáticamente la licencia ideal (Starter &le; 10, Pro &le; 50, Enterprise &gt; 50) con base en el total de clientes.",
+        plans_label: "// Planes de Distribución",
+        plans_title: "Elige tu Plan Ideal",
+        plans_sub: "Opciones flexibles diseñadas para crecer contigo. Cambia de plan o cancela cuando quieras.",
+        billing_monthly: "Mensual",
+        billing_quarterly: "Trimestral",
+        billing_semiannually: "Semestral",
+        billing_annually: "Anual",
+        plan_starter_desc: "Perfecto para agencias en su fase inicial.",
+        plan_pro_desc: "La opción ideal para crecer de manera exponencial.",
+        plan_enterprise_desc: "Sin barreras. Volumen total ilimitado.",
+        plan_limits_starter: "Hasta 10 clientes activos",
+        plan_limits_pro: "Hasta 50 clientes activos",
+        plan_limits_enterprise: "Clientes ILIMITADOS",
+        plan_cta: "Comenzar Ahora",
+        included_label: "// ¿Qué está incluido?",
+        included_title: "Una solución completa y lista para facturar",
+        inc1_title: "Bot de WhatsApp con IA",
+        inc1_desc: "Asistentes inteligentes personalizados para responder, agendar y convertir clientes potenciales de forma automática para tus clientes.",
+        inc2_title: "CRM & Pipelines",
+        inc2_desc: "Gestión unificada de conversaciones, perfiles de clientes enriquecidos e historial completo de soporte.",
+        inc3_title: "Finanzas & Facturación",
+        inc3_desc: "Emisión automatizada de facturas y cobros recurrentes integrados con las cuentas Stripe de tus clientes.",
+        inc4_title: "Gestión de Equipos",
+        inc4_desc: "Permisos avanzados, múltiples usuarios y canales dedicados para soporte con máxima seguridad.",
+        inc5_title: "Agenda & Tareas",
+        inc5_desc: "Calendario inteligente a prueba de duplicados de reservas y flujos de onboarding automatizados.",
+        inc6_title: "White Label & Multi-Tenant",
+        inc6_desc: "Administra múltiples cuentas de clientes de forma totalmente aislada bajo una única consola de administración.",
+        inc7_title: "Personalización Total",
+        inc7_desc: "Adapta totalmente el nombre, colores, marca, correos electrónicos del sistema y tu dominio personalizado.",
+        inc8_title: "Soporte Dedicado & Actualizaciones",
+        inc8_desc: "Equipo técnico de nivel para tus consultas. Nuevas actualizaciones de seguridad y funciones incluidas gratis.",
+        faq_label: "// FAQ",
+        faq_title: "Preguntas Frecuentes",
+        faq_q1: "¿Necesito saber programar?",
+        faq_a1: "No. La plataforma es totalmente plug-and-play. Nos encargamos de toda la configuración del servidor, mantenimiento y actualizaciones técnicas para que puedas enfocarte puramente en vender.",
+        faq_q2: "¿Cuánto puedo ganar?",
+        faq_a2: "¡Tus ingresos son ilimitados! Por ejemplo, si contratas el plan Profesional (599€/mes) y captas 20 clientes cobrando 99€/mes a cada uno, facturarás 1.980€/mes, logrando un beneficio neto de 1.381€/mes.",
+        faq_q3: "¿Puedo usar mi propio dominio?",
+        faq_a3: "Sí, de forma absoluta. La plataforma funcionará bajo el dominio que elijas (ej: app.tuempresa.com) sin ninguna mención a TrataTudo.",
+        faq_q4: "¿Cuánto tiempo tarda la configuración?",
+        faq_a4: "Entregamos tu plataforma White Label completamente lista y configurada bajo tu dominio en menos de 24 horas hábiles.",
+        faq_q5: "¿Hay permanencia?",
+        faq_a5: "No hay permanencia. Nuestra relación se basa en el ciclo que elijas, pudiendo cancelar o cambiar de plan cuando lo requieras sin tarifas de salida.",
+        cta_title: "¿Listo para iniciar tu propio negocio?",
+        cta_sub: "Activa tu plataforma White Label hoy mismo y abre nuevos flujos de ingresos recurrentes.",
+        cta_btn: "Hablar con Consultor"
+      },
+      fr: {
+        nav_como: "Comment ça Marche",
+        nav_calculadora: "Calculateur",
+        nav_planos: "Offres",
+        nav_faq: "FAQ",
+        nav_entrar: "Connexion",
+        hero_badge: "💼 Programme Revendeur Officiel",
+        hero_title: "Bâtissez votre Propre <span class='bg-gradient-to-r from-amber-400 via-amber-200 to-amber-500 bg-clip-text text-transparent gold-glow font-black'>Entreprise d'Automation</span>",
+        hero_subtitle: "Revendez la plateforme TrataTudo sous VOTRE propre marque. Nous gérons la technologie. Vous gardez 100% des bénéfices.",
+        hero1_btn: "Voir les Offres",
+        hero2_btn: "Nous Contacter",
+        how_label: "// Comment ça Marche",
+        how_title: "Trois étapes simples vers le succès",
+        how1_step: "①",
+        how1_title: "Choisissez votre plan",
+        how1_desc: "Sélectionnez le plan idéal en fonction du nombre de clients que vous désirez activer.",
+        how2_step: "②",
+        how2_title: "Recevez votre marque",
+        how2_desc: "Livraison immédiate de votre plateforme personnalisée avec vos logos, couleurs et propre nom de domaine sous 24h.",
+        how3_step: "③",
+        how3_title: "100% de Bénéfices",
+        how3_desc: "Acquérez des clients sous votre modèle de tarification. Tout l'argent facturé va directement sur votre compte.",
+        calc_label: "// Calculateur de Profit",
+        calc_title: "Estimez vos Revenus Réels",
+        calc_sub: "Ajustez le nombre de clients et le prix mensuel facturé pour visualiser vos profits potentiels en temps réel.",
+        calc_clients_label: "Combien de clients souhaitez-vous acquérir ?",
+        calc_price_label: "Combien allez-vous facturer par client/mois ?",
+        calc_reseller_license: "Coût de la licence revendeur :",
+        calc_monthly_profit: "Bénéfice Mensuel :",
+        calc_annual_profit: "Bénéfice Annuel :",
+        calc_note: "Le simulateur sélectionne automatiquement le niveau de licence requis (Starter &le; 10, Pro &le; 50, Enterprise &gt; 50) basé sur vos clients.",
+        plans_label: "// Offres de Revendication",
+        plans_title: "Sélectionnez votre Offre Idéale",
+        plans_sub: "Options flexibles conçues pour évoluer à votre rythme. Changez d'offre ou annulez quand vous le souhaitez.",
+        billing_monthly: "Mensuel",
+        billing_quarterly: "Trimestriel",
+        billing_semiannually: "Semestriel",
+        billing_annually: "Annuel",
+        plan_starter_desc: "Idéal pour les agences en démarrage d'activité.",
+        plan_pro_desc: "Le choix le plus performant pour croître de manière exponentielle.",
+        plan_enterprise_desc: "Aucune barrière. Volume total illimité.",
+        plan_limits_starter: "Jusqu'à 10 clients actifs",
+        plan_limits_pro: "Jusqu'à 50 clients actifs",
+        plan_limits_enterprise: "Clients ILLIMITÉS",
+        plan_cta: "Commencer Maintenant",
+        included_label: "// Ce qui est inclus",
+        included_title: "Une solution complète prête à facturer",
+        inc1_title: "WhatsApp Bot avec IA",
+        inc1_desc: "Des assistants virtuels intelligents pour répondre, planifier et convertir les prospects de vos clients.",
+        inc2_title: "CRM & Pipelines",
+        inc2_desc: "Gestion unifiée des échanges, profils de clients détaillés et historique de support complet.",
+        inc3_title: "Finance & Facturation",
+        inc3_desc: "Émission automatisée de factures et prélèvements récurrents synchronisés avec Stripe.",
+        inc4_title: "Gestion des Équipes",
+        inc4_desc: "Droits d'accès avancés, utilisateurs multiples et canaux sécurisés pour le support technique.",
+        inc5_title: "Calendriers & Tâches",
+        inc5_desc: "Planification intelligente sans aucun doublon d'agenda et workflows d'accueil automatisés.",
+        inc6_title: "White Label & Multi-Tenant",
+        inc6_desc: "Gérez plusieurs comptes clients de manière totalement isolée sous une même console admin.",
+        inc7_title: "Personnalisation Complète",
+        inc7_desc: "Adaptez le nom d'application, chartes, logo, emails personnalisés et liez votre propre domaine.",
+        inc8_title: "Support Dédié & Mises à jour",
+        inc8_desc: "Une assistance technique experte à votre entière disposition. Mises à jour incluses gratuitement.",
+        faq_label: "// FAQ",
+        faq_title: "Foire Aux Questions",
+        faq_q1: "Est-il nécessaire de savoir programmer ?",
+        faq_a1: "Non, pas du tout. La plateforme est entièrement clé en main. Nous prenons en charge la gestion des serveurs, la maintenance et les correctifs informatiques afin que vous puissiez vous concentrer à 100% sur la vente.",
+        faq_q2: "Combien puis-je gagner ?",
+        faq_a2: "Vos gains sont illimités ! Pour exemple, si vous prenez l'offre Professionnel (599€/mois) et acquérez 20 clients à qui vous vendez le service à 99€/mois chacun, vos revenus bruts seront de 1 980€/mois, ce qui représente un bénéfice net de 1 381€/mois.",
+        faq_q3: "Puis-je lier un domaine personnalisé ?",
+        faq_a3: "Oui, tout à fait. La plateforme sera accessible via le domaine de votre choix (ex. app.votreentreprise.com) sans aucune mention de la marque TrataTudo.",
+        faq_q4: "Combien de temps prend l'installation ?",
+        faq_a4: "Nous vous livrons votre console White Label prête à l'emploi et connectée à votre nom de domaine en moins de 24 heures ouvrées.",
+        faq_q5: "Y a-t-il une période d'engagement ?",
+        faq_a5: "Non, nos abonnements sont mensuels ou périodiques selon le cycle configuré. Vous êtes libre de changer de plan ou de mettre un terme à l'abonnement à tout moment sans frais.",
+        cta_title: "Prêt à lancer votre propre affaire ?",
+        cta_sub: "Activez votre marque de progiciel en marque blanche dès maintenant et bâtissez des revenus récurrents solides.",
+        cta_btn: "Parler au Conseiller"
+      }
+    };
+
+    // 2. STATE & INITIALIZATION
+    const AVAILABLE_LANGS = ['pt', 'en', 'es', 'fr'];
+    let currentLang = localStorage.getItem('tratatudo_lang') || 'pt';
+
+    // Pricing base configurations
+    const BASE_PRICES = {
+      starter: 299,
+      pro: 599,
+      enterprise: 899
+    };
+
+    const CYCLE_DISCOUNTS = {
+      mensal: 1.0,
+      trimestral: 0.9,     // -10%
+      semestral: 0.8,      // -20%
+      anual: 0.7           // -30%
+    };
+
+    let selectedCycle = 'mensal';
+    let calcLicenseCycle = 'mensal';
+
+    // Target WhatsApp configuration
+    const WA_NUMBER = "+351923364360";
+
+    // 3. HEADER LANGUAGE DROPDOWN NAVIGATION CONTROL
+    function toggleDesktopLangDropdown(e) {
+      if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+      const dropdown = document.getElementById('desktop-lang-dropdown');
+      const chevron = document.getElementById('desktop-lang-chevron');
+      if (!dropdown) return;
+      
+      const isHidden = dropdown.classList.contains('hidden');
+      if (isHidden) {
+        dropdown.classList.remove('hidden');
+        setTimeout(() => {
+          dropdown.classList.remove('scale-95', 'opacity-0');
+          dropdown.classList.add('scale-100', 'opacity-100');
+          if (chevron) chevron.classList.add('rotate-180');
+        }, 10);
+      } else {
+        closeDesktopLangDropdown();
+      }
+    }
+
+    function closeDesktopLangDropdown() {
+      const dropdown = document.getElementById('desktop-lang-dropdown');
+      const chevron = document.getElementById('desktop-lang-chevron');
+      if (!dropdown) return;
+      
+      dropdown.classList.remove('scale-100', 'opacity-100');
+      dropdown.classList.add('scale-95', 'opacity-0');
+      if (chevron) chevron.classList.remove('rotate-180');
+      setTimeout(() => {
+        dropdown.classList.add('hidden');
+      }, 200);
+    }
+
+    document.addEventListener('click', () => {
+      closeDesktopLangDropdown();
+    });
+
+    // 4. TRANSLATION ENGINE COUPLINGS
+    async function applyLang(lang) {
+      if (!AVAILABLE_LANGS.includes(lang)) lang = 'pt';
+      currentLang = lang;
+      localStorage.setItem('tratatudo_lang', lang);
+
+      const tDict = translations[lang] || translations['pt'];
+
+      // Apply texts smoothly
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (tDict && tDict[key] !== undefined) {
+          el.innerHTML = tDict[key];
+        }
+      });
+
+      // Update dropdown selections visual checks
+      document.querySelectorAll('[data-dropdown-lang]').forEach(btn => {
+        const btnLang = btn.getAttribute('data-dropdown-lang');
+        const checkmark = btn.querySelector('.checkmark');
+        if (btnLang === lang) {
+          btn.classList.add('bg-white/5', 'text-amber-400');
+          btn.classList.remove('text-slate-300');
+          if (checkmark) checkmark.classList.remove('hidden');
+        } else {
+          btn.classList.remove('bg-white/5', 'text-amber-400');
+          btn.classList.add('text-slate-300');
+          if (checkmark) checkmark.classList.add('hidden');
+        }
+      });
+
+      // Set active indicator pill trigger label
+      const activeLabel = document.getElementById('active-lang-label');
+      if (activeLabel) {
+        const flags = { pt: '🇵🇹 PT', en: '🇬🇧 EN', es: '🇪🇸 ES', fr: '🇫🇷 FR' };
+        activeLabel.innerHTML = flags[lang] || '🌐';
+      }
+
+      // Sync mobile view selectors
+      const mobileSelect = document.getElementById('mobile-lang-select');
+      if (mobileSelect) {
+        mobileSelect.value = lang;
+      }
+
+      document.documentElement.lang = lang;
+
+      // Re-trigger Lucide icons parsing
+      if (window.lucide) {
+        window.lucide.createIcons();
+      }
+
+      // Refresh dynamic text components
+      updatePricingTable();
+      updateCalculator();
+    }
+
+    async function translatePage(lang) {
+      await applyLang(lang);
+    }
+
+    function toggleMobileMenu() {
+      const menu = document.getElementById('mobile-menu');
+      if (menu) {
+        menu.classList.toggle('translate-x-full');
+      }
+    }
+
+    // 5. ACCORDION CONTROLLERS
+    function toggleFaq(index) {
+      const answer = document.getElementById(`faq-answer-${index}`);
+      const icon = document.getElementById(`faq-icon-${index}`);
+      if (!answer || !icon) return;
+
+      const itemsCount = 5;
+      for (let i = 1; i <= itemsCount; i++) {
+        if (i !== index) {
+          const otherAns = document.getElementById(`faq-answer-${i}`);
+          const otherIcon = document.getElementById(`faq-icon-${i}`);
+          if (otherAns && otherIcon) {
+            otherAns.style.maxHeight = '0px';
+            otherIcon.style.transform = 'rotate(0deg)';
+            otherAns.parentElement.classList.remove('border-amber-500/30', 'bg-amber-500/[0.015]');
+          }
+        }
+      }
+
+      if (answer.style.maxHeight === '0px' || !answer.style.maxHeight) {
+        answer.style.maxHeight = answer.scrollHeight + 'px';
+        icon.style.transform = 'rotate(180deg)';
+        answer.parentElement.classList.add('border-amber-500/30', 'bg-amber-500/[0.015]');
+      } else {
+        answer.style.maxHeight = '0px';
+        icon.style.transform = 'rotate(0deg)';
+        answer.parentElement.classList.remove('border-amber-500/30', 'bg-amber-500/[0.015]');
+      }
+    }
+
+    // 6. PRICING TABLE DISCOUNTERS
+    function setBillingCycle(cycle) {
+      selectedCycle = cycle;
+      
+      const cycles = ['mensal', 'trimestral', 'semestral', 'anual'];
+      cycles.forEach(c => {
+        const btn = document.getElementById(`bc-${c}`);
+        if (btn) {
+          if (c === cycle) {
+            btn.classList.add('bg-amber-500', 'text-slate-950');
+            btn.classList.remove('text-slate-400');
+          } else {
+            btn.classList.remove('bg-amber-500', 'text-slate-950');
+            btn.classList.add('text-slate-400');
+          }
+        }
+      });
+
+      updatePricingTable();
+    }
+
+    function updatePricingTable() {
+      const discount = CYCLE_DISCOUNTS[selectedCycle];
+      
+      // Calculate active discounted values
+      const pStarter = Math.round(BASE_PRICES.starter * discount);
+      const pPro = Math.round(BASE_PRICES.pro * discount);
+      const pEnterprise = Math.round(BASE_PRICES.enterprise * discount);
+
+      document.getElementById('price-starter').innerHTML = `${pStarter}€`;
+      document.getElementById('price-pro').innerHTML = `${pPro}€`;
+      document.getElementById('price-enterprise').innerHTML = `${pEnterprise}€`;
+
+      // Savings indicators
+      const sStarter = (BASE_PRICES.starter - pStarter) * (selectedCycle === 'mensal' ? 1 : selectedCycle === 'trimestral' ? 3 : selectedCycle === 'semestral' ? 6 : 12);
+      const sPro = (BASE_PRICES.pro - pPro) * (selectedCycle === 'mensal' ? 1 : selectedCycle === 'trimestral' ? 3 : selectedCycle === 'semestral' ? 6 : 12);
+      const sEnterprise = (BASE_PRICES.enterprise - pEnterprise) * (selectedCycle === 'mensal' ? 1 : selectedCycle === 'trimestral' ? 3 : selectedCycle === 'semestral' ? 6 : 12);
+
+      const svStr = currentLang === 'en' ? "Save" : currentLang === 'es' ? "Ahorras" : currentLang === 'fr' ? "Économisez" : "Poupas";
+
+      const showSav = selectedCycle !== 'mensal';
+      ['starter', 'pro', 'enterprise'].forEach(tier => {
+        const savDiv = document.getElementById(`price-${tier}-saving`);
+        if (savDiv) {
+          if (showSav) {
+            const savingsVal = tier === 'starter' ? sStarter : tier === 'pro' ? sPro : sEnterprise;
+            savDiv.textContent = `⚡ ${svStr} ${Math.round(savingsVal)}€`;
+            savDiv.classList.remove('hidden');
+          } else {
+            savDiv.classList.add('hidden');
+          }
+        }
+      });
+
+      // Update CTA links dynamic texts with WhatsApp presets
+      const dict = translations[currentLang] || translations['pt'];
+      const cycleText = selectedCycle === 'anual' ? (currentLang === 'en' ? 'Annual Plan' : currentLang === 'es' ? 'Plan Anual' : currentLang === 'fr' ? 'Plan Annuel' : 'Plano Anual') : 
+                        selectedCycle === 'semestral' ? (currentLang === 'en' ? 'Semi-annual Plan' : currentLang === 'es' ? 'Plan Semestral' : currentLang === 'fr' ? 'Plan Semestriel' : 'Plano Semestral') :
+                        selectedCycle === 'trimestral' ? (currentLang === 'en' ? 'Quarterly Plan' : currentLang === 'es' ? 'Plan Trimestral' : currentLang === 'fr' ? 'Plan Trimestriel' : 'Plano Trimestral') :
+                        (currentLang === 'en' ? 'Monthly Plan' : currentLang === 'es' ? 'Plan Mensual' : currentLang === 'fr' ? 'Plan Mensuel' : 'Plano Mensal');
+
+      const msgStarter = encodeURIComponent(`Olá! Gostaria de obter informações sobre o plano Starter (${cycleText} - ${pStarter}€/mês) do Programa de Revenda White Label do TrataTudo.`);
+      const msgPro = encodeURIComponent(`Olá! Gostaria de obter informações sobre o plano Profissional (${cycleText} - ${pPro}€/mês) do Programa de Revenda White Label do TrataTudo.`);
+      const msgEnterprise = encodeURIComponent(`Olá! Gostaria de obter informações sobre o plano Enterprise (${cycleText} - ${pEnterprise}€/mês) do Programa de Revenda White Label do TrataTudo.`);
+
+      document.getElementById('cta-starter-btn').href = `https://wa.me/${WA_NUMBER}?text=${msgStarter}`;
+      document.getElementById('cta-pro-btn').href = `https://wa.me/${WA_NUMBER}?text=${msgPro}`;
+      document.getElementById('cta-enterprise-btn').href = `https://wa.me/${WA_NUMBER}?text=${msgEnterprise}`;
+    }
+
+    // 7. REAL-TIME PROFIT CALCULATOR SYSTEMS
+    function setCalcCycle(cycle) {
+      calcLicenseCycle = cycle;
+      ['mensal', 'trimestral', 'semestral', 'anual'].forEach(c => {
+        const btn = document.getElementById(`cc-${c}`);
+        if (btn) {
+          if (c === cycle) {
+            btn.classList.add('bg-amber-500', 'text-slate-950');
+            btn.classList.remove('text-slate-400');
+          } else {
+            btn.classList.remove('bg-amber-500', 'text-slate-950');
+            btn.classList.add('text-slate-400');
+          }
+        }
+      });
+      updateCalculator();
+    }
+
+    function updateCalculator() {
+      const clients = parseInt(document.getElementById('calc-client-slider').value);
+      const price = parseInt(document.getElementById('calc-price-slider').value);
+
+      document.getElementById('calc-client-display').textContent = clients;
+      document.getElementById('calc-price-display').textContent = `${price}€`;
+
+      // Determine corresponding tier based on client volume slider
+      let tierName = "Starter";
+      let baseLicensePrice = BASE_PRICES.starter;
+      if (clients > 10 && clients <= 50) {
+        tierName = "Profissional";
+        baseLicensePrice = BASE_PRICES.pro;
+      } else if (clients > 50) {
+        tierName = "Enterprise";
+        baseLicensePrice = BASE_PRICES.enterprise;
+      }
+
+      // Apply periodicity modifiers
+      const discount = CYCLE_DISCOUNTS[calcLicenseCycle];
+      const actualLicenseCost = Math.round(baseLicensePrice * discount);
+
+      // Render calculations outputs
+      document.getElementById('calc-license-tier').innerHTML = `${tierName} <span class="text-amber-400">(${actualLicenseCost}€/mês)</span>`;
+      
+      const revenue = clients * price;
+      const profitMonthly = revenue - actualLicenseCost;
+      const profitAnnual = profitMonthly * 12;
+
+      // Format output nicely with fallback safety controls
+      document.getElementById('calc-monthly-total').textContent = `${profitMonthly.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}€`;
+      document.getElementById('calc-annual-total').textContent = `${profitAnnual.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}€`;
+    }
+
+    // 8. INTERSECTION OBSERVATION ANIMATIONS (ScrollReveal polyfill)
+    function setupScrollObserve() {
+      const observerOptions = {
+        root: null,
+        rootMargin: '0px',
+        threshold: 0.1
+      };
+
+      const observer = new IntersectionObserver((entries, obs) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('active');
+            obs.unobserve(entry.target);
+          }
+        });
+      }, observerOptions);
+
+      document.querySelectorAll('.reveal').forEach(el => {
+        observer.observe(el);
+      });
+    }
+
+    // Initialization run
+    document.addEventListener('DOMContentLoaded', () => {
+      // Setup system language
+      applyLang(currentLang);
+      setupScrollObserve();
+    });
+  </script>
+</body>
+</html>
