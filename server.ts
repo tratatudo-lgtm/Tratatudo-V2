@@ -1354,11 +1354,11 @@ async function startServer() {
         { count: activeClients },
         { count: pendingTickets },
         { data: subscriptions },
-        { data: expiredSubs }
+        { count: expiredSubs }
       ] = await Promise.all([
         supabase.from("clients").select("*", { count: 'exact', head: true }).eq("status", "active"),
         supabase.from("tickets").select("*", { count: 'exact', head: true }).neq("status", "resolved"),
-        supabase.from("subscriptions").select("plan, status"),
+        supabase.from("clients").select("plan, status"),
         supabase.from("clients").select("*", { count: 'exact', head: true }).lt("subscription_expires_at", new Date().toISOString())
       ]);
 
@@ -1391,11 +1391,7 @@ async function startServer() {
 
       let query = supabase
         .from("clients")
-        .select(`
-          *,
-          client_profiles(*),
-          subscriptions(*)
-        `, { count: 'exact' });
+        .select(`*`, { count: 'exact' });
 
       if (search) {
         query = query.ilike("company_name", `%${search}%`);
@@ -1417,12 +1413,7 @@ async function startServer() {
     try {
       const { data, error } = await supabase
         .from("clients")
-        .select(`
-          *,
-          client_profiles(*),
-          subscriptions(*),
-          tickets(*)
-        `)
+        .select(`*`)
         .eq("id", req.params.id)
         .maybeSingle();
 
@@ -1433,33 +1424,26 @@ async function startServer() {
     }
   });
 
-  app.post("/api/admin/clients", requireAdminSession, async (req, res) => {
+  const handleClientCreate = async (req: any, res: any) => {
     try {
-      const { client, profile } = req.body;
+      const insertData = req.body.client ? req.body.client : req.body;
       
-      // 1. Create client
       const { data: newClient, error: clientError } = await supabase
         .from("clients")
-        .insert(client)
+        .insert(insertData)
         .select()
         .maybeSingle();
 
       if (clientError) throw clientError;
 
-      // 2. Create profile if provided
-      if (profile) {
-        const { error: profileError } = await supabase
-          .from("client_profiles")
-          .insert({ ...profile, client_id: newClient.id });
-        
-        if (profileError) throw profileError;
-      }
-
       res.json({ ok: true, data: newClient });
     } catch (err: any) {
       res.status(500).json({ ok: false, error: err.message });
     }
-  });
+  };
+
+  app.post("/api/admin/clients", requireAdminSession, handleClientCreate);
+  app.post("/api/admin/clients/trial", requireAdminSession, handleClientCreate);
 
   app.put("/api/admin/clients/:id", requireAdminSession, async (req, res) => {
     try {
@@ -1521,18 +1505,19 @@ async function startServer() {
   app.get("/api/admin/billing/stats", requireAdminSession, async (req, res) => {
     try {
       const { data, error } = await supabase
-        .from("subscriptions")
+        .from("clients")
         .select("plan, status");
 
       if (error) throw error;
 
       // Group by plan
-      const stats = data.reduce((acc: any, sub: any) => {
-        acc[sub.plan] = (acc[sub.plan] || 0) + 1;
+      const stats = (data || []).reduce((acc: any, client: any) => {
+        const plan = client.plan || "Trial";
+        acc[plan] = (acc[plan] || 0) + 1;
         return acc;
       }, {});
 
-      res.json({ ok: true, data: stats });
+      res.json({ ok: true, stats });
     } catch (err: any) {
       res.status(500).json({ ok: false, error: err.message });
     }
@@ -1540,13 +1525,32 @@ async function startServer() {
 
   app.get("/api/admin/billing/subscriptions", requireAdminSession, async (req, res) => {
     try {
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .select("*, clients(company_name)")
-        .order("ends_at", { ascending: true });
+      const { data: clients, error } = await supabase
+        .from("clients")
+        .select("id, company_name, status, plan, subscription_expires_at")
+        .order("subscription_expires_at", { ascending: true });
 
       if (error) throw error;
-      res.json({ ok: true, data });
+
+      const subscriptions = (clients || []).map((client: any) => {
+        let price = 0;
+        const planLower = (client.plan || "").toLowerCase();
+        if (planLower.includes("starter")) price = 29.00;
+        else if (planLower.includes("pro")) price = 99.00;
+        else if (planLower.includes("enterprise")) price = 299.00;
+        else price = 0.00; // trial/free
+
+        return {
+          client_id: client.id,
+          company_name: client.company_name,
+          status: client.status || "active",
+          plan_name: client.plan || "Trial",
+          price_monthly: price,
+          renewal_date: client.subscription_expires_at
+        };
+      });
+
+      res.json({ ok: true, subscriptions });
     } catch (err: any) {
       res.status(500).json({ ok: false, error: err.message });
     }
@@ -1631,82 +1635,118 @@ async function startServer() {
         return res.status(400).json({ ok: false, error: "Todos os campos (Nome, Empresa, Telefone, Email) são obrigatórios." });
       }
 
-      // 1. Grava no Supabase
-      const { data, error } = await supabase
-        .from("leads")
-        .insert({
-          name,
-          company,
-          phone,
-          email,
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .maybeSingle();
+      let dbError: any = null;
+      let emailError: any = null;
+      let waError: any = null;
 
-      if (error) {
-        console.error("Erro ao guardar lead no Supabase:", error);
-        return res.status(500).json({ ok: false, error: error.message });
-      }
+      // 1. SUPABASE (armazenamento no portal admin)
+      const pSupabase = (async () => {
+        try {
+          const { error } = await supabase
+            .from("sales_leads")
+            .insert({
+              name,
+              company,
+              phone,
+              email,
+              source: "landing_page",
+              status: "novo",
+              client_id: null,
+              created_at: new Date().toISOString()
+            });
 
-      // 2. Envia e-mail de notificação (Nodemailer) com tratamento de erro
-      try {
-        const smtpHost = process.env.SMTP_HOST;
-        const smtpPort = Number(process.env.SMTP_PORT || "587");
-        const smtpUser = process.env.SMTP_USER;
-        const smtpPass = process.env.SMTP_PASS;
-        const smtpFrom = process.env.SMTP_FROM || `"TrataTudo Leads" <geral@tratatudo.pt>`;
+          if (error) {
+            console.error("Erro ao guardar lead na tabela sales_leads:", error);
+            dbError = error;
+          } else {
+            console.log("Lead guardada com sucesso no Supabase ('sales_leads').");
+          }
+        } catch (err: any) {
+          console.error("Exceção ao interagir com o Supabase:", err);
+          dbError = err;
+        }
+      })();
 
-        if (smtpHost && smtpUser && smtpPass) {
-          const transporter = nodemailer.createTransport({
-            host: smtpHost,
-            port: smtpPort,
-            secure: smtpPort === 465,
-            auth: {
-              user: smtpUser,
-              pass: smtpPass,
+      // 2. EMAIL (notificação por email)
+      const pEmail = (async () => {
+        try {
+          const smtpHost = process.env.SMTP_HOST;
+          const smtpPort = Number(process.env.SMTP_PORT || "587");
+          const smtpUser = process.env.SMTP_USER;
+          const smtpPass = process.env.SMTP_PASS;
+          const smtpFrom = process.env.SMTP_FROM || `"TrataTudo Leads" <geral@tratatudo.pt>`;
+
+          if (smtpHost && smtpUser && smtpPass) {
+            const transporter = nodemailer.createTransport({
+              host: smtpHost,
+              port: smtpPort,
+              secure: smtpPort === 465,
+              auth: {
+                user: smtpUser,
+                pass: smtpPass,
+              },
+            });
+
+            const dataHora = new Date().toLocaleString("pt-PT", { timeZone: "Europe/Lisbon" });
+
+            const mailOptions = {
+              from: smtpFrom,
+              to: "tratatudo@protonmail.com",
+              subject: `🔔 Nova Lead - ${company}`,
+              text: `Nova lead captada na landing page:\n📛 Nome: ${name}\n🏢 Empresa: ${company}\n📞 Telefone: ${phone}\n📧 Email: ${email}\n📅 Data: ${dataHora}`
+            };
+
+            await transporter.sendMail(mailOptions);
+            console.log("E-mail de notificação enviado para tratatudo@protonmail.com");
+          } else {
+            console.warn("SMTP não totalmente configurado em .env (SMTP_HOST, SMTP_USER, SMTP_PASS em falta). Notificação enviada para o log.");
+            console.log("SIMULAÇÃO DE REGISTO DE LEAD DE EMAIL (SMTP em falta):");
+            console.log(`[Nova Lead para tratatudo@protonmail.com] Nome: ${name}, Empresa: ${company}, Telefone: ${phone}, Email: ${email}`);
+          }
+        } catch (err: any) {
+          console.error("Erro ao enviar e-mail de notificação de lead:", err);
+          emailError = err;
+        }
+      })();
+
+      // 3. WHATSAPP (notificação instantânea)
+      const pWhatsApp = (async () => {
+        try {
+          const response = await fetch("http://localhost:8080/message/sendText/FinalWAV", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": "TrataTudo_2026_Negocio"
             },
+            body: JSON.stringify({
+              number: "351923364360",
+              text: `🔔 Nova Lead!\n\n📛 ${name}\n🏢 ${company}\n📞 ${phone}\n📧 ${email}`
+            })
           });
 
-          const mailOptions = {
-            from: smtpFrom,
-            to: "geral@tratatudo.pt",
-            subject: `⚡ Nova Lead Capturada: ${name} (${company})`,
-            text: `Olá Equipa TrataTudo,\n\nUma nova lead de contacto foi capturada na Landing Page:\n\n- Nome: ${name}\n- Empresa: ${company}\n- Telefone: ${phone}\n- E-mail: ${email}\n- Data de Registo: ${new Date().toLocaleString("pt-PT")}\n\nTrataTudo.pt - Gestão Operacional Inteligente`,
-            html: `
-              <div style="font-family: sans-serif; padding: 20px; color: #1e293b; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; max-w-xl; margin: auto;">
-                <div style="text-align: center; margin-bottom: 20px;">
-                  <h2 style="color: #6366f1; margin: 0; font-family: 'Space Grotesk', sans-serif;">⚡ Nova Lead Capturada!</h2>
-                  <p style="color: #64748b; font-size: 14px; margin-top: 5px;">Landing Page TrataTudo.pt</p>
-                </div>
-                <div style="background-color: #ffffff; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; line-height: 1.6;">
-                  <p style="margin: 0 0 10px;"><strong>Nome:</strong> <span style="color: #0f172a;">${name}</span></p>
-                  <p style="margin: 0 0 10px;"><strong>Empresa:</strong> <span style="color: #0f172a;">${company}</span></p>
-                  <p style="margin: 0 0 10px;"><strong>Telefone:</strong> <span style="color: #0f172a;">${phone}</span></p>
-                  <p style="margin: 0 0 10px;"><strong>E-mail:</strong> <a href="mailto:${email}" style="color: #4f46e5; text-decoration: none;">${email}</a></p>
-                  <p style="margin: 0;"><strong>Data de Registo:</strong> <span style="color: #64748b;">${new Date().toLocaleString("pt-PT")}</span></p>
-                </div>
-                <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #94a3b8;">
-                  Este e-mail foi gerado automaticamente pelo servidor TrataTudo.pt
-                </div>
-              </div>
-            `,
-          };
-
-          await transporter.sendMail(mailOptions);
-          console.log(`E-mail de notificação enviado para geral@tratatudo.pt para a lead: ${email}`);
-        } else {
-          console.warn("SMTP não configurado inteiramente em .env (SMTP_HOST, SMTP_USER, SMTP_PASS em falta). Notificação enviada para consola.");
-          console.log("SIMULAÇÃO DE REGISTO DE LEAD DE EMAIL (SMTP em falta):");
-          console.log(`[Nova Lead] Nome: ${name}, Empresa: ${company}, Telefone: ${phone}, Email: ${email}`);
+          if (!response.ok) {
+            throw new Error(`Evolution API respondeu com status ${response.status}`);
+          }
+          console.log("Notificação de WhatsApp enviada com sucesso.");
+        } catch (err: any) {
+          console.error("Erro ao enviar notificação por WhatsApp via Evolution API:", err);
+          waError = err;
         }
-      } catch (mailErr: any) {
-        console.error("Erro ao enviar e-mail de notificação de lead (lead salva no Supabase):", mailErr);
+      })();
+
+      // Executa as 3 ações em paralelo (Promise.all)
+      await Promise.all([pSupabase, pEmail, pWhatsApp]);
+
+      // Se todas as tentativas de gravação na base de dados falharem, reportamos erro de banco de dados.
+      // Caso contrário, retornamos ok: true, permitindo que falhas em canais secundários de notificação
+      // (WhatsApp/Email offline/não configurados no ambiente de teste) não impeçam o envio de sucesso ao lead.
+      if (dbError) {
+        return res.status(500).json({ ok: false, error: dbError.message || String(dbError) });
       }
 
-      res.status(201).json({ ok: true, message: "Lead criada com sucesso", data });
+      res.status(200).json({ ok: true });
     } catch (err: any) {
-      res.status(500).json({ ok: false, error: err.message });
+      res.status(500).json({ ok: false, error: err.message || String(err) });
     }
   });
 

@@ -3,20 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TrataTudo.pt | Gestão Operacional Inteligente com IA</title>
+  <title>TrataTudo.pt | Plataforma de Automação & IA para Empresas</title>
   
-  <!-- Google Fonts: Inter for UI, Space Grotesk for Heading Display -->
+  <!-- Google Fonts: Inter for UI body, Space Grotesk for Heading Display -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
   
-  <!-- Lucide Icons for pristine layouts -->
+  <!-- Lucide Vector Icons for ultra-crisp interface elements -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- Tailwind CSS Play CDN -->
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
@@ -24,15 +25,15 @@
             display: ['Space Grotesk', 'sans-serif'],
           },
           colors: {
-            brand: {
-              50: '#f5f3ff',
-              100: '#ede9fe',
+            indigo: {
+              50: '#ecfeff',
               500: '#6366f1',
               600: '#4f46e5',
               700: '#4338ca',
             },
-            slate: {
-              950: '#090d16', // Custom deep high-contrast charcoal black
+            amber: {
+              500: '#f59e0b',
+              600: '#d97706',
             }
           }
         }
@@ -40,524 +41,479 @@
     }
   </script>
 
+  <!-- Custom CSS for Premium animations, scrollbars, and keyframes -->
   <style>
-    /* Subtle neon glows and animations */
-    .glow-hover:hover {
-      box-shadow: 0 0 25px rgba(99, 102, 241, 0.15);
+    /* Continuous seamless marquee animation for logos */
+    @keyframes marquee {
+      0% { transform: translateX(0%); }
+      100% { transform: translateX(-50%); }
     }
-    .text-glow {
-      text-shadow: 0 0 25px rgba(99, 102, 241, 0.5);
+    .animate-marquee {
+      display: flex;
+      width: max-content;
+      animation: marquee 25s linear infinite;
     }
+    .animate-marquee:hover {
+      animation-play-state: paused;
+    }
+
+    /* Custom scrollbar matching professional layout */
     .custom-scrollbar::-webkit-scrollbar {
       width: 6px;
+      height: 6px;
     }
     .custom-scrollbar::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.02);
+      background: transparent;
     }
     .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(99, 102, 241, 0.2);
       border-radius: 4px;
     }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 255, 255, 0.2);
+      background: rgba(99, 102, 241, 0.4);
+    }
+
+    /* Chat simulation message delays */
+    @keyframes fadeInBubble {
+      0% { opacity: 0; transform: translateY(10px) scale(0.95); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .chat-bubble {
+      animation: fadeInBubble 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Pulse for live status indicators */
+    .status-pulse {
+      position: relative;
+    }
+    .status-pulse::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 9999px;
+      border: 2px solid currentColor;
+      animation: pulseBorder 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    }
+    @keyframes pulseBorder {
+      0% { transform: scale(1); opacity: 0.8; }
+      100% { transform: scale(1.6); opacity: 0; }
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans selection:bg-brand-500/30 selection:text-white custom-scrollbar overflow-x-hidden antialiased">
+<body class="bg-white dark:bg-[#090d16] text-slate-800 dark:text-slate-200 font-sans custom-scrollbar overflow-x-hidden antialiased transition-colors duration-300">
 
   <!-- ================= HEADER SECTION ================= -->
-  <header class="sticky top-0 w-full z-40 bg-slate-950/80 backdrop-blur-md border-b border-white/5 transition-all duration-300">
+  <header class="sticky top-0 w-full z-40 bg-white/85 dark:bg-[#090d16]/85 backdrop-blur-md border-b border-slate-200/50 dark:border-slate-800/50 transition-all duration-300">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
       
       <!-- Brand Logo -->
       <a href="#" class="flex items-center gap-2 group">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-brand-500/20 group-hover:scale-105 transition-all">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-all">
           <i data-lucide="zap" class="w-5 h-5 text-white fill-white/10"></i>
         </div>
-        <span class="font-display font-extrabold text-xl tracking-tight bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">
-          TrataTudo<span class="text-brand-500">.pt</span>
+        <span class="font-display font-extrabold text-xl tracking-tight text-slate-900 dark:text-white">
+          TrataTudo<span class="text-indigo-500">.pt</span>
         </span>
       </a>
 
       <!-- Desktop Nav Navigation Links -->
       <nav class="hidden lg:flex items-center gap-8">
-        <a href="#problema" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="nav_problem">Problema</a>
-        <a href="#servicos" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="nav_services">Serviços</a>
-        <a href="#planos" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="nav_pricing">Planos</a>
-        <a href="#empresa" class="text-sm font-semibold text-slate-300 hover:text-white transition-colors" data-i18n="nav_company">Empresa</a>
+        <a href="#plataforma" class="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-500 dark:hover:text-white transition-colors" data-i18n="nav_services">Plataforma</a>
+        <a href="#precos" class="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-500 dark:hover:text-white transition-colors" data-i18n="nav_pricing">Preços</a>
+        <a href="/revenda.html" class="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-500 dark:hover:text-white transition-colors animate-pulse" data-i18n="footer_reseller">Revenda White Label</a>
+        <a href="#faq" class="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-500 dark:hover:text-white transition-colors" data-i18n="nav_faq">FAQ</a>
       </nav>
 
-      <!-- Language Selector + Action CTAs -->
+      <!-- Language Selector, Theme Selector & Actions -->
       <div class="hidden lg:flex items-center gap-4">
-        <!-- Language Selector Dropdown -->
+        
+        <!-- Theme Toggle Switch ☀️/🌙 -->
+        <button onclick="toggleTheme()" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-all cursor-pointer" aria-label="Alterar Tema">
+          <i id="theme-icon-sun" data-lucide="sun" class="w-4 h-4 hidden"></i>
+          <i id="theme-icon-moon" data-lucide="moon" class="w-4 h-4"></i>
+        </button>
+
+        <!-- Language Dropdown -->
         <div class="relative inline-block text-left" id="desktop-lang-selector">
-          <button onclick="toggleDesktopLangDropdown(event)" id="desktop-lang-btn" class="flex items-center gap-2 px-3 py-2 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 rounded-xl text-xs font-semibold text-slate-300 transition-all cursor-pointer">
+          <button onclick="toggleDesktopLangDropdown(event)" id="desktop-lang-btn" class="flex items-center gap-2 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 transition-all cursor-pointer">
             <span class="text-sm">🌐</span>
             <span id="active-lang-label" class="tracking-wider uppercase">PT</span>
             <i data-lucide="chevron-down" id="desktop-lang-chevron" class="w-3.5 h-3.5 transition-transform duration-200"></i>
           </button>
           
-          <div id="desktop-lang-dropdown" class="hidden absolute right-0 mt-2 w-40 bg-slate-900/95 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl z-[999] overflow-hidden transition-all duration-200 origin-top-right transform scale-95 opacity-0">
-            <div class="py-1 divide-y divide-white/5">
-              <button onclick="translatePage('pt')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-left font-bold" data-dropdown-lang="pt">
-                <span class="flex items-center gap-2">
-                  <span>🇵🇹</span>
+          <div id="desktop-lang-dropdown" class="hidden absolute right-0 mt-2 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-[999] overflow-hidden transition-all duration-200">
+            <div class="py-1.5 divide-y divide-slate-100 dark:divide-slate-800">
+              <button onclick="translatePage('pt')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-800/85 hover:text-indigo-600 dark:hover:text-white transition-colors text-left font-semibold" data-dropdown-lang="pt">
+                <span class="flex items-center gap-2.5">
+                  <span class="text-sm">🇵🇹</span>
                   <span>Português</span>
                 </span>
-                <span class="checkmark text-emerald-400 hidden">✓</span>
+                <span class="checkmark text-indigo-500 hidden">✓</span>
               </button>
-              <button onclick="translatePage('en')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-left font-bold" data-dropdown-lang="en">
-                <span class="flex items-center gap-2">
-                  <span>🇬🇧</span>
+              <button onclick="translatePage('en')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-800/85 hover:text-indigo-600 dark:hover:text-white transition-colors text-left font-semibold" data-dropdown-lang="en">
+                <span class="flex items-center gap-2.5">
+                  <span class="text-sm">🇬🇧</span>
                   <span>English</span>
                 </span>
-                <span class="checkmark text-emerald-400 hidden">✓</span>
+                <span class="checkmark text-indigo-500 hidden">✓</span>
               </button>
-              <button onclick="translatePage('es')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-left font-bold" data-dropdown-lang="es">
-                <span class="flex items-center gap-2">
-                  <span>🇪🇸</span>
+              <button onclick="translatePage('es')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-800/85 hover:text-indigo-600 dark:hover:text-white transition-colors text-left font-semibold" data-dropdown-lang="es">
+                <span class="flex items-center gap-2.5">
+                  <span class="text-sm">🇪🇸</span>
                   <span>Español</span>
                 </span>
-                <span class="checkmark text-emerald-400 hidden">✓</span>
+                <span class="checkmark text-indigo-500 hidden">✓</span>
               </button>
-              <button onclick="translatePage('fr')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-left font-bold" data-dropdown-lang="fr">
-                <span class="flex items-center gap-2">
-                  <span>🇫🇷</span>
+              <button onclick="translatePage('fr')" class="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-800/85 hover:text-indigo-600 dark:hover:text-white transition-colors text-left font-semibold" data-dropdown-lang="fr">
+                <span class="flex items-center gap-2.5">
+                  <span class="text-sm">🇫🇷</span>
                   <span>Français</span>
                 </span>
-                <span class="checkmark text-emerald-400 hidden">✓</span>
+                <span class="checkmark text-indigo-500 hidden">✓</span>
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Login / Action buttons -->
-        <a href="/login" class="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 rounded-xl border border-white/5 transition-all" data-i18n="nav_login">Entrar</a>
-        <button onclick="openLeadModal(event)" class="cursor-pointer px-5 py-2.5 text-sm font-bold bg-brand-600 hover:bg-brand-500 text-white rounded-xl shadow-lg shadow-brand-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all" data-i18n="hero_cta1">Começar Grátis</button>
+        <!-- Login / Active Buttons -->
+        <a href="/login" class="px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl transition-all" data-i18n="nav_login">Entrar</a>
+        <button onclick="openLeadModal(event)" class="cursor-pointer px-5 py-2.5 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/10 hover:scale-[1.02] active:scale-[0.98] transition-all" data-i18n="hero_cta1">Começar Grátis</button>
       </div>
 
-      <!-- Mobile Menu Hamburger Button -->
-      <div class="flex items-center gap-3 lg:hidden">
-        <!-- Simplified Header Selector on Mobile -->
-        <select onchange="translatePage(this.value)" id="mobile-lang-select" class="bg-slate-900 border border-white/10 text-xs text-slate-300 px-2 py-1.5 rounded-lg focus:outline-none">
+      <!-- Mobile Button Section -->
+      <div class="flex items-center gap-3.5 lg:hidden">
+        
+        <!-- Mobile Theme Toggle -->
+        <button onclick="toggleTheme()" class="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900" aria-label="Alterar Tema">
+          <i id="theme-icon-sun-mob" data-lucide="sun" class="w-4 h-4 hidden"></i>
+          <i id="theme-icon-moon-mob" data-lucide="moon" class="w-4 h-4"></i>
+        </button>
+
+        <select onchange="translatePage(this.value)" id="mobile-lang-select" class="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 px-2 py-1.5 rounded-lg focus:outline-none focus:border-indigo-500 font-semibold">
           <option value="pt">🇵🇹 PT</option>
           <option value="en">🇬🇧 EN</option>
           <option value="es">🇪🇸 ES</option>
           <option value="fr">🇫🇷 FR</option>
         </select>
         
-        <button onclick="toggleMobileMenu()" class="p-2 text-slate-400 hover:text-white focus:outline-none">
-          <i data-lucide="menu" class="w-6 h-6"></i>
+        <button onclick="toggleMobileMenu()" class="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white" aria-label="Menu principal">
+          <i data-lucide="menu" id="mob-menu-icon" class="w-6 h-6"></i>
         </button>
       </div>
 
     </div>
   </header>
 
-  <!-- Mobile Navigation drawer overlay -->
-  <div id="mobile-menu" class="fixed inset-0 bg-slate-950/98 z-50 transform translate-x-full transition-transform duration-300 lg:hidden flex flex-col justify-between p-6">
+  <!-- Mobile Navigation Drawer Overlay -->
+  <div id="mobile-menu" class="fixed inset-0 bg-white/98 dark:bg-[#090d16]/98 z-50 transform translate-x-full transition-transform duration-300 lg:hidden flex flex-col justify-between p-6">
     <div>
-      <div class="flex items-center justify-between pb-8 border-b border-white/5">
-        <span class="font-display font-extrabold text-xl bg-gradient-to-r from-white to-brand-300 bg-clip-text text-transparent">TrataTudo.pt</span>
-        <button onclick="toggleMobileMenu()" class="p-2 text-slate-400 hover:text-white">
+      <div class="flex items-center justify-between pb-6 border-b border-slate-200 dark:border-slate-800">
+        <span class="font-display font-bold text-lg text-slate-900 dark:text-white">TrataTudo.pt</span>
+        <button onclick="toggleMobileMenu()" class="p-2 text-slate-600 dark:text-slate-300">
           <i data-lucide="x" class="w-6 h-6"></i>
         </button>
       </div>
 
-      <nav class="flex flex-col gap-5 pt-8">
-        <a href="#problema" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="nav_problem">Problema</a>
-        <a href="#servicos" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="nav_services">Serviços</a>
-        <a href="#planos" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="nav_pricing">Planos</a>
-        <a href="#empresa" onclick="toggleMobileMenu()" class="text-lg font-semibold text-slate-300 hover:text-white" data-i18n="nav_company">Empresa</a>
+      <nav class="flex flex-col gap-6 pt-10">
+        <a href="#plataforma" onclick="toggleMobileMenu()" class="text-lg font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-500" data-i18n="nav_services">Plataforma</a>
+        <a href="#precos" onclick="toggleMobileMenu()" class="text-lg font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-500" data-i18n="nav_pricing">Preços</a>
+        <a href="/revenda.html" onclick="toggleMobileMenu()" class="text-lg font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-500" data-i18n="footer_reseller">Revenda White Label</a>
+        <a href="#faq" onclick="toggleMobileMenu()" class="text-lg font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-500" data-i18n="nav_faq">FAQ</a>
       </nav>
     </div>
 
-    <div class="flex flex-col gap-4">
-      <a href="/login" class="w-full py-3.5 text-center font-bold text-slate-300 border border-white/10 rounded-xl hover:bg-white/5 transition-all" data-i18n="nav_login">Entrar</a>
-      <button onclick="openLeadModal(event)" class="cursor-pointer w-full py-3.5 text-center font-bold bg-brand-600 hover:bg-brand-500 text-white rounded-xl shadow-lg transition-all" data-i18n="hero_cta1">Começar Grátis</button>
+    <div class="flex flex-col gap-3">
+      <a href="/login" class="w-full py-3.5 text-center font-bold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" data-i18n="nav_login">Entrar</a>
+      <button onclick="openLeadModal(event)" class="cursor-pointer w-full py-3.5 text-center font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-lg transition-all" data-i18n="hero_cta1">Começar Grátis</button>
     </div>
   </div>
 
-
   <!-- ================= HERO SECTION ================= -->
-  <section class="relative pt-10 pb-20 lg:pt-16 lg:pb-32 overflow-hidden">
+  <section class="relative pt-8 pb-16 lg:pt-16 lg:pb-28 overflow-hidden bg-slate-50/40 dark:bg-transparent">
     
-    <!-- Ambiance background gradients -->
-    <div class="absolute top-[-300px] left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full bg-brand-600/10 blur-[150px] pointer-events-none"></div>
-    <div class="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-indigo-500/5 blur-[100px] pointer-events-none"></div>
+    <!-- Ambiance back glows -->
+    <div class="absolute top-[-250px] left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full bg-indigo-500/10 dark:bg-indigo-500/5 blur-[120px] pointer-events-none"></div>
+    <div class="absolute bottom-10 right-10 w-[350px] h-[350px] rounded-full bg-amber-500/5 dark:bg-amber-500/[0.02] blur-[80px] pointer-events-none"></div>
     
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
       <div class="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
         
-        <!-- Hero Text Left -->
+        <!-- Hero Content Left -->
         <div class="lg:col-span-12 xl:col-span-7 flex flex-col items-start text-left">
           
-          <!-- Badge -->
-          <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-brand-500/10 border border-brand-500/25 rounded-full text-brand-300 text-xs font-black tracking-wide mb-6">
+          <!-- Confidence Badge -->
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 dark:bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/20 rounded-full text-indigo-600 dark:text-indigo-400 text-xs font-semibold tracking-wide mb-6">
             <span class="flex h-2 w-2 relative">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-500"></span>
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-600 dark:bg-indigo-400"></span>
             </span>
-            <span data-i18n="hero_badge">⚡ Plataforma Tudo-em-Um para Empresas</span>
+            <span>+500 empresas • 3M+ mensagens/mês • 99.9% uptime</span>
           </div>
 
-          <!-- Headline / Title -->
-          <h1 class="font-display font-extrabold text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-[1.1] text-white" data-i18n="hero_title">
-            <span class="bg-gradient-to-r from-brand-300 via-indigo-200 to-indigo-400 bg-clip-text text-transparent text-glow">
-              Atendimento Inteligente
+          <!-- Main Dynamic Title -->
+          <h1 class="font-display font-extrabold text-3xl sm:text-5xl lg:text-[52px] leading-[1.1] tracking-tight text-slate-900 dark:text-white" id="hero-title-wrapper">
+            <span class="bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-700 dark:from-indigo-300 dark:via-indigo-200 dark:to-indigo-400 bg-clip-text text-transparent">
+              A Plataforma Que as Grandes Empresas Pagam Fortunas Para Ter.
             </span>
             <br>
-            <span class="text-slate-100">para o seu Negócio</span>
+            <span class="text-slate-800 dark:text-slate-100">Agora ao Alcance da Tua.</span>
           </h1>
 
-          <!-- Subheadline -->
-          <p class="mt-6 text-base sm:text-lg text-slate-400 leading-relaxed font-semibold font-medium max-w-xl" data-i18n="hero_sub">
-            Automatize o suporte por WhatsApp, sincronize calendários reais, controle tarefas e emita faturamento recorrente automaticamente. Com a plataforma TrataTudo, a sua equipa atinge o potencial máximo.
+          <!-- Detailed Subheadline -->
+          <p class="mt-6 text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed font-medium max-w-xl" data-i18n="hero_sub">
+            WhatsApp IA, CRM, Financeiro, Automações n8n, Actives, Agenda, Equipa. Tudo integrado. 24h/dia. Sem código.
           </p>
 
-          <!-- Buttons -->
-          <div class="mt-10 flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-            <button onclick="openLeadModal(event)" class="cursor-pointer flex items-center justify-center gap-2 px-8 py-4 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/25 w-full sm:w-auto hover:translate-y-[-2px] active:translate-y-[0px] transition-all duration-200">
-              <span data-i18n="hero_cta1">Começar Agora</span>
+          <!-- Action Buttons -->
+          <div class="mt-8 flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+            <button onclick="openLeadModal(event)" class="cursor-pointer flex items-center justify-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/35 w-full sm:w-auto hover:translate-y-[-2px] active:translate-y-[0px] transition-all duration-200">
+              <span data-i18n="hero_cta1">Começar Grátis</span>
               <i data-lucide="arrow-right" class="w-5 h-5"></i>
             </button>
             
-            <!-- Safe mock WhatsApp link -->
-            <a href="https://wa.me/351923364360" target="_blank" class="flex items-center justify-center gap-2 px-8 py-4 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-semibold rounded-xl border border-white/5 w-full sm:w-auto hover:translate-y-[-2px] active:translate-y-[0px] transition-all duration-200">
-              <i data-lucide="message-square" class="w-5 h-5 text-emerald-400"></i>
-              <span data-i18n="hero_cta2">Falar com Consultor IA</span>
+            <a href="https://wa.me/351923364360?text=Olá!%20Vi%20a%20landing%20page%20do%20TrataTudo%20e%20gostaria%20de%20ver%20uma%20demonstração%20em%20tempo-real." target="_blank" class="flex items-center justify-center gap-2 px-8 py-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl border border-slate-200 dark:border-slate-800 w-full sm:w-auto hover:translate-y-[-2px] transition-all duration-200">
+              <i data-lucide="message-square" class="w-5 h-5 text-emerald-500 fill-emerald-500/10"></i>
+              <span data-i18n="hero_cta2">Ver Demo Ao Vivo</span>
             </a>
           </div>
 
-          <!-- Core trust line -->
-          <div class="mt-12 flex items-center gap-6 text-slate-500 text-xs">
-            <div class="flex items-center gap-1.5">
-              <i data-lucide="shield-check" class="w-4 h-4 text-brand-500/80"></i>
-              <span>RGPD Compliant</span>
+          <!-- Compliance lines -->
+          <div class="mt-10 flex flex-wrap items-center gap-6 text-slate-500 text-xs">
+            <div class="flex items-center gap-1.5 font-medium">
+              <i data-lucide="shield-check" class="w-4.5 h-4.5 text-indigo-500"></i>
+              <span>RGPD Legal Compliant</span>
             </div>
-            <div class="flex items-center gap-1.5">
-              <i data-lucide="credit-card" class="w-4 h-4 text-brand-500/80"></i>
+            <div class="flex items-center gap-1.5 font-medium">
+              <i data-lucide="credit-card" class="w-4.5 h-4.5 text-indigo-500"></i>
               <span>Sem cartão de crédito</span>
             </div>
+            <div class="flex items-center gap-1.5 font-medium">
+              <i data-lucide="clock" class="w-4.5 h-4.5 text-indigo-500"></i>
+              <span>Ativação em 10 minutos</span>
+            </div>
           </div>
 
         </div>
 
-        <!-- Hero Mockup Right (Interactive Elegant UI Mockup Built with CSS) -->
-        <div class="lg:col-span-5 relative">
-          <div class="absolute -inset-1 rounded-[2.5rem] bg-gradient-to-tr from-brand-600/30 to-indigo-500/10 blur-xl opacity-80"></div>
+        <!-- Hero Mockup Right (Interactive Elegant live-simulation UI dashboard & chat) -->
+        <div class="lg:col-span-12 xl:col-span-5 relative">
+          <div class="absolute -inset-1.5 rounded-[2.5rem] bg-gradient-to-tr from-indigo-500/20 to-amber-500/5 blur-2xl opacity-80 pointer-events-none"></div>
           
-          <div class="relative bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md">
-            <!-- Window Title bar -->
-            <div class="bg-slate-950/90 h-12 px-4 border-b border-white/5 flex items-center justify-between">
-              <div class="flex items-center gap-1.5">
-                <span class="w-3 h-3 rounded-full bg-rose-500/80"></span>
-                <span class="w-3 h-3 rounded-full bg-amber-500/80"></span>
-                <span class="w-3 h-3 rounded-full bg-emerald-500/80"></span>
+          <div class="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-md">
+            
+            <!-- Window header bars -->
+            <div class="bg-slate-50 dark:bg-slate-900/40 px-5 py-4 border-b border-slate-200 dark:border-slate-850 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span>
+                <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+                <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
               </div>
-              <div class="text-[10px] text-slate-500 font-mono tracking-widest uppercase">TrataTudo Core Consola</div>
-              <div class="w-6"></div>
+              <div class="text-[11px] font-mono select-none tracking-widest text-slate-400 dark:text-slate-500 font-extrabold flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                <span>IA ENGINE LIVE</span>
+              </div>
             </div>
 
-            <!-- Dashboard Frame body -->
-            <div class="p-6 grid grid-cols-4 gap-4 h-[380px] text-left">
+            <!-- Double Column Simulated App Layout -->
+            <div class="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-200 dark:divide-slate-850 h-[460px]">
               
-              <!-- Mini Sidebar -->
-              <div class="col-span-1 border-r border-white/5 pr-4 flex flex-col gap-4">
-                <div class="w-full h-8 bg-brand-500/10 border border-brand-500/20 rounded flex items-center justify-center text-brand-400">
-                  <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+              <!-- Simulated Mobile View Client Side Chat (Col 7) -->
+              <div class="md:col-span-7 flex flex-col h-full bg-slate-50/50 dark:bg-slate-950/20">
+                <div class="p-3 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-850 flex items-center gap-2">
+                  <div class="relative w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold status-pulse">
+                    <i data-lucide="bot" class="w-4 h-4 text-white"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-xs font-bold text-slate-800 dark:text-slate-100">Rita (IA Corporativa)</h4>
+                    <p class="text-[9px] text-emerald-500 font-semibold">disponível 24/7</p>
+                  </div>
                 </div>
-                <div class="w-full h-8 bg-white/5 rounded flex items-center justify-center text-slate-500">
-                  <i data-lucide="message-square" class="w-4 h-4"></i>
+
+                <!-- Live Chat Message Area with simulated flow -->
+                <div class="p-4 flex-1 flex flex-col gap-3 overflow-y-auto" id="simulated-chat-board">
+                  <!-- Messages will be continuously spawned and altered by Javascript below -->
+                  <div class="text-center py-2">
+                    <span class="text-[10px] text-slate-400 font-medium bg-slate-100 dark:bg-slate-800/80 px-2 py-1 rounded">Hoje</span>
+                  </div>
                 </div>
-                <div class="w-full h-8 bg-white/5 rounded flex items-center justify-center text-slate-500">
-                  <i data-lucide="users" class="w-4 h-4"></i>
-                </div>
-                <div class="w-full h-8 bg-white/5 rounded flex items-center justify-center text-slate-500">
-                  <i data-lucide="calendar" class="w-4 h-4"></i>
+
+                <!-- Keyboard placeholder -->
+                <div class="p-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-850 flex items-center justify-between gap-1">
+                  <div class="flex-1 bg-slate-100 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800 rounded-full py-1.5 px-3 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Rita responde em 1s...</span>
+                    <i data-lucide="smile" class="w-3.5 h-3.5 text-slate-400"></i>
+                  </div>
+                  <div class="w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-white">
+                    <i data-lucide="send" class="w-3 h-3 text-white fill-white/10"></i>
+                  </div>
                 </div>
               </div>
 
-              <!-- Main Simulated CRM / WhatsApp Interaction Screen -->
-              <div class="col-span-3 flex flex-col justify-between h-full">
-                
-                <!-- Chat Window Header -->
-                <div class="flex items-center justify-between pb-3 border-b border-white/5">
-                  <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-[10px] font-black uppercase text-emerald-400">CS</div>
-                    <div>
-                      <div class="text-[11px] font-black leading-tight">Clínica Sorrisos (WhatsApp)</div>
-                      <div class="text-[9px] text-emerald-400 font-bold flex items-center gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
-                        IA Ativa
-                      </div>
+              <!-- Stats & Performance Charts View (Col 5) -->
+              <div class="md:col-span-5 p-4 flex flex-col justify-between bg-white dark:bg-slate-900">
+                <div>
+                  <h4 class="text-xs font-bold tracking-tight text-slate-500 dark:text-slate-400 uppercase mb-3" data-i18n="menu_reports">Relatórios</h4>
+                  
+                  <!-- Stat Widget 1 -->
+                  <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-850 mb-3 hover:translate-x-1 transition-all duration-300">
+                    <p class="text-[10px] font-bold text-slate-450 dark:text-slate-400">Faturação Recorrente (Stripe)</p>
+                    <div class="flex items-baseline justify-between mt-1">
+                      <span class="text-lg font-black font-display text-indigo-600 dark:text-indigo-400" id="live-billing-val">12,640 €</span>
+                      <span class="text-[9px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-1 py-0.5 rounded font-black">+42%</span>
                     </div>
                   </div>
-                  <i data-lucide="more-vertical" class="w-4 h-4 text-slate-500"></i>
+
+                  <!-- Stat Widget 2 -->
+                  <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-850 hover:translate-x-1 transition-all duration-300">
+                    <p class="text-[10px] font-bold text-slate-450 dark:text-slate-400">Leads Convertidas (IA)</p>
+                    <div class="flex items-baseline justify-between mt-1">
+                      <span class="text-lg font-black font-display text-slate-800 dark:text-slate-100" id="live-leads-val">148</span>
+                      <span class="text-[9px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-1 py-0.5 rounded font-black">98.4%</span>
+                    </div>
+                  </div>
                 </div>
 
-                <!-- Messages area -->
-                <div class="flex-1 py-4 overflow-y-auto space-y-3 font-medium flex flex-col justify-end">
-                  
-                  <!-- Client chat bubble -->
-                  <div class="max-w-[85%] self-start bg-slate-950 p-2.5 rounded-r-xl rounded-tl-xl border border-white/5">
-                    <p class="text-[10px] text-slate-300 leading-normal">
-                      Olá! É possível agendar uma consulta técnica de avaliação para amanhã às 14:00?
-                    </p>
-                    <span class="text-[8px] text-slate-500 block text-right mt-1 font-mono">14:32</span>
-                  </div>
-
-                  <!-- IA Thought State tracker -->
-                  <div class="flex items-center gap-1 px-2.5 py-1 bg-brand-500/5 border border-brand-500/10 rounded-md self-start">
-                    <span class="w-1.5 h-1.5 rounded-full bg-brand-500 animate-bounce"></span>
-                    <span class="text-[8px] text-brand-300 font-mono font-black" data-i18n="verifying">Verificando...</span>
-                  </div>
-
-                  <!-- Simulated Agent auto reply -->
-                  <div class="max-w-[85%] self-end bg-brand-600/10 p-2.5 rounded-l-xl rounded-tr-xl border border-brand-500/25">
-                    <p class="text-[10px] text-brand-200 leading-normal">
-                      Olá! Perfeito, confirmei a sua disponibilidade. Reservei o horário de amanhã às 14:00 na sua agenda. Recebeu o link de confirmação?
-                    </p>
-                    <span class="text-[8px] text-brand-400 block text-right mt-1 font-mono">14:33</span>
-                  </div>
-
-                </div>
-
-                <!-- Footer input visual -->
-                <div class="pt-3 border-t border-white/5 flex items-center gap-2">
-                  <div class="flex-1 h-8 bg-slate-950 border border-white/5 rounded-lg px-3 flex items-center text-[10px] text-slate-500">
-                    Mensagem automatizada pela IA...
-                  </div>
-                  <div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shadow shadow-brand-500/20">
-                    <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                <!-- Animated Mini Bar Chart -->
+                <div class="bg-slate-50 dark:bg-slate-955 p-3 rounded-xl border border-slate-100 dark:border-slate-850 mt-4">
+                  <p class="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Mensagens Processadas (24h)</p>
+                  <div class="flex items-end gap-2 h-20 pt-2 select-none">
+                    <div class="flex-1 bg-indigo-500/30 dark:bg-indigo-500/10 rounded-t h-[40%] hover:bg-indigo-500 transition-all duration-300"></div>
+                    <div class="flex-1 bg-indigo-500/30 dark:bg-indigo-500/10 rounded-t h-[65%] hover:bg-indigo-500 transition-all duration-300"></div>
+                    <div class="flex-1 bg-indigo-500/30 dark:bg-indigo-500/10 rounded-t h-[50%] hover:bg-indigo-500 transition-all duration-300"></div>
+                    <div class="flex-1 bg-indigo-500/30 dark:bg-indigo-500/10 rounded-t h-[80%] hover:bg-indigo-500 transition-all duration-300"></div>
+                    <div class="flex-1 bg-indigo-600 dark:bg-indigo-500 rounded-t h-[95%] animate-pulse"></div>
                   </div>
                 </div>
 
               </div>
 
             </div>
-          </div>
 
-          <!-- Bottom Floating Element (Metric badge) -->
-          <div class="absolute bottom-[-15px] left-[-15px] bg-slate-900 border border-white/10 p-3.5 rounded-xl flex items-center gap-3 shadow-xl hover:scale-105 transition-transform duration-300">
-            <div class="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <i data-lucide="trending-up" class="w-5 h-5"></i>
-            </div>
-            <div>
-              <div class="text-[9px] text-slate-500 uppercase font-mono tracking-wider">Taxa de Conversão</div>
-              <div class="text-base font-extrabold text-white leading-tight">+35% Registada</div>
-            </div>
           </div>
-
-          <!-- Top Floating Element (Task badge) -->
-          <div class="absolute top-[-10px] right-[-10px] bg-slate-900 border border-white/10 p-3.5 rounded-xl flex items-center gap-3 shadow-xl hover:scale-105 transition-transform duration-300">
-            <div class="w-10 h-10 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400">
-              <i data-lucide="check-square" class="w-5 h-5"></i>
-            </div>
-            <div>
-              <div class="text-[9px] text-slate-500 uppercase font-mono tracking-wider">Suporte Nível 1</div>
-              <div class="text-base font-extrabold text-white leading-tight">95% Automatizado</div>
-            </div>
-          </div>
-
         </div>
 
       </div>
     </div>
   </section>
 
-
-  <!-- ================= HERO STATS SECTION ================= -->
-  <section class="pb-16 relative">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 bg-slate-900/45 border border-white/5 backdrop-blur-md p-6 sm:p-8 rounded-3xl">
-        <div class="flex flex-col items-center lg:items-start text-center lg:text-left gap-1">
-          <span class="text-2xl sm:text-3xl font-extrabold text-white">500+</span>
-          <span class="text-xs text-slate-400 font-semibold" data-i18n="hero_stat1_l">Empresas Ativas</span>
-        </div>
-        <div class="flex flex-col items-center lg:items-start text-center lg:text-left gap-1 border-l border-white/5 lg:pl-6 pl-0">
-          <span class="text-2xl sm:text-3xl font-extrabold text-white">2.5M+</span>
-          <span class="text-xs text-slate-400 font-semibold" data-i18n="hero_stat2_l">Mensagens/mês</span>
-        </div>
-        <div class="flex flex-col items-center lg:items-start text-center lg:text-left gap-1 border-l border-white/5 pl-6">
-          <span class="text-2xl sm:text-3xl font-extrabold text-white">99.9%</span>
-          <span class="text-xs text-slate-400 font-semibold" data-i18n="hero_stat3_l">Uptime</span>
-        </div>
-        <div class="flex flex-col items-center lg:items-start text-center lg:text-left gap-1 border-l border-white/5 pl-6">
-          <div class="flex items-center gap-1">
-            <span class="text-2xl sm:text-3xl font-extrabold text-white">4.9/5</span>
-            <i data-lucide="star" class="w-5 h-5 text-amber-400 fill-amber-400"></i>
-          </div>
-          <span class="text-xs text-slate-400 font-semibold" data-i18n="hero_stat4_l">Avaliação</span>
-        </div>
+  <!-- ================= TRUST LOGOS SECTION ================= -->
+  <section class="border-y border-slate-200 dark:border-slate-850 bg-slate-50/50 dark:bg-[#090d16]/30 py-8 relative overflow-hidden">
+    <div class="max-w-7xl mx-auto px-4 md:px-8 mb-5 text-center">
+      <p class="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+        Empresas que já automatizaram connosco
+      </p>
+    </div>
+    
+    <!-- Infinite Horizontal CSS Carousel -->
+    <div class="w-full flex overflow-hidden mask-gradient">
+      <div class="animate-marquee whitespace-nowrap flex items-center gap-16 text-slate-450 dark:text-slate-500 font-display font-black text-sm select-none">
+        
+        <span class="flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-indigo-500"></i> Clínica Sorrisos</span>
+        <span class="flex items-center gap-2"><i data-lucide="package" class="w-5 h-5 text-indigo-500"></i> Alfa Logística Lda</span>
+        <span class="flex items-center gap-2"><i data-lucide="wrench" class="w-5 h-5 text-indigo-500"></i> Oficina Veloz PT</span>
+        <span class="flex items-center gap-2"><i data-lucide="home" class="w-5 h-5 text-indigo-500"></i> Imobiliária Vanguarda</span>
+        <span class="flex items-center gap-2"><i data-lucide="shopping-bag" class="w-5 h-5 text-indigo-500"></i> Boutique Moda Lisboa</span>
+        <span class="flex items-center gap-2"><i data-lucide="key" class="w-5 h-5 text-indigo-500"></i> Host Portugal</span>
+        <span class="flex items-center gap-2"><i data-lucide="globe" class="w-5 h-5 text-indigo-500"></i> Inovação Software S.A.</span>
+        
+        <!-- Duplicated to enable perfect continuous scroll loop -->
+        <span class="flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-indigo-500"></i> Clínica Sorrisos</span>
+        <span class="flex items-center gap-2"><i data-lucide="package" class="w-5 h-5 text-indigo-500"></i> Alfa Logística Lda</span>
+        <span class="flex items-center gap-2"><i data-lucide="wrench" class="w-5 h-5 text-indigo-500"></i> Oficina Veloz PT</span>
+        <span class="flex items-center gap-2"><i data-lucide="home" class="w-5 h-5 text-indigo-500"></i> Imobiliária Vanguarda</span>
+        <span class="flex items-center gap-2"><i data-lucide="shopping-bag" class="w-5 h-5 text-indigo-500"></i> Boutique Moda Lisboa</span>
+        <span class="flex items-center gap-2"><i data-lucide="key" class="w-5 h-5 text-indigo-500"></i> Host Portugal</span>
+        <span class="flex items-center gap-2"><i data-lucide="globe" class="w-5 h-5 text-indigo-500"></i> Inovação Software S.A.</span>
       </div>
     </div>
   </section>
 
-
-  <!-- ================= PROBLEMA SECTION ================= -->
-  <section id="problema" class="py-20 lg:py-32 bg-[#090d16] border-t border-white/5 relative">
+  <!-- ================= WHAT IS INCLUDED (6 Bento Cards) ================= -->
+  <section id="plataforma" class="py-20 lg:py-28 bg-white dark:bg-transparent relative">
+    <div class="absolute inset-y-0 right-0 w-[500px] bg-indigo-500/[0.015] blur-3xl rounded-full pointer-events-none"></div>
+    
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
       
       <!-- Section Header -->
-      <div class="text-center max-w-3xl mx-auto mb-16 sm:mb-20">
-        <span class="text-xs font-bold text-brand-400 uppercase tracking-widest block mb-3 font-mono" data-i18n="problem_label">// Problema</span>
-        <h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-white tracking-tight leading-tight" data-i18n="problem_title">
-          O caos da fragmentação operacional
-        </h2>
-        <p class="mt-4 text-base sm:text-lg text-slate-400 font-medium" data-i18n="problem_sub">
-          A maioria das empresas perde tempo e dinheiro saltando entre dezenas de ferramentas desligadas. Nós unificamos tudo.
-        </p>
+      <div class="text-center max-w-3xl mx-auto mb-16 sm:mb-24">
+        <span class="text-xs font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest block mb-3 font-mono" data-i18n="svc_label">// Plataforma</span>
+        <h2 class="text-3xl sm:text-4xl lg:text-[40px] font-display font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight" data-i18n="svc_title">Tudo o que o seu negócio precisa</h2>
+        <p class="mt-4 text-base sm:text-lg text-slate-500 dark:text-slate-400 font-medium" data-i18n="svc_sub">Esqueça a integração manual de softwares. Temos todos os componentes cruciais prontificados numa única plataforma de alta performance.</p>
       </div>
 
-      <!-- 3 Problems Grid -->
-      <div class="grid md:grid-cols-3 gap-6 sm:gap-8 mb-16 sm:mb-20">
-        <!-- Problem Card 1 -->
-        <div class="bg-slate-900/40 border border-white/5 p-6 sm:p-8 rounded-2xl relative hover:border-rose-500/20 transition-all group">
-          <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-6 group-hover:scale-110 transition-transform">
-            <i data-lucide="clock" class="w-5 h-5"></i>
-          </div>
-          <h3 class="text-lg font-bold text-white mb-2" data-i18n="prob1_title">Atendimento lento</h3>
-          <p class="text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="prob1_desc">
-            Clientes esperam horas por respostas simples no WhatsApp comercial, gerando frustração extrema e perda direta de leads quentes.
-          </p>
-        </div>
-
-        <!-- Problem Card 2 -->
-        <div class="bg-slate-900/40 border border-white/5 p-6 sm:p-8 rounded-2xl relative hover:border-rose-500/20 transition-all group">
-          <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-6 group-hover:scale-110 transition-transform">
-            <i data-lucide="calendar-off" class="w-5 h-5"></i>
-          </div>
-          <h3 class="text-lg font-bold text-white mb-2" data-i18n="prob2_title">Agenda desalinhada</h3>
-          <p class="text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="prob2_desc">
-            Chamadas e marcações manuais que resultam em duplicações de horários e faltas não monitorizadas por falta de aviso inteligente.
-          </p>
-        </div>
-
-        <!-- Problem Card 3 -->
-        <div class="bg-slate-900/40 border border-white/5 p-6 sm:p-8 rounded-2xl relative hover:border-rose-500/20 transition-all group">
-          <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-6 group-hover:scale-110 transition-transform">
-            <i data-lucide="receipt" class="w-5 h-5"></i>
-          </div>
-          <h3 class="text-lg font-bold text-white mb-2" data-i18n="prob3_title">Faturação manual</h3>
-          <p class="text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="prob3_desc">
-            Emissão manual de faturas e lembretes de cobrança que drenam o tempo valioso e a energia da equipa financeira.
-          </p>
-        </div>
-      </div>
-
-      <!-- Solution callout -->
-      <div class="relative rounded-3xl overflow-hidden p-8 sm:p-12 border border-brand-500/20 bg-gradient-to-r from-brand-950/40 via-indigo-950/20 to-slate-900/50 mt-12 text-center">
-        <div class="absolute inset-0 bg-brand-500/5 blur-2xl opacity-60"></div>
-        <div class="relative z-10 max-w-2xl mx-auto">
-          <div class="w-12 h-12 rounded-full bg-brand-500/20 border border-brand-500/40 flex items-center justify-center text-brand-300 mx-auto mb-6">
-            <i data-lucide="sparkles" class="w-6 h-6"></i>
-          </div>
-          <h3 class="text-2xl sm:text-3xl font-display font-extrabold text-white tracking-tight" data-i18n="sol_title">A Solução TrataTudo</h3>
-          <p class="mt-4 text-base text-slate-350 leading-relaxed font-semibold font-medium" data-i18n="sol_sub">
-            Uma inteligência centralizada que atende, agenda, cobra e coordena as operações do seu negócio em piloto automático.
-          </p>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-
-  <!-- ================= SERVIÇOS SECTION ================= -->
-  <section id="servicos" class="py-20 lg:py-32 relative border-t border-white/5 bg-slate-950">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-      
-      <!-- Section Title header -->
-      <div class="text-center max-w-3xl mx-auto mb-16 lg:mb-24">
-        <span class="text-xs font-bold text-brand-400 uppercase tracking-widest block mb-3 font-mono" data-i18n="svc_label">// Plataforma</span>
-        <h2 class="font-display font-extrabold text-3xl sm:text-4xl text-white tracking-tight" data-i18n="svc_title">
-          Tudo o que o seu negócio precisa
-        </h2>
-        <p class="mt-4 text-base sm:text-lg text-slate-400 font-medium" data-i18n="svc_sub">
-          Esqueça o software fragmentado. Temos todos os componentes cruciais prontos numa única consola de alto desempenho.
-        </p>
-      </div>
-
-      <!-- Services Grid. 6 Cards as requested -->
-      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+      <!-- Grid Layout of Bento Style Premium Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         
-        <!-- Card 1: IA -->
-        <div class="bg-white/[0.01] border border-white/5 hover:border-brand-500/20 rounded-2xl p-6 lg:p-8 hover:bg-white/[0.02] flex flex-col gap-5 text-left transition-all duration-300 glow-hover">
-          <div class="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+        <!-- Bento Card 1: WhatsApp Bot com IA (Groq) -->
+        <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-3xl p-8 hover:border-indigo-500/50 hover:shadow-xl dark:hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all duration-300 group">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-550/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-450 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <i data-lucide="bot" class="w-6 h-6"></i>
+          </div>
+          <h3 class="font-display font-bold text-slate-900 dark:text-white text-xl mb-3 flex items-center justify-between">
+            <span data-i18n="landing.service1_title">WhatsApp Bot com IA</span>
+            <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 px-2 py-0.5 rounded-full font-black">Groq Cloud</span>
+          </h3>
+          <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed" data-i18n="landing.service1_p">Agentes cognitivos formados com o conhecimento da sua empresa para atender, qualificar e fechar faturas no WhatsApp 24h/dia.</p>
+        </div>
+
+        <!-- Bento Card 2: n8n Automações Visuais -->
+        <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-3xl p-8 hover:border-indigo-500/50 hover:shadow-xl dark:hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all duration-300 group">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-550/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-450 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <i data-lucide="git-branch" class="w-6 h-6"></i>
+          </div>
+          <h3 class="font-display font-bold text-slate-900 dark:text-white text-xl mb-3 flex items-center justify-between">
+            <span>n8n Automações Visuais</span>
+            <span class="text-[9px] bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 px-2 py-0.5 rounded-full font-black">Standard</span>
+          </h3>
+          <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">Sincronize centenas de integrações sem código de forma simplificada. Conecte CRM, Google Sheets, Gmail, e ERPs nativamente.</p>
+        </div>
+
+        <!-- Bento Card 3: Actives Motor de Automação -->
+        <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-3xl p-8 hover:border-indigo-500/50 hover:shadow-xl dark:hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all duration-300 group">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-550/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-450 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
             <i data-lucide="cpu" class="w-6 h-6"></i>
           </div>
-          <div>
-            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="svc1_title">Inteligência Artificial (IA)</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="svc1_desc">
-              Agentes cognitivos formados com o conhecimento da sua empresa para atender, qualificar e fechar vendas no WhatsApp 24/7.
-            </p>
-          </div>
+          <h3 class="font-display font-bold text-slate-900 dark:text-white text-xl mb-3 flex items-center justify-between">
+            <span>Actives Engine</span>
+            <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 px-2 py-0.5 rounded-full font-black">Trigger-Based</span>
+          </h3>
+          <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">Motor inteligente para eventos corporatizados complexos. Dispare lembretes de faturamento, confirmações de agenda e alertas automáticos.</p>
         </div>
 
-        <!-- Card 2: CRM -->
-        <div class="bg-white/[0.01] border border-white/5 hover:border-brand-500/20 rounded-2xl p-6 lg:p-8 hover:bg-white/[0.02] flex flex-col gap-5 text-left transition-all duration-300 glow-hover">
-          <div class="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
-            <i data-lucide="users" class="w-6 h-6"></i>
+        <!-- Bento Card 4: CRM Kanban Core -->
+        <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-3xl p-8 hover:border-indigo-500/50 hover:shadow-xl dark:hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all duration-300 group">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-550/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-450 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <i data-lucide="kanban" class="w-6 h-6"></i>
           </div>
-          <div>
-            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="svc2_title">Central de CRM unificada</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="svc2_desc">
-              Monitorização de conversas, base filtrada de contactos, histórico operacional e perfis enriquecidos em tempo-real.
-            </p>
-          </div>
+          <h3 class="font-display font-bold text-slate-900 dark:text-white text-xl mb-3 flex items-center justify-between">
+            <span data-i18n="landing.service2_title">Central de CRM unificada</span>
+            <span class="text-[9px] bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-400 px-2 py-0.5 rounded-full font-black">Kanban</span>
+          </h3>
+          <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed" data-i18n="landing.service2_p">Monitorização de conversas, base filtrada de contactos, histórico operacional e perfis enriquecidos em tempo-real.</p>
         </div>
 
-        <!-- Card 3: Equipa -->
-        <div class="bg-white/[0.01] border border-white/5 hover:border-brand-500/20 rounded-2xl p-6 lg:p-8 hover:bg-white/[0.02] flex flex-col gap-5 text-left transition-all duration-300 glow-hover">
-          <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
-            <i data-lucide="shield" class="w-6 h-6"></i>
-          </div>
-          <div>
-            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="svc3_title">Gestão de Colaboradores</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="svc3_desc">
-              Atribua permissões, audite alterações críticias e coordene equipas de suporte em canais dedicados e seguros.
-            </p>
-          </div>
-        </div>
-
-        <!-- Card 4: Financeiro -->
-        <div class="bg-white/[0.01] border border-white/5 hover:border-brand-500/20 rounded-2xl p-6 lg:p-8 hover:bg-white/[0.02] flex flex-col gap-5 text-left transition-all duration-300 glow-hover">
-          <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+        <!-- Bento Card 5: Financeiro e Faturação (Stripe) -->
+        <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-3xl p-8 hover:border-indigo-500/50 hover:shadow-xl dark:hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all duration-300 group">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-550/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-450 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
             <i data-lucide="credit-card" class="w-6 h-6"></i>
           </div>
-          <div>
-            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="svc4_title">Painel Financeiro & Stripe</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="svc4_desc">
-              Sincronização imediata de faturas, subscrições ativas do Stripe e controlo direto de fluxo de tesouraria do SaaS.
-            </p>
-          </div>
+          <h3 class="font-display font-bold text-slate-900 dark:text-white text-xl mb-3 flex items-center justify-between">
+            <span data-i18n="landing.service4_title">Painel Financeiro & Stripe</span>
+            <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 px-2 py-0.5 rounded-full font-black">Secure</span>
+          </h3>
+          <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed" data-i18n="landing.service4_p">Sincronização imediata de faturas, subscrições ativas do Stripe e controlo direto de fluxo de tesouraria do SaaS.</p>
         </div>
 
-        <!-- Card 5: Agenda -->
-        <div class="bg-white/[0.01] border border-white/5 hover:border-brand-500/20 rounded-2xl p-6 lg:p-8 hover:bg-white/[0.02] flex flex-col gap-5 text-left transition-all duration-300 glow-hover">
-          <div class="w-12 h-12 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400">
-            <i data-lucide="calendar" class="w-6 h-6"></i>
-          </div>
-          <div>
-            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="svc5_title">Agenda Integrada</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="svc5_desc">
-              Onboarding automatizado de clientes e agendamento inteligente sem fricção, totalmente livre de duplicações.
-            </p>
-          </div>
-        </div>
-
-        <!-- Card 6: Multi-Tenant -->
-        <div class="bg-white/[0.01] border border-white/5 hover:border-brand-500/20 rounded-2xl p-6 lg:p-8 hover:bg-white/[0.02] flex flex-col gap-5 text-left transition-all duration-300 glow-hover">
-          <div class="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+        <!-- Bento Card 6: White Label & Multi-Tenant -->
+        <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-3xl p-8 hover:border-indigo-500/50 hover:shadow-xl dark:hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all duration-300 group">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-550/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-450 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
             <i data-lucide="layers" class="w-6 h-6"></i>
           </div>
-          <div>
-            <h3 class="font-display font-extrabold text-lg text-white" data-i18n="svc6_title">Multi-Tenant Seguro</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="svc6_desc">
-              Arbítrio de segurança robusto para gerir múltiplas marcas e instâncias com bases de dados e permissões isoladas.
-            </p>
-          </div>
+          <h3 class="font-display font-bold text-slate-900 dark:text-white text-xl mb-3 flex items-center justify-between">
+            <span data-i18n="landing.service6_title">Multi-Tenant Seguro</span>
+            <span class="text-[9px] bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 px-2 py-0.5 rounded-full font-black">White Label</span>
+          </h3>
+          <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed" data-i18n="landing.service6_p">Arbítrio de segurança robusto para gerir múltiplas marcas e instâncias com bases de dados e permissões isoladas.</p>
         </div>
 
       </div>
@@ -565,58 +521,38 @@
     </div>
   </section>
 
-
   <!-- ================= COMO FUNCIONA SECTION ================= -->
-  <section id="como-funciona" class="py-20 lg:py-32 bg-[#090d16] border-t border-white/5 relative">
+  <section class="py-20 lg:py-28 bg-slate-50/60 dark:bg-[#0c1220]/60 border-y border-slate-200/50 dark:border-slate-800/50 relative">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
       
-      <!-- Headers title -->
-      <div class="text-center max-w-3xl mx-auto mb-16 lg:mb-24">
-        <h2 class="font-display font-extrabold text-3xl sm:text-4xl text-white tracking-tight" data-i18n="landing.how_section_title">
-          Atingir a automatização em 3 passos
-        </h2>
-        <p class="mt-4 text-base sm:text-lg text-slate-400" data-i18n="landing.how_section_p">
-          O nosso fluxo de configuração foi otimizado para que a sua empresa comece a operar de forma inteligente em breves minutos.
-        </p>
+      <!-- Section Header -->
+      <div class="text-center max-w-3xl mx-auto mb-16 sm:mb-24">
+        <span class="text-xs font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest block mb-3 font-mono" data-i18n="landing.how_section_title">// Como Funciona</span>
+        <h2 class="text-2xl sm:text-3xl lg:text-[38px] font-display font-extrabold text-slate-900 dark:text-white tracking-tight" data-i18n="landing.how_section_p">Configurado em Minutos</h2>
       </div>
 
-      <!-- Timeline steps representation -->
-      <div class="grid lg:grid-cols-3 gap-8 lg:gap-12 relative">
-        
-        <!-- Connector line for desktop -->
-        <div class="hidden lg:block absolute top-[44px] left-[15%] right-[15%] h-[2px] bg-gradient-to-r from-brand-600/50 via-indigo-500/20 to-brand-600/50 -z-0"></div>
+      <!-- Action Steps Timeline Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
         
         <!-- Step 1 -->
-        <div class="relative bg-white/[0.01] border border-white/5 rounded-2xl p-6 sm:p-8 flex flex-col items-center lg:items-start text-center lg:text-left hover:bg-white/[0.02] transition-colors z-10">
-          <div class="w-16 h-16 rounded-2xl bg-brand-600/10 border border-brand-500/30 flex items-center justify-center font-display font-bold text-xl text-brand-400 shadow-xl shadow-brand-500/10 mb-6">
-            01
-          </div>
-          <h3 class="font-display font-extrabold text-lg text-white" data-i18n="landing.how_step1_title">1. Sincronize o WhatsApp</h3>
-          <p class="mt-3 text-slate-400 text-xs sm:text-sm leading-relaxed" data-i18n="landing.how_step1_p">
-            Conecte a sua instância lendo o QR Code dinâmico gerado instantaneamente no nosso painel de infraestrutura.
-          </p>
+        <div class="bg-white dark:bg-slate-900 p-8 border border-slate-250/30 dark:border-slate-800/80 rounded-2xl relative shadow-sm hover:shadow-md transition-all">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-450 flex items-center justify-center font-display font-black text-sm mb-6">①</div>
+          <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-3" data-i18n="landing.how_step1_title">Conecta o WhatsApp</h3>
+          <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed font-semibold font-medium" data-i18n="landing.how_step1_p">Abra o seu painel de comunicações e sincronize instantaneamente o WhatsApp lendo o QR Code seguro.</p>
         </div>
 
         <!-- Step 2 -->
-        <div class="relative bg-white/[0.01] border border-white/5 rounded-2xl p-6 sm:p-8 flex flex-col items-center lg:items-start text-center lg:text-left hover:bg-white/[0.02] transition-colors z-10">
-          <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-400/30 flex items-center justify-center font-display font-bold text-xl text-indigo-400 shadow-xl shadow-indigo-500/10 mb-6">
-            02
-          </div>
-          <h3 class="font-display font-extrabold text-lg text-white" data-i18n="landing.how_step2_title">2. Molde a sua Inteligência</h3>
-          <p class="mt-3 text-slate-400 text-xs sm:text-sm leading-relaxed" data-i18n="landing.how_step2_p">
-            Escreva as regras de negócio, preencha as FAQ e treine o seu Mestre de IA com documentos e prompts corporativos.
-          </p>
+        <div class="bg-white dark:bg-slate-900 p-8 border border-slate-250/30 dark:border-slate-800/80 rounded-2xl relative shadow-sm hover:shadow-md transition-all">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-450 flex items-center justify-center font-display font-black text-sm mb-6">②</div>
+          <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-3" data-i18n="landing.how_step2_title">Configura a IA</h3>
+          <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed font-semibold font-medium" data-i18n="landing.how_step2_p">Preencha o Mestre de IA com as suas regras de negócio em texto comum ou PDFs. A IA está qualificada instantaneamente.</p>
         </div>
 
         <!-- Step 3 -->
-        <div class="relative bg-white/[0.01] border border-white/5 rounded-2xl p-6 sm:p-8 flex flex-col items-center lg:items-start text-center lg:text-left hover:bg-white/[0.02] transition-colors z-10">
-          <div class="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-400/30 flex items-center justify-center font-display font-bold text-xl text-emerald-400 shadow-xl shadow-emerald-500/10 mb-6">
-            03
-          </div>
-          <h3 class="font-display font-extrabold text-lg text-white" data-i18n="landing.how_step3_title">3. Opere em Piloto Automático</h3>
-          <p class="mt-3 text-slate-400 text-xs sm:text-sm leading-relaxed" data-i18n="landing.how_step3_p">
-            A sua IA responde a clientes, agenda compromissos na agenda, qualifica as melhores leads e gera faturas automatizadas.
-          </p>
+        <div class="bg-white dark:bg-slate-900 p-8 border border-slate-250/30 dark:border-slate-800/80 rounded-2xl relative shadow-sm hover:shadow-md transition-all">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-450 flex items-center justify-center font-display font-black text-sm mb-6">③</div>
+          <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-3" data-i18n="landing.how_step3_title">Começa a Faturar Mais</h3>
+          <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed font-semibold font-medium" data-i18n="landing.how_step3_p">O seu canal atende clientes 24/7, organiza compromissos e cobra faturas automaticamente sem desperdícios.</p>
         </div>
 
       </div>
@@ -624,218 +560,151 @@
     </div>
   </section>
 
+  <!-- ================= PRICING SECTION ================= -->
+  <section id="precos" class="py-20 lg:py-32 bg-white dark:bg-transparent">
+    <div class="absolute inset-y-0 left-0 w-[450px] bg-indigo-500/[0.012] blur-3xl pointer-events-none"></div>
 
-  <!-- ================= CASOS DE SUCESSO ================= -->
-  <section id="casos" class="py-20 lg:py-32 bg-slate-950 border-t border-white/5 relative">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
       
-      <!-- Section Title -->
-      <div class="text-center max-w-3xl mx-auto mb-16 lg:mb-24">
-        <h2 class="font-display font-extrabold text-3xl sm:text-4xl text-white tracking-tight" data-i18n="landing.cases_section_title">
-          Estudos de Caso de Alto Rendimento
-        </h2>
-        <p class="mt-4 text-base sm:text-lg text-slate-400" data-i18n="landing.cases_section_p">
-          Conheça algumas das empresas que reduziram o atrito administrativo e impulsionaram a conversão com o TrataTudo.
-        </p>
-      </div>
-
-      <!-- Testimonial Casos Cards (3 cards as requested) -->
-      <div class="grid md:grid-cols-3 gap-6 lg:gap-8">
+      <!-- Header -->
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <span class="text-xs font-bold text-indigo-500 uppercase tracking-widest block mb-3 font-mono" data-i18n="price_label">// Preços</span>
+        <h2 class="text-3xl sm:text-4xl lg:text-[40px] font-display font-extrabold tracking-tight leading-tight" data-i18n="price_title">Planos flexíveis e transparentes</h2>
+        <p class="mt-4 text-slate-500 dark:text-slate-400 font-medium" data-i18n="price_sub">Escolha o ciclo ideal para si e poupe 30% na modalidade anual.</p>
         
-        <!-- Case 1 -->
-        <div class="bg-gradient-to-b from-white/[0.02] to-transparent border border-white/5 rounded-2xl p-6 sm:p-8 flex flex-col justify-between text-left hover:scale-[1.01] transition-transform">
-          <div>
-            <div class="flex items-center gap-1.5 text-amber-400 mb-6">
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-            </div>
-            <p class="text-xs sm:text-sm text-slate-300 italic leading-relaxed" data-i18n="landing.case1_p">
-              "Configurámos a IA para marcações automáticas. Em 30 dias tivemos +400 novas consultas marcadas e eliminámos 100% de faltas na agenda."
-            </p>
-          </div>
-          <div class="mt-8 pt-4 border-t border-white/5 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-indigo-500/15 flex items-center justify-center text-indigo-400 font-extrabold text-xs">CS</div>
-            <div>
-              <h4 class="text-xs font-black text-white" data-i18n="landing.case1_title">Clínica Sorrisos (Saúde)</h4>
-              <p class="text-[10px] text-slate-500">Lisboa, Portugal</p>
-            </div>
-          </div>
+        <!-- Toggle Button Monthly / Annual -->
+        <div class="flex items-center justify-center gap-4 mt-8">
+          <span class="text-sm font-bold text-slate-550 dark:text-slate-400" id="billing-monthly-label">Mensal</span>
+          
+          <button id="billing-cycle-switch" onclick="toggleBillingCycle()" class="relative w-14 h-8 bg-indigo-600 dark:bg-indigo-550 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+            <span id="billing-cycle-dot" class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300"></span>
+          </button>
+          
+          <span class="text-sm font-bold text-slate-700 dark:text-slate-250 flex items-center gap-1.5" id="billing-yearly-label">
+            <span>Anual</span>
+            <span class="bg-amber-500 text-slate-950 font-black text-[9px] uppercase px-2 py-0.5 rounded-full inline-block tracking-wider">-30%</span>
+          </span>
         </div>
-
-        <!-- Case 2 -->
-        <div class="bg-gradient-to-b from-white/[0.02] to-transparent border border-white/5 rounded-2xl p-6 sm:p-8 flex flex-col justify-between text-left hover:scale-[1.01] transition-transform">
-          <div>
-            <div class="flex items-center gap-1.5 text-amber-400 mb-6">
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-            </div>
-            <p class="text-xs sm:text-sm text-slate-300 italic leading-relaxed" data-i18n="landing.case2_p">
-              "Automatizámos o suporte operacional nível 1 em 95% e unificámos o fluxo de faturamento via Stripe numa única visualização central."
-            </p>
-          </div>
-          <div class="mt-8 pt-4 border-t border-white/5 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-teal-500/15 flex items-center justify-center text-teal-400 font-extrabold text-xs">AL</div>
-            <div>
-              <h4 class="text-xs font-black text-white" data-i18n="landing.case2_title">Alfa Lda (Logística e Suporte)</h4>
-              <p class="text-[10px] text-slate-500">Porto, Portugal</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Case 3 -->
-        <div class="bg-gradient-to-b from-white/[0.02] to-transparent border border-white/5 rounded-2xl p-6 sm:p-8 flex flex-col justify-between text-left hover:scale-[1.01] transition-transform">
-          <div>
-            <div class="flex items-center gap-1.5 text-amber-400 mb-6">
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-              <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
-            </div>
-            <p class="text-xs sm:text-sm text-slate-300 italic leading-relaxed" data-i18n="landing.case3_p">
-              "Qualificamos orçamentos técnicos 24h por dia no WhatsApp. A nossa taxa de conversão comercial cresceu de imediato em 35%."
-            </p>
-          </div>
-          <div class="mt-8 pt-4 border-t border-white/5 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-amber-500/15 flex items-center justify-center text-amber-500 font-extrabold text-xs">OV</div>
-            <div>
-              <h4 class="text-xs font-black text-white" data-i18n="landing.case3_title">Oficina Veloz (Serviços)</h4>
-              <p class="text-[10px] text-slate-500">Faro, Portugal</p>
-            </div>
-          </div>
-        </div>
-
       </div>
 
-    </div>
-  </section>
-
-
-  <!-- ================= PREÇOS SECTION ================= -->
-  <section id="planos" class="py-20 lg:py-32 bg-[#090d16] border-t border-white/5 relative">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-      
-      <!-- Headings Title -->
-      <div class="text-center max-w-3xl mx-auto mb-16 lg:mb-24">
-        <span class="text-xs font-bold text-brand-400 uppercase tracking-widest block mb-3 font-mono" data-i18n="price_label">// Planos</span>
-        <h2 class="font-display font-extrabold text-3xl sm:text-4xl text-white tracking-tight" data-i18n="price_title">
-          <span class="text-white font-black">Planos flexíveis</span> para qualquer escala
-        </h2>
-        <p class="mt-4 text-base sm:text-lg text-slate-400 font-medium" data-i18n="price_sub">
-          Sem taxas ocultas ou compromissos complexos. Escolha o plano que melhor se alinha com o volume atual da sua empresa.
-        </p>
-      </div>
-
-      <!-- Pricing Plans. 3 cards side-by-side as requested -->
-      <div class="grid lg:grid-cols-3 gap-8 items-stretch max-w-5xl mx-auto">
+      <!-- Pricing Plans Cards Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch max-w-6xl mx-auto">
         
-        <!-- Starter Plan -->
-        <div class="bg-slate-900 border border-white/5 rounded-2xl p-8 flex flex-col justify-between text-left hover:border-white/10 transition-colors">
+        <!-- Plan 1: Starter -->
+        <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-3xl p-8 flex flex-col justify-between hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-800 transition-all duration-300">
           <div>
-            <span class="text-xs font-black tracking-widest text-slate-400 uppercase" data-i18n="plan1_name">Starter</span>
-            <div class="mt-4 flex items-baseline gap-2">
-              <span class="text-4xl font-extrabold text-white">49€</span>
-              <span class="text-xs text-slate-500">/mês</span>
+            <div class="flex justify-between items-start mb-4">
+              <h3 class="font-display font-bold text-slate-800 dark:text-white text-xl">Starter</h3>
             </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-6">Ideal para negócios locais e pequenas marcas operando com um assistente.</p>
             
-            <ul class="mt-8 space-y-4 text-xs sm:text-sm text-slate-300 font-medium">
-              <li class="flex items-center gap-2.5">
-                <i data-lucide="check" class="w-4 h-4 text-brand-500 flex-shrink-0"></i>
+            <div class="mb-8">
+              <span class="text-4xl font-extrabold font-display text-slate-900 dark:text-white transition-all price-val" id="price-starter" data-price-monthly="69€" data-price-yearly="48€">69€</span>
+              <span class="text-xs text-slate-400 block mt-1" id="starter-billing-period">/mês, faturado mensalmente</span>
+            </div>
+
+            <ul class="space-y-4 border-t border-slate-200 dark:border-slate-850 pt-6">
+              <li class="flex items-center gap-3.5 text-sm font-semibold text-slate-600 dark:text-slate-350">
+                <i data-lucide="check-circle-2" class="w-4.5 h-4.5 text-indigo-500"></i>
                 <span data-i18n="landing.plan1_feature1">1 Instância WhatsApp Ativa</span>
               </li>
-              <li class="flex items-center gap-2.5">
-                <i data-lucide="check" class="w-4 h-4 text-brand-500 flex-shrink-0"></i>
+              <li class="flex items-center gap-3.5 text-sm font-semibold text-slate-600 dark:text-slate-350">
+                <i data-lucide="check-circle-2" class="w-4.5 h-4.5 text-indigo-500"></i>
                 <span data-i18n="landing.plan1_feature2">1 Mestre de IA Treinado</span>
               </li>
-              <li class="flex items-center gap-2.5">
-                <i data-lucide="check" class="w-4 h-4 text-brand-500 flex-shrink-0"></i>
+              <li class="flex items-center gap-3.5 text-sm font-semibold text-slate-600 dark:text-slate-350">
+                <i data-lucide="check-circle-2" class="w-4.5 h-4.5 text-indigo-500"></i>
                 <span data-i18n="landing.plan1_feature3">Suporte via Email Transacional</span>
+              </li>
+              <li class="flex items-center gap-3.5 text-sm font-semibold text-slate-400 dark:text-slate-500 line-through">
+                <i data-lucide="x" class="w-4.5 h-4.5 text-slate-400 dark:text-slate-600"></i>
+                <span>Gestão CRM & Kanban</span>
               </li>
             </ul>
           </div>
 
-          <a href="/login" class="mt-8 w-full py-3 text-center text-xs font-bold text-slate-200 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all block" data-i18n="plan1_cta">
-            Selecionar Plano
-          </a>
+          <div class="mt-8">
+            <button onclick="openLeadModal(event)" class="cursor-pointer w-full py-3.5 text-center text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-250 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-750 transition-all" data-i18n="landing.plan_btn_choose">Selecionar Plano</button>
+          </div>
         </div>
 
-        <!-- PRO Plan (Popular highlights) -->
-        <div class="bg-slate-900/40 border-2 border-brand-500 rounded-2xl p-8 flex flex-col justify-between text-left relative shadow-2xl shadow-brand-500/10">
-          <!-- Top badge -->
-          <div class="absolute top-[-13px] left-1/2 -translate-x-1/2 px-3.5 py-0.5 bg-brand-600 text-[10px] font-black uppercase text-white tracking-widest rounded-full shadow" data-i18n="plan2_badge">
-            Mais Escolhido
-          </div>
-
+        <!-- Plan 2: Profissional -->
+        <div class="relative bg-white dark:bg-[#0c1220] border-2 border-indigo-500 dark:border-indigo-500/80 rounded-3xl p-8 flex flex-col justify-between shadow-xl shadow-indigo-500/10 hover:shadow-2xl transition-all duration-300">
+          <!-- Most popular tag -->
+          <div class="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 bg-amber-500 text-slate-900 border-2 border-white dark:border-[#0c1220] text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full" data-i18n="plan2_badge">Mais Recomendado</div>
+          
           <div>
-            <span class="text-xs font-black tracking-widest text-brand-400 uppercase" data-i18n="plan2_name">PRO</span>
-            <div class="mt-4 flex items-baseline gap-2">
-              <span class="text-4xl font-extrabold text-white">99€</span>
-              <span class="text-xs text-slate-500">/mês</span>
+            <div class="flex justify-between items-start mb-4">
+              <h3 class="font-display font-bold text-slate-900 dark:text-white text-xl">Profissional</h3>
             </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-6">A solução ideal para automatizar todas as suas operações e acelerar faturação.</p>
             
-            <ul class="mt-8 space-y-4 text-xs sm:text-sm text-slate-300 font-medium">
-              <li class="flex items-center gap-2.5">
-                <i data-lucide="check" class="w-4 h-4 text-brand-500 flex-shrink-0"></i>
+            <div class="mb-8">
+              <span class="text-4xl font-extrabold font-display text-slate-900 dark:text-white transition-all price-val" id="price-profissional" data-price-monthly="129€" data-price-yearly="90€">129€</span>
+              <span class="text-xs text-slate-400 block mt-1" id="profissional-billing-period">/mês, faturado mensalmente</span>
+            </div>
+
+            <ul class="space-y-4 border-t border-slate-200 dark:border-slate-800 pt-6">
+              <li class="flex items-center gap-3.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                <i data-lucide="check-circle-2" class="w-4.5 h-4.5 text-indigo-500 fill-indigo-500/10"></i>
                 <span data-i18n="landing.plan2_feature1">3 Instâncias WhatsApp Ativas</span>
               </li>
-              <li class="flex items-center gap-2.5">
-                <i data-lucide="check" class="w-4 h-4 text-brand-500 flex-shrink-0"></i>
+              <li class="flex items-center gap-3.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                <i data-lucide="check-circle-2" class="w-4.5 h-4.5 text-indigo-500 fill-indigo-500/10"></i>
                 <span data-i18n="landing.plan2_feature2">3 Mestres de IA Customizáveis</span>
               </li>
-              <li class="flex items-center gap-2.5">
-                <i data-lucide="check" class="w-4 h-4 text-brand-500 flex-shrink-0"></i>
+              <li class="flex items-center gap-3.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                <i data-lucide="check-circle-2" class="w-4.5 h-4.5 text-indigo-500 fill-indigo-500/10"></i>
                 <span data-i18n="landing.plan2_feature3">Painel CRM e Controlo Financeiro</span>
               </li>
-              <li class="flex items-center gap-2.5">
-                <i data-lucide="check" class="w-4 h-4 text-brand-500 flex-shrink-0"></i>
+              <li class="flex items-center gap-3.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                <i data-lucide="check-circle-2" class="w-4.5 h-4.5 text-indigo-500 fill-indigo-500/10"></i>
                 <span data-i18n="landing.plan2_feature4">Suporte Prioritário dedicado 24/7</span>
               </li>
             </ul>
           </div>
 
-          <a href="/login" class="mt-8 w-full py-3.5 text-center text-xs font-bold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-lg shadow-brand-500/20 transition-all block" data-i18n="plan2_cta">
-            Selecionar Plano
-          </a>
+          <div class="mt-8">
+            <button onclick="openLeadModal(event)" class="cursor-pointer w-full py-4 text-center text-xs font-black bg-indigo-650 hover:bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/20 transition-all" data-i18n="plan2_cta">Selecionar Plano</button>
+          </div>
         </div>
 
-        <!-- Enterprise Plan -->
-        <div class="bg-slate-900 border border-white/5 rounded-2xl p-8 flex flex-col justify-between text-left hover:border-white/10 transition-colors">
+        <!-- Plan 3: Enterprise -->
+        <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-3xl p-8 flex flex-col justify-between hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-800 transition-all duration-300">
           <div>
-            <span class="text-xs font-black tracking-widest text-slate-400 uppercase" data-i18n="plan3_name">Enterprise</span>
-            <div class="mt-4 flex items-baseline gap-2">
-              <span class="text-4xl font-extrabold text-white">249€</span>
-              <span class="text-xs text-slate-500">/mês</span>
+            <div class="flex justify-between items-start mb-4">
+              <h3 class="font-display font-bold text-slate-800 dark:text-white text-xl">Enterprise</h3>
             </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-6">Tecnologia avançada de dados para corporações exigindo robustez e SLAs.</p>
             
-            <ul class="mt-8 space-y-4 text-xs sm:text-sm text-slate-300 font-medium">
-              <li class="flex items-center gap-2.5">
-                <i data-lucide="check" class="w-4 h-4 text-brand-500 flex-shrink-0"></i>
+            <div class="mb-8">
+              <span class="text-4xl font-extrabold font-display text-slate-900 dark:text-white transition-all price-val" id="price-enterprise" data-price-monthly="249€" data-price-yearly="174€">249€</span>
+              <span class="text-xs text-slate-400 block mt-1" id="enterprise-billing-period">/mês, faturado mensalmente</span>
+            </div>
+
+            <ul class="space-y-4 border-t border-slate-200 dark:border-slate-850 pt-6">
+              <li class="flex items-center gap-3.5 text-sm font-semibold text-slate-600 dark:text-slate-350">
+                <i data-lucide="check-circle-2" class="w-4.5 h-4.5 text-indigo-500"></i>
                 <span data-i18n="landing.plan3_feature1">Instâncias WhatsApp Ilimitadas</span>
               </li>
-              <li class="flex items-center gap-2.5">
-                <i data-lucide="check" class="w-4 h-4 text-brand-500 flex-shrink-0"></i>
+              <li class="flex items-center gap-3.5 text-sm font-semibold text-slate-600 dark:text-slate-350">
+                <i data-lucide="check-circle-2" class="w-4.5 h-4.5 text-indigo-500"></i>
                 <span data-i18n="landing.plan3_feature2">IA Dedicada com Modelos Customizados</span>
               </li>
-              <li class="flex items-center gap-2.5">
-                <i data-lucide="check" class="w-4 h-4 text-brand-500 flex-shrink-0"></i>
+              <li class="flex items-center gap-3.5 text-sm font-semibold text-slate-600 dark:text-slate-350">
+                <i data-lucide="check-circle-2" class="w-4.5 h-4.5 text-indigo-500"></i>
                 <span data-i18n="landing.plan3_feature3">Contrato RGPD e Nível de Serviço (SLA)</span>
               </li>
-              <li class="flex items-center gap-2.5">
-                <i data-lucide="check" class="w-4 h-4 text-brand-500 flex-shrink-0"></i>
+              <li class="flex items-center gap-3.5 text-sm font-semibold text-slate-600 dark:text-slate-350">
+                <i data-lucide="check-circle-2" class="w-4.5 h-4.5 text-indigo-500"></i>
                 <span data-i18n="landing.plan3_feature4">Formação de Equipa & Engenharia Dedicada</span>
               </li>
             </ul>
           </div>
 
-          <a href="/login" class="mt-8 w-full py-3 text-center text-xs font-bold text-slate-200 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all block" data-i18n="plan3_cta">
-            Selecionar Plano
-          </a>
+          <div class="mt-8">
+            <button onclick="openLeadModal(event)" class="cursor-pointer w-full py-3.5 text-center text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-250 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-750 transition-all" data-i18n="landing.plan_btn_choose">Selecionar Plano</button>
+          </div>
         </div>
 
       </div>
@@ -843,292 +712,371 @@
     </div>
   </section>
 
-
-  <!-- ================= FAQ ACCORDION SECTION ================= -->
-  <section id="faq font-medium" class="py-20 lg:py-32 bg-slate-950 border-t border-white/5 relative">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-      
-      <!-- Section header -->
-      <div class="text-center max-w-3xl mx-auto mb-16 lg:mb-24">
-        <h2 class="font-display font-extrabold text-3xl sm:text-4xl text-white tracking-tight" data-i18n="landing.faq_section_title">
-          Respostas a dúvidas frequentes
-        </h2>
-        <p class="mt-4 text-base sm:text-lg text-slate-400" data-i18n="landing.faq_section_p">
-          Precisa de esclarecimentos adicionais? Se tiver qualquer outra questão, contacte diretamente o nosso suporte.
-        </p>
-      </div>
-
-      <!-- FAQ Accordion Layout in JS -->
-      <div class="space-y-4 max-w-3xl mx-auto">
+  <!-- ================= WHITE LABEL RESELLER PROGRAM ================= -->
+  <section class="py-16 sm:py-24 bg-slate-50 dark:bg-[#0b101c] border-y border-slate-200/60 dark:border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid lg:grid-cols-12 gap-12 items-center">
         
-        <!-- Accordion 1 -->
-        <div class="border border-white/5 bg-white/[0.01] rounded-xl overflow-hidden transition-all duration-300">
-          <button onclick="toggleFaq(1)" class="w-full flex items-center justify-between p-5 text-left text-white hover:bg-white/[0.01] transition-all">
-            <span class="font-extrabold text-sm md:text-base text-slate-100" data-i18n="landing.faq1_q">É fácil conectar o WhatsApp ao TrataTudo?</span>
-            <i data-lucide="chevron-down" id="faq-icon-1" class="w-5 h-5 text-slate-400 transition-transform duration-300"></i>
-          </button>
-          <div id="faq-answer-1" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            <p class="p-5 pt-0 text-slate-400 text-xs md:text-sm leading-relaxed border-t border-white/5 font-medium" data-i18n="landing.faq1_a">
-              Sim, é extremamente simples! O processo é análogo ao WhatsApp Web: basta ler o QR Code gerado em tempo-real na plataforma para que o canal fique imediatamente pronto a automatizar.
-            </p>
+        <!-- Left Side Content -->
+        <div class="lg:col-span-7">
+          <span class="text-xs font-bold text-amber-500 uppercase tracking-widest block mb-3 font-mono">// WHITE LABEL</span>
+          <h2 class="text-3xl sm:text-4xl font-display font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
+            Constrói o Teu Próprio Negócio de Software
+          </h2>
+          <p class="mt-4 text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
+            Seja dono de uma plataforma de automação e inteligência artificial completa. Revenda as soluções da TrataTudo com os seus logótipos, cores corporativas e nome no seu próprio domínio. Nós administramos toda a infraestrutura técnica e de servidores, enquanto você foca-se exclusivamente na marca e retém 100% das receitas recorrentes.
+          </p>
+          
+          <div class="mt-8 grid grid-cols-2 md:grid-cols-3 gap-6">
+            <div class="bg-white dark:bg-slate-900 p-4 border border-slate-200/50 dark:border-slate-850 rounded-xl">
+              <span class="text-amber-500 font-extrabold text-lg block">249€ <span class="text-[10px] text-slate-400 font-semibold">/mês</span></span>
+              <span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold block mt-1">Plano Inicial</span>
+            </div>
+            <div class="bg-white dark:bg-slate-900 p-4 border border-slate-200/50 dark:border-slate-850 rounded-xl">
+              <span class="text-amber-500 font-extrabold text-lg block">499€ <span class="text-[10px] text-slate-400 font-semibold">/mês</span></span>
+              <span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold block mt-1">Plano Premium</span>
+            </div>
+            <div class="bg-white dark:bg-slate-900 p-4 border border-slate-200/50 dark:border-slate-850 rounded-xl">
+              <span class="text-amber-500 font-extrabold text-lg block">799€ <span class="text-[10px] text-slate-400 font-semibold">/mês</span></span>
+              <span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold block mt-1">Plano Ilimitado</span>
+            </div>
           </div>
         </div>
 
-        <!-- Accordion 2 -->
-        <div class="border border-white/5 bg-white/[0.01] rounded-xl overflow-hidden transition-all duration-300">
-          <button onclick="toggleFaq(2)" class="w-full flex items-center justify-between p-5 text-left text-white hover:bg-white/[0.01] transition-all">
-            <span class="font-extrabold text-sm md:text-base text-slate-100" data-i18n="landing.faq2_q">Preciso de saber programar para treinar a Inteligência Artificial?</span>
-            <i data-lucide="chevron-down" id="faq-icon-2" class="w-5 h-5 text-slate-400 transition-transform duration-300"></i>
-          </button>
-          <div id="faq-answer-2" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            <p class="p-5 pt-0 text-slate-400 text-xs md:text-sm leading-relaxed border-t border-white/5 font-medium" data-i18n="landing.faq2_a">
-              Não. O nosso Mestre de IA foi desenhado para ser moldado por qualquer pessoa através de linguagem natural. Basta escrever as instruções do seu negócio num campo de texto ou carregar manuais de procedimentos.
-            </p>
-          </div>
-        </div>
-
-        <!-- Accordion 3 -->
-        <div class="border border-white/5 bg-white/[0.01] rounded-xl overflow-hidden transition-all duration-300">
-          <button onclick="toggleFaq(3)" class="w-full flex items-center justify-between p-5 text-left text-white hover:bg-white/[0.01] transition-all">
-            <span class="font-extrabold text-sm md:text-base text-slate-100" data-i18n="landing.faq3_q">A plataforma cumpre as normas do RGPD?</span>
-            <i data-lucide="chevron-down" id="faq-icon-3" class="w-5 h-5 text-slate-400 transition-transform duration-300"></i>
-          </button>
-          <div id="faq-answer-3" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            <p class="p-5 pt-0 text-slate-400 text-xs md:text-sm leading-relaxed border-t border-white/5 font-medium" data-i18n="landing.faq3_a">
-              Sim, a conformidade legal e a privacidade dos dados são os nossos principais pilares. Todos os dados operacionais, mensagens e documentos são processados e armazenados em clusters seguros da UE.
-            </p>
-          </div>
-        </div>
-
-        <!-- Accordion 4 -->
-        <div class="border border-white/5 bg-white/[0.01] rounded-xl overflow-hidden transition-all duration-300">
-          <button onclick="toggleFaq(4)" class="w-full flex items-center justify-between p-5 text-left text-white hover:bg-white/[0.01] transition-all">
-            <span class="font-extrabold text-sm md:text-base text-slate-100" data-i18n="landing.faq4_q">Posso cancelar ou alterar o meu plano a qualquer momento?</span>
-            <i data-lucide="chevron-down" id="faq-icon-4" class="w-5 h-5 text-slate-400 transition-transform duration-300"></i>
-          </button>
-          <div id="faq-answer-4" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-            <p class="p-5 pt-0 text-slate-400 text-xs md:text-sm leading-relaxed border-t border-white/5 font-medium" data-i18n="landing.faq4_a">
-              Absolutamente. Não aplicamos qualquer período de fidelização obrigatório. Pode efetuar o upgrade, downgrade ou cancelar a sua subscrição diretamente a partir do painel financeiro a cada mês.
-            </p>
+        <!-- Right Side Banner/Card -->
+        <div class="lg:col-span-5 relative">
+          <div class="absolute -inset-1 rounded-3xl bg-amber-500/10 dark:bg-amber-500/5 blur-xl pointer-events-none"></div>
+          <div class="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-3xl p-8 shadow-xl">
+            <h3 class="font-display font-extrabold text-xl text-slate-900 dark:text-white mb-3">Tudo Personalizado</h3>
+            <p class="text-slate-500 dark:text-slate-450 text-xs leading-relaxed mb-6 font-medium">Instale no seu domínio oficial, defina os preços finais dos seus clientes e expanda um negócio de lucros garantidos no mercado de software das PMEs portuguesas.</p>
+            
+            <a href="/revenda.html" class="flex items-center justify-center gap-2 w-full py-4 text-center text-xs font-black bg-slate-900 dark:bg-amber-500 text-white dark:text-slate-950 hover:bg-indigo-600 dark:hover:bg-amber-400 rounded-xl shadow-lg transition-all duration-200">
+              <span>Ver Programa de Revenda</span>
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </a>
           </div>
         </div>
 
       </div>
-
     </div>
   </section>
 
-
-  <!-- ================= CTA SECTION ================= -->
-  <section class="py-20 lg:py-32 bg-[#090d16] border-t border-white/5 relative overflow-hidden">
-    <!-- Subtle glow backgrounds -->
-    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] rounded-full bg-brand-600/10 blur-[120px] pointer-events-none"></div>
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-      <h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-white tracking-tight" data-i18n="cta_title">
-        Pronto para revolucionar as suas operações?
-      </h2>
-      <p class="mt-4 text-base sm:text-lg text-slate-400 font-medium max-w-2xl mx-auto" data-i18n="cta_sub">
-        Junte-se a centenas de empresas que já automatizaram o seu atendimento, agenda e faturamento hoje mesmo.
-      </p>
-      <div class="mt-8">
-        <button onclick="openLeadModal(event)" class="cursor-pointer inline-flex items-center justify-center gap-2 px-10 py-4 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl shadow-xl shadow-brand-500/25 transition-all hover:scale-105 active:scale-95" data-i18n="cta_btn">
-          Começar Agora
-        </button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= EMPRESA SECTION ================= -->
-  <section id="empresa" class="py-20 lg:py-32 bg-slate-950 border-t border-white/5 relative">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+  <!-- ================= CASES OF SUCCESS (Testimonials) ================= -->
+  <section class="py-20 lg:py-28 bg-white dark:bg-transparent">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       
       <!-- Section Header -->
-      <div class="text-left max-w-3xl mb-16 sm:mb-20">
-        <span class="text-xs font-bold text-brand-400 uppercase tracking-widest block mb-3 font-mono" data-i18n="emp_label">// Empresa</span>
-        <h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-white tracking-tight leading-tight" data-i18n="emp_title">
-          Quem somos e a nossa visão
-        </h2>
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <span class="text-xs font-bold text-indigo-500 uppercase tracking-widest block mb-3 font-mono">// CASOS DE SUCESSO</span>
+        <h2 class="text-2xl sm:text-3xl lg:text-[38px] font-display font-extrabold text-slate-900 dark:text-white tracking-tight" data-i18n="landing.cases_section_title">Estudos de Caso de Alto Rendimento</h2>
+        <p class="mt-4 text-slate-500 dark:text-slate-400 font-medium" data-i18n="landing.cases_section_p">Conheça algumas das empresas que reduziram o atrito administrativo e impulsionaram a conversão com o TrataTudo.</p>
       </div>
 
-      <!-- Two column details -->
-      <div class="grid md:grid-cols-2 gap-12 lg:gap-16">
-        <!-- About column -->
-        <div class="bg-white/[0.01] border border-white/5 p-8 rounded-2xl relative">
-          <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <i data-lucide="info" class="w-5 h-5 text-brand-400"></i>
-            <span data-i18n="about_title">Sobre Nós</span>
-          </h3>
-          <p class="text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="about_text">
-            A TrataTudo nasceu com o propósito de democratizar a inteligência artificial para as empresas. A nossa missão é libertar as equipas da burocracia operational, permitindo que se foquem em crescer de forma sustentável e moderna.
+      <!-- Testimonials grid alignment -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        
+        <!-- Testimonial 1 -->
+        <div class="bg-indigo-50/[0.15] dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-850 p-8 rounded-2xl flex flex-col justify-between">
+          <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-semibold italic" data-i18n="landing.case1_p">
+            "Configurámos a IA para marcações automáticas. Em 30 dias tivemos +400 novas consultas marcadas e eliminámos 100% de faltas na agenda."
           </p>
+          <div class="mt-6 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold font-display text-sm">CS</div>
+            <div>
+              <h4 class="text-xs font-black text-slate-800 dark:text-slate-100" data-i18n="landing.case1_title">Clínica Sorrisos (Saúde)</h4>
+              <p class="text-[10px] text-slate-400 font-semibold">Dr.ª Margarida Costa</p>
+            </div>
+          </div>
         </div>
 
-        <!-- Careers column -->
-        <div class="bg-white/[0.01] border border-white/5 p-8 rounded-2xl relative">
-          <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <i data-lucide="briefcase" class="w-5 h-5 text-indigo-400"></i>
-            <span data-i18n="careers_title">Carreiras</span>
-          </h3>
-          <p class="text-sm text-slate-400 leading-relaxed font-semibold font-medium" data-i18n="careers_text">
-            Estamos sempre à procura de talentos apaixonados por tecnologia, IA e inovação. Se queres transformar a forma como as empresas trabalham a nível global, junta-te à nossa equipa distribuída.
+        <!-- Testimonial 2 -->
+        <div class="bg-indigo-50/[0.15] dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-850 p-8 rounded-2xl flex flex-col justify-between">
+          <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-semibold italic" data-i18n="landing.case2_p">
+            "Automatizámos o suporte operacional nível 1 em 95% e unificámos o fluxo de faturamento via Stripe numa única visualização central."
           </p>
+          <div class="mt-6 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold font-display text-sm">AL</div>
+            <div>
+              <h4 class="text-xs font-black text-slate-800 dark:text-slate-100" data-i18n="landing.case2_title">Alfa Lda (Logística e Suporte)</h4>
+              <p class="text-[10px] text-slate-400 font-semibold font-medium">Manuel Goulart, Diretor Operacional</p>
+            </div>
+          </div>
         </div>
+
+        <!-- Testimonial 3 -->
+        <div class="bg-indigo-50/[0.15] dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-850 p-8 rounded-2xl flex flex-col justify-between">
+          <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-semibold italic" data-i18n="landing.case3_p">
+            "Qualificamos orçamentos técnicos 24h por dia no WhatsApp. A nossa taxa de conversão comercial cresceu de imediato em 35%."
+          </p>
+          <div class="mt-6 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold font-display text-sm">OV</div>
+            <div>
+              <h4 class="text-xs font-black text-slate-800 dark:text-slate-100" data-i18n="landing.case3_title">Oficina Veloz (Serviços Automotivos)</h4>
+              <p class="text-[10px] text-slate-400 font-semibold font-medium">Rui Azevedo, Fundador</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FAQ SECTION (6 Accordion elements) ================= -->
+  <section id="faq" class="py-20 lg:py-28 bg-slate-50/65 dark:bg-[#0c1220]/60 border-t border-slate-200/60 dark:border-slate-800/80">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 relative z-10">
+      
+      <!-- Section Header -->
+      <div class="text-center max-w-2xl mx-auto mb-16 sm:mb-20">
+        <span class="text-xs font-bold text-indigo-500 uppercase tracking-widest block mb-3 font-mono" data-i18n="nav_faq">// FAQ</span>
+        <h2 class="text-2xl sm:text-3xl lg:text-[38px] font-display font-extrabold tracking-tight text-slate-900 dark:text-white" data-i18n="landing.faq_section_title">Respostas a dúvidas frequentes</h2>
+        <p class="mt-4 text-slate-500 dark:text-slate-400 font-medium" data-i18n="landing.faq_section_p">Precisa de esclarecimentos adicionais? Se tiver qualquer outra questão, contacte diretamente o nosso suporte.</p>
+      </div>
+
+      <!-- FAQ Accordions lists -->
+      <div class="space-y-4">
+        
+        <!-- Accordion Item 1 -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl overflow-hidden transition-all duration-300">
+          <button onclick="toggleFaq(1)" class="w-full flex items-center justify-between p-6 text-left focus:outline-none cursor-pointer">
+            <span class="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base pr-4" data-i18n="landing.faq1_q">É fácil conectar o WhatsApp ao TrataTudo?</span>
+            <span id="faq-icon-1" class="text-indigo-500 transition-transform duration-300"><i data-lucide="chevron-down" class="w-5 h-5"></i></span>
+          </button>
+          <div id="faq-answer-1" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            <div class="p-6 pt-0 text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-850/50" data-i18n="landing.faq1_a">
+              Sim, é muito simples! O processo é idêntico ao WhatsApp Web: basta ler o QR Code gerado em tempo-real na plataforma e o seu canal fica imediatamente ligado.
+            </div>
+          </div>
+        </div>
+
+        <!-- Accordion Item 2 -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl overflow-hidden transition-all duration-300">
+          <button onclick="toggleFaq(2)" class="w-full flex items-center justify-between p-6 text-left focus:outline-none cursor-pointer">
+            <span class="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base pr-4" data-i18n="landing.faq2_q">Preciso de saber programar para treinar a Inteligência Artificial?</span>
+            <span id="faq-icon-2" class="text-indigo-500 transition-transform duration-300"><i data-lucide="chevron-down" class="w-5 h-5"></i></span>
+          </button>
+          <div id="faq-answer-2" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            <div class="p-6 pt-0 text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-850/50" data-i18n="landing.faq2_a">
+              Não. Os nossos agentes IA são treinados em linguagem natural. Pode escrever as regras de negócio em texto simples ou carregar PDFs de manuais, tabelas e FAQs.
+            </div>
+          </div>
+        </div>
+
+        <!-- Accordion Item 3 -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl overflow-hidden transition-all duration-300">
+          <button onclick="toggleFaq(3)" class="w-full flex items-center justify-between p-6 text-left focus:outline-none cursor-pointer">
+            <span class="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base pr-4" data-i18n="landing.faq3_q">A plataforma cumpre as diretrizes do RGPD?</span>
+            <span id="faq-icon-3" class="text-indigo-500 transition-transform duration-300"><i data-lucide="chevron-down" class="w-5 h-5"></i></span>
+          </button>
+          <div id="faq-answer-3" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            <div class="p-6 pt-0 text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-850/50" data-i18n="landing.faq3_a">
+              Sim, todos os dados e conversações são processados em servidores europeus de alta segurança e encriptados em trânsito e em repouso, cumprindo com o regulamento.
+            </div>
+          </div>
+        </div>
+
+        <!-- Accordion Item 4 -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl overflow-hidden transition-all duration-300">
+          <button onclick="toggleFaq(4)" class="w-full flex items-center justify-between p-6 text-left focus:outline-none cursor-pointer">
+            <span class="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base pr-4" data-i18n="landing.faq4_q">Posso mudar de plano ou cancelar a qualquer momento?</span>
+            <span id="faq-icon-4" class="text-indigo-500 transition-transform duration-300"><i data-lucide="chevron-down" class="w-5 h-5"></i></span>
+          </button>
+          <div id="faq-answer-4" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            <div class="p-6 pt-0 text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-850/50" data-i18n="landing.faq4_a">
+              Com certeza. Não existe qualquer período de fidelização nos planos mensais. Pode cancelar, efetuar upgrade ou downgrade diretamente no seu portal de cliente.
+            </div>
+          </div>
+        </div>
+
+        <!-- Accordion Item 5 -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl overflow-hidden transition-all duration-300">
+          <button onclick="toggleFaq(5)" class="w-full flex items-center justify-between p-6 text-left focus:outline-none cursor-pointer">
+            <span class="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base pr-4" data-i18n="landing.faq5_q">O motor de e-mail e as automações n8n estão incluídos?</span>
+            <span id="faq-icon-5" class="text-indigo-500 transition-transform duration-300"><i data-lucide="chevron-down" class="w-5 h-5"></i></span>
+          </button>
+          <div id="faq-answer-5" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            <div class="p-6 pt-0 text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-850/50" data-i18n="landing.faq5_a">
+              Sim, todos os planos beneficiam do acesso ao ecossistema de fluxos, com n8n integrado e automações trigger-based avançadas (Actives).
+            </div>
+          </div>
+        </div>
+
+        <!-- Accordion Item 6 -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-850 rounded-2xl overflow-hidden transition-all duration-300">
+          <button onclick="toggleFaq(6)" class="w-full flex items-center justify-between p-6 text-left focus:outline-none cursor-pointer">
+            <span class="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base pr-4" data-i18n="landing.faq6_q">Como funciona o suporte técnico corporativo?</span>
+            <span id="faq-icon-6" class="text-indigo-500 transition-transform duration-300"><i data-lucide="chevron-down" class="w-5 h-5"></i></span>
+          </button>
+          <div id="faq-answer-6" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+            <div class="p-6 pt-0 text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-850/50" data-i18n="landing.faq6_a">
+              Os planos Starter têm suporte por email; o plano Profissional dispõe de suporte prioritário; e os clientes Enterprise usufruem de um canal Slack exclusivo com engenheiros dedicados.
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </div>
   </section>
 
-
-  <!-- ================= FOOTER SECTION ================= -->
-  <footer class="bg-[#070b12] border-t border-white/5 py-12 lg:py-20 relative">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-left">
+  <!-- ================= FINAL CTA SECTION ================= -->
+  <section class="py-20 lg:py-28 bg-white dark:bg-transparent relative text-center">
+    <!-- Overlay circles -->
+    <div class="absolute inset-0 bg-indigo-600/5 dark:bg-indigo-500/[0.02] pointer-events-none"></div>
+    
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 relative z-10">
+      <h2 class="text-3xl sm:text-4xl lg:text-[42px] font-display font-black text-slate-900 dark:text-white tracking-tight" data-i18n="cta_title">Pronto para revolucionar as suas operações?</h2>
+      <p class="mt-4 text-slate-500 dark:text-slate-400 font-medium text-base sm:text-lg max-w-2xl mx-auto" data-i18n="cta_sub">Junte-se a centenas de empresas que já automatizaram o seu atendimento, agenda e faturamento hoje mesmo.</p>
       
-      <div class="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 pb-12 border-b border-white/5">
+      <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">
+        <button onclick="openLeadModal(event)" class="cursor-pointer flex items-center justify-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl shadow-lg shadow-indigo-500/20 w-full hover:translate-y-[-2px] transition-all duration-200">
+          <span data-i18n="cta_btn">Começar Agora</span>
+          <i data-lucide="arrow-right" class="w-5 h-5"></i>
+        </button>
+        <a href="https://wa.me/351923364360" target="_blank" class="flex items-center justify-center gap-2 px-8 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl w-full hover:translate-y-[-2px] transition-all duration-200">
+          <i data-lucide="message-square" class="w-5 h-5 text-emerald-500"></i>
+          <span>WhatsApp Direto</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="bg-slate-50 dark:bg-[#070b12] text-slate-550 dark:text-slate-400 border-t border-slate-200 dark:border-slate-850 py-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
         
-        <!-- About column -->
-        <div class="md:col-span-3 flex flex-col gap-4">
-          <a href="#" class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white">
-              <i data-lucide="zap" class="w-4 h-4"></i>
-            </div>
-            <span class="font-display font-extrabold text-lg text-white">TrataTudo.pt</span>
+        <!-- Col 1: Brand details -->
+        <div>
+          <a href="#" class="flex items-center gap-2 mb-5">
+            <div class="w-8 h-8 rounded-lg bg-indigo-650 flex items-center justify-center text-white font-black text-sm">TT</div>
+            <span class="font-display font-extrabold text-slate-900 dark:text-white text-lg">TrataTudo</span>
           </a>
-          <p class="text-xs text-slate-400 leading-relaxed font-semibold font-medium max-w-sm" data-i18n="footer_desc">
-            A plataforma premium tudo-em-um de automatização empresarial. Atendimento inteligente, sincronização de dados e faturamento simplificado.
-          </p>
+          <p class="text-xs text-slate-500 leading-relaxed" data-i18n="footer_desc">A plataforma premium tudo-em-um de automatização empresarial. Atendimento inteligente, sincronização de dados e faturamento simplificado.</p>
+          <p class="mt-4 text-xs font-mono text-slate-400 dark:text-slate-500 font-bold">&#x25CF; EU Hosting</p>
         </div>
 
-        <!-- Services column (4 links) -->
-        <div class="md:col-span-3 flex flex-col gap-4">
-          <h4 class="text-xs font-black uppercase text-white tracking-widest" data-i18n="footer_services">Serviços</h4>
-          <ul class="space-y-2 text-xs text-slate-400 font-semibold font-medium">
-            <li><a href="#servicos" class="hover:text-white transition-colors" data-i18n="footer_svc1">Inteligência Artificial</a></li>
-            <li><a href="#servicos" class="hover:text-white transition-colors" data-i18n="footer_svc2">Central CRM</a></li>
-            <li><a href="#servicos" class="hover:text-white transition-colors" data-i18n="footer_svc3">Gestão de Equipas</a></li>
-            <li><a href="#servicos" class="hover:text-white transition-colors" data-i18n="footer_svc4">Facturação Stripe</a></li>
+        <!-- Col 2: Services links -->
+        <div>
+          <h4 class="font-display font-extrabold text-slate-850 dark:text-slate-200 text-sm tracking-wide uppercase mb-5" data-i18n="footer_services">Serviços</h4>
+          <ul class="space-y-3.5 text-xs font-semibold">
+            <li><a href="#plataforma" class="hover:text-indigo-500 transition-colors" data-i18n="footer_svc1">Inteligência Artificial</a></li>
+            <li><a href="#plataforma" class="hover:text-indigo-500 transition-colors" data-i18n="footer_svc2">Central CRM</a></li>
+            <li><a href="#plataforma" class="hover:text-indigo-500 transition-colors" data-i18n="footer_svc3">Gestão de Equipas</a></li>
+            <li><a href="#plataforma" class="hover:text-indigo-500 transition-colors" data-i18n="footer_svc4">Facturação Stripe</a></li>
           </ul>
         </div>
 
-        <!-- Company column (3 links) -->
-        <div class="md:col-span-3 flex flex-col gap-4">
-          <h4 class="text-xs font-black uppercase text-white tracking-widest" data-i18n="footer_company">Empresa</h4>
-          <ul class="space-y-2 text-xs text-slate-400 font-semibold font-medium">
-            <li><a href="#empresa" class="hover:text-white transition-colors" data-i18n="footer_about">Sobre Nós</a></li>
-            <li><a href="#contacto" class="hover:text-white transition-colors" data-i18n="footer_contact">Contacto</a></li>
-            <li><a href="#empresa" class="hover:text-white transition-colors" data-i18n="footer_careers">Carreiras</a></li>
-            <li><a href="/revenda.html" class="hover:text-white transition-colors text-amber-400 font-semibold" data-i18n="footer_reseller">Revenda White Label</a></li>
+        <!-- Col 3: Company links -->
+        <div>
+          <h4 class="font-display font-extrabold text-slate-850 dark:text-slate-200 text-sm tracking-wide uppercase mb-5" data-i18n="footer_company">Empresa</h4>
+          <ul class="space-y-3.5 text-xs font-semibold">
+            <li><a href="#plataforma" class="hover:text-indigo-500 transition-colors" data-i18n="footer_about">Sobre Nós</a></li>
+            <li><a href="#precos" class="hover:text-indigo-500 transition-colors" data-i18n="nav_pricing">Planos de Acesso</a></li>
+            <li><a href="/revenda.html" class="hover:text-indigo-500 transition-colors text-amber-500 font-bold" data-i18n="footer_reseller">Revenda White Label</a></li>
+            <li><a href="/legal/privacidade.html" class="hover:text-indigo-500 transition-colors">Política de Privacidade</a></li>
+            <li><a href="/legal/termos.html" class="hover:text-indigo-500 transition-colors">Termos de Serviço</a></li>
           </ul>
         </div>
 
-        <!-- Contact column (3 links) -->
-        <div class="md:col-span-3 flex flex-col gap-4">
-          <h4 class="text-xs font-black uppercase text-white tracking-widest" data-i18n="footer_contacts">Contactos</h4>
-          <ul class="space-y-3 text-xs text-slate-400 font-semibold font-medium font-medium">
-            <li class="flex flex-col gap-0.5">
-              <span class="text-[9px] uppercase font-black text-brand-400 font-mono">Email</span>
-              <span><a href="mailto:geral@tratatudo.pt" class="hover:underline">geral@tratatudo.pt</a></span>
+        <!-- Col 4: Contacts details -->
+        <div>
+          <h4 class="font-display font-extrabold text-slate-850 dark:text-slate-200 text-sm tracking-wide uppercase mb-5" data-i18n="footer_contacts">Contactos</h4>
+          <ul class="space-y-4 text-xs font-semibold">
+            <li class="flex items-center gap-3">
+              <i data-lucide="phone" class="w-4 h-4 text-indigo-500"></i>
+              <span>+351 923 364 360</span>
             </li>
-            <li class="flex flex-col gap-0.5">
-              <span class="text-[9px] uppercase font-black text-emerald-400 font-mono">WhatsApp IA</span>
-              <span><a href="https://wa.me/351923364360" target="_blank" class="hover:underline">+351 923 364 360</a></span>
-            </li>
-            <li class="flex flex-col gap-0.5">
-              <span class="text-[9px] uppercase font-black text-indigo-400 font-mono">Telefone</span>
-              <span><a href="tel:+351923364360" class="hover:underline">+351 923 364 360</a></span>
+            <li class="flex items-center gap-3">
+              <i data-lucide="mail" class="w-4 h-4 text-indigo-500"></i>
+              <span>geral@tratatudo.pt</span>
             </li>
           </ul>
         </div>
 
       </div>
 
-      <!-- Bottom trademark -->
-      <div class="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-[11px] font-medium">
+      <div class="mt-12 pt-8 border-t border-slate-200 dark:border-slate-850 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400">
         <span data-i18n="footer_copy">© 2026 Todos os direitos reservados. TrataTudo.pt</span>
-        <div class="flex items-center gap-6">
-          <a href="#" class="hover:text-slate-300">Termos de Serviço</a>
-          <a href="#" class="hover:text-slate-300">Política de Privacidade</a>
-          <a href="#" class="hover:text-slate-300">Regulação RGPD</a>
+        <div class="flex items-center gap-4">
+          <span>v2.4.1 (Enterprise Production)</span>
         </div>
       </div>
-
     </div>
   </footer>
 
-
-  <!-- ================= CONTACT LEAD MODAL ================= -->
-  <div id="lead-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 transition-all duration-300 opacity-0 pointer-events-none" onclick="handleOutsideClick(event)">
-    <div class="bg-slate-900 border border-white/10 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl relative transform scale-95 transition-all duration-300" id="lead-modal-container">
+  <!-- ================= LEAD MODAL (Lead contact popup capture) ================= -->
+  <div id="lead-modal" onclick="handleOutsideClick(event)" class="fixed inset-0 bg-slate-900/40 dark:bg-slate-950/65 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
+    <div id="lead-modal-container" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl transform scale-95 transition-all duration-300">
       
-      <!-- Top header line decor -->
-      <div class="h-1.5 bg-gradient-to-r from-brand-600 via-indigo-500 to-indigo-400 w-full"></div>
-
-      <!-- Close trigger -->
-      <button onclick="closeLeadModal()" class="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors focus:outline-none cursor-pointer">
-        <i data-lucide="x" class="w-5 h-5"></i>
-      </button>
-
-      <!-- Content area -->
-      <div class="p-6 sm:p-8">
-        <div class="flex flex-col items-center text-center">
-          <div class="w-12 h-12 rounded-xl bg-brand-500/10 border border-brand-500/25 flex items-center justify-center mb-4 text-brand-400">
-            <i data-lucide="sparkles" class="w-6 h-6"></i>
-          </div>
-          <h3 class="font-display font-extrabold text-xl sm:text-2xl text-white tracking-tight" data-i18n="landing.modal_title">Solicitar Demonstração</h3>
-          <p class="text-slate-400 text-xs sm:text-sm mt-2 max-w-sm" data-i18n="landing.modal_subtitle">Preencha os dados abaixo e a nossa equipa entrará em contacto no próprio dia.</p>
+      <!-- Modal Header -->
+      <div class="px-6 py-5 bg-slate-50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-850 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 bg-indigo-500 rounded-lg flex items-center justify-center text-white"><i data-lucide="sparkles" class="w-4 h-4"></i></div>
+          <span class="font-display font-extrabold text-sm text-slate-800 dark:text-white" data-i18n="landing.modal_title">Solicitar Demonstração / Acesso</span>
         </div>
+        <button onclick="closeLeadModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
 
-        <form id="lead-form" class="mt-6 space-y-4" onsubmit="submitLeadForm(event)">
-          <!-- Name field -->
-          <div>
-            <label class="block text-xs font-black uppercase text-slate-400 mb-1.5" data-i18n="landing.form_name">Nome Completo</label>
-            <div class="relative">
-              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"><i data-lucide="user" class="w-4 h-4"></i></span>
-              <input type="text" id="lead-name" required class="w-full bg-slate-950 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-brand-500 placeholder-slate-600 font-medium transition-colors" data-i18n-placeholder="landing.form_name_placeholder" placeholder="Ex: João Silva">
-            </div>
-          </div>
-
-          <!-- Company field -->
-          <div>
-            <label class="block text-xs font-black uppercase text-slate-400 mb-1.5" data-i18n="landing.form_company">Nome da Empresa</label>
-            <div class="relative">
-              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"><i data-lucide="briefcase" class="w-4 h-4"></i></span>
-              <input type="text" id="lead-company" required class="w-full bg-slate-900 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-brand-500 placeholder-slate-600 font-medium transition-colors" data-i18n-placeholder="landing.form_company_placeholder" placeholder="Ex: TrataTudo Lda">
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <!-- Phone field -->
+      <div class="p-6">
+        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6 font-medium" data-i18n="landing.modal_subtitle">Preencha os dados abaixo e a nossa equipa entrará em contacto no próprio dia.</p>
+        
+        <!-- Contact Lead Form -->
+        <form id="lead-form" onsubmit="submitLeadForm(event)" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <!-- Name -->
             <div>
-              <label class="block text-xs font-black uppercase text-slate-400 mb-1.5" data-i18n="landing.form_phone">Telemóvel / Telefone</label>
+              <label class="block text-[11px] font-bold uppercase text-slate-450 dark:text-slate-400 mb-1.5" data-i18n="landing.form_name">Nome Completo</label>
               <div class="relative">
-                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"><i data-lucide="phone" class="w-4 h-4"></i></span>
-                <input type="tel" id="lead-phone" required class="w-full bg-slate-950 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-brand-500 placeholder-slate-600 font-medium transition-colors" data-i18n-placeholder="landing.form_phone_placeholder" placeholder="Ex: +351 912 345 678">
+                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><i data-lucide="user" class="w-4 h-4"></i></span>
+                <input type="text" id="lead-name" required class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-indigo-500 font-semibold" data-i18n-placeholder="landing.form_name_placeholder" placeholder="Ex: João Silva">
               </div>
             </div>
 
-            <!-- Email field -->
+            <!-- Company -->
             <div>
-              <label class="block text-xs font-black uppercase text-slate-400 mb-1.5" data-i18n="landing.form_email">E-mail de Trabalho</label>
+              <label class="block text-[11px] font-bold uppercase text-slate-450 dark:text-slate-400 mb-1.5" data-i18n="landing.form_company">Nome da Empresa</label>
               <div class="relative">
-                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"><i data-lucide="mail" class="w-4 h-4"></i></span>
-                <input type="email" id="lead-email" required class="w-full bg-slate-950 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-brand-500 placeholder-slate-600 font-medium transition-colors" data-i18n-placeholder="landing.form_email_placeholder" placeholder="Ex: joao@empresa.com">
+                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><i data-lucide="briefcase" class="w-4 h-4"></i></span>
+                <input type="text" id="lead-company" required class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-indigo-500 font-semibold" data-i18n-placeholder="landing.form_company_placeholder" placeholder="Ex: TrataTudo Lda">
               </div>
             </div>
+
+            <!-- Phone -->
+            <div>
+              <label class="block text-[11px] font-bold uppercase text-slate-450 dark:text-slate-400 mb-1.5" data-i18n="landing.form_phone">Telemóvel / Telefone</label>
+              <div class="relative">
+                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><i data-lucide="phone" class="w-4 h-4"></i></span>
+                <input type="tel" id="lead-phone" required class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-indigo-500 font-semibold" data-i18n-placeholder="landing.form_phone_placeholder" placeholder="Ex: +351 912 345 678">
+              </div>
+            </div>
+
+            <!-- Email -->
+            <div>
+              <label class="block text-[11px] font-bold uppercase text-slate-450 dark:text-slate-400 mb-1.5" data-i18n="landing.form_email">E-mail de Trabalho</label>
+              <div class="relative">
+                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><i data-lucide="mail" class="w-4 h-4"></i></span>
+                <input type="email" id="lead-email" required class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-indigo-500 font-semibold" data-i18n-placeholder="landing.form_email_placeholder" placeholder="Ex: joao@empresa.com">
+              </div>
+            </div>
+
           </div>
 
-          <!-- Banners for success and errors -->
-          <div id="lead-error" class="hidden text-xs bg-rose-500/10 border border-rose-500/20 text-rose-400 p-3.5 rounded-xl flex items-center gap-2 font-semibold">
+          <!-- Alert boxes -->
+          <div id="lead-error" class="hidden text-xs bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-450 p-3.5 rounded-xl flex items-center gap-2 font-semibold">
             <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i>
             <span data-i18n="landing.form_error">Ocorreu um erro ao submeter. Por favor, tente novamente ou contacte geral@tratatudo.pt.</span>
           </div>
 
-          <div id="lead-success" class="hidden text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3.5 rounded-xl flex items-center gap-2 font-semibold">
+          <div id="lead-success" class="hidden text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 p-3.5 rounded-xl flex items-center gap-2 font-semibold">
             <i data-lucide="check-circle-2" class="w-4 h-4 shrink-0"></i>
             <span data-i18n="landing.form_success">Pedido recebido com sucesso! Entraremos em contacto muito em breve.</span>
           </div>
 
-          <!-- Submit trigger -->
-          <button type="submit" id="lead-submit-btn" class="w-full bg-brand-600 hover:bg-brand-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-brand-500/20 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer mt-6">
+          <!-- Form Submit trigger -->
+          <button type="submit" id="lead-submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-indigo-500/20 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer mt-6">
             <span data-i18n="landing.form_submit">Submeter Pedido</span>
             <i data-lucide="arrow-right" class="w-4 h-4"></i>
           </button>
@@ -1138,13 +1086,12 @@
     </div>
   </div>
 
-
-  <!-- ================= TRANSLATION ENGINE SCRIPT ================= -->
+  <!-- ================= MASTER TRANSLATION/THEME ENGINE SCRIPT ================= -->
   <script>
     const AVAILABLE_LANGS = ['pt', 'en', 'es', 'fr'];
     let currentLang = localStorage.getItem('tratatudo_lang') || 'pt';
 
-    // If no preference stored, fallback safely to browser language if supported
+    // If no language config in cache, let's gracefully check matching browser settings
     if (!localStorage.getItem('tratatudo_lang')) {
       const browserLang = navigator.language ? navigator.language.slice(0, 2).toLowerCase() : 'pt';
       if (AVAILABLE_LANGS.includes(browserLang)) {
@@ -1152,7 +1099,10 @@
       }
     }
 
-    // Toggle dropdown UI
+    // Interactive switch for Billing Cycles: true for annual (-30%), false for monthly
+    let isYearlyBilling = false;
+
+    // Toggle Desktop dropdown helper
     function toggleDesktopLangDropdown(e) {
       if (e) {
         e.stopPropagation();
@@ -1165,40 +1115,79 @@
       const isHidden = dropdown.classList.contains('hidden');
       if (isHidden) {
         dropdown.classList.remove('hidden');
-        setTimeout(() => {
-          dropdown.classList.remove('scale-95', 'opacity-0');
-          dropdown.classList.add('scale-100', 'opacity-100');
-          if (chevron) chevron.classList.add('rotate-180');
-        }, 10);
       } else {
-        closeDesktopLangDropdown();
+        dropdown.classList.add('hidden');
       }
     }
 
-    function closeDesktopLangDropdown() {
+    document.addEventListener('click', () => {
       const dropdown = document.getElementById('desktop-lang-dropdown');
-      const chevron = document.getElementById('desktop-lang-chevron');
-      if (!dropdown) return;
-      
-      dropdown.classList.remove('scale-100', 'opacity-100');
-      dropdown.classList.add('scale-95', 'opacity-0');
-      if (chevron) chevron.classList.remove('rotate-180');
-      setTimeout(() => {
-        dropdown.classList.add('hidden');
-      }, 200);
+      if (dropdown) dropdown.classList.add('hidden');
+    });
+
+    // Toggle cycle helper
+    function toggleBillingCycle() {
+      isYearlyBilling = !isYearlyBilling;
+      updateBillingDisplay();
     }
 
-    // Close on outside clicks
-    document.addEventListener('click', () => {
-      closeDesktopLangDropdown();
-    });
+    function updateBillingDisplay() {
+      const dot = document.getElementById('billing-cycle-dot');
+      const switchBtn = document.getElementById('billing-cycle-switch');
+      const mLabel = document.getElementById('billing-monthly-label');
+      const yLabel = document.getElementById('billing-yearly-label');
+      
+      if (isYearlyBilling) {
+        if (dot) dot.style.left = '24px';
+        if (mLabel) { mLabel.classList.remove('text-indigo-600', 'font-bold'); mLabel.classList.add('text-slate-400'); }
+        if (yLabel) { yLabel.classList.add('text-indigo-650', 'text-slate-800', 'dark:text-white'); yLabel.classList.remove('text-slate-400'); }
+      } else {
+        if (dot) dot.style.left = '4px';
+        if (mLabel) { mLabel.classList.add('text-indigo-600', 'font-bold'); mLabel.classList.remove('text-slate-400'); }
+        if (yLabel) { yLabel.classList.remove('text-indigo-650', 'text-slate-850', 'dark:text-white'); yLabel.classList.add('text-slate-400'); }
+      }
+
+      // Read values inside price tags and update them dynamically with scale transition effect
+      document.querySelectorAll('.price-val').forEach(el => {
+        const valueTagId = el.getAttribute('id');
+        const mPrice = el.getAttribute('data-price-monthly');
+        const yPrice = el.getAttribute('data-price-yearly');
+        
+        // Trigger visual scaling transition
+        el.style.transform = 'scale(0.9)';
+        el.style.opacity = '0.7';
+
+        setTimeout(() => {
+          el.textContent = isYearlyBilling ? yPrice : mPrice;
+          el.style.transform = 'scale(1.05)';
+          el.style.opacity = '1';
+          setTimeout(() => {
+            el.style.transform = 'scale(1)';
+          }, 120);
+        }, 80);
+      });
+
+      // Update periods tag text based on selected language configuration
+      let activeLang = localStorage.getItem('tratatudo_lang') || 'pt';
+      const monthlyPeriods = { pt: '/mês, faturado mensalmente', en: '/month, billed monthly', es: '/mes, facturado mensualmente', fr: '/mois, facturé mensuellement' };
+      const yearlyPeriods = { pt: '/mês, faturado anualmente', en: '/month, billed annually', es: '/mes, facturado anualmente', fr: '/mois, facturé annuellement' };
+
+      const starterPeriod = document.getElementById('starter-billing-period');
+      const profPeriod = document.getElementById('profissional-billing-period');
+      const enterPeriod = document.getElementById('enterprise-billing-period');
+
+      const periodStr = isYearlyBilling ? yearlyPeriods[activeLang] : monthlyPeriods[activeLang];
+      if (starterPeriod) starterPeriod.textContent = periodStr;
+      if (profPeriod) profPeriod.textContent = periodStr;
+      if (enterPeriod) enterPeriod.textContent = periodStr;
+    }
 
     async function applyLang(lang) {
       if (!AVAILABLE_LANGS.includes(lang)) lang = 'pt';
       
       try {
         const res = await fetch(`/locales/${lang}.json`);
-        if (!res.ok) throw new Error("Could not load localization file from server");
+        if (!res.ok) throw new Error("Could not load localization file");
         const translations = await res.json();
         
         // Match elements that have data-i18n attribute
@@ -1213,7 +1202,7 @@
           }
         });
 
-        // Translate input placeholders safely
+        // Translate placeholders safely
         document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
           const key = el.getAttribute('data-i18n-placeholder');
           if (translations && translations[key]) {
@@ -1221,40 +1210,36 @@
           }
         });
 
-        // Update active checkmarks inside Desktop dropdown
+        // Update active flags
         document.querySelectorAll('[data-dropdown-lang]').forEach(btn => {
           const btnLang = btn.getAttribute('data-dropdown-lang');
           const checkmark = btn.querySelector('.checkmark');
           if (btnLang === lang) {
-            btn.classList.add('bg-white/5', 'text-brand-400');
-            btn.classList.remove('text-slate-305');
+            btn.classList.add('bg-indigo-50', 'dark:bg-slate-800', 'text-indigo-600', 'dark:text-white');
             if (checkmark) checkmark.classList.remove('hidden');
           } else {
-            btn.classList.remove('bg-white/5', 'text-brand-400');
-            btn.classList.add('text-slate-300');
+            btn.classList.remove('bg-indigo-50', 'dark:bg-slate-800', 'text-indigo-600', 'dark:text-white');
             if (checkmark) checkmark.classList.add('hidden');
           }
         });
 
-        // Update active flag inside pill trigger button
         const activeLabel = document.getElementById('active-lang-label');
         if (activeLabel) {
           const flags = { pt: '🇵🇹 PT', en: '🇬🇧 EN', es: '🇪🇸 ES', fr: '🇫🇷 FR' };
           activeLabel.innerHTML = flags[lang] || '🌐';
         }
 
-        // Align the mobile selector synched
         const mobileSelect = document.getElementById('mobile-lang-select');
-        if (mobileSelect) {
-          mobileSelect.value = lang;
-        }
+        if (mobileSelect) mobileSelect.value = lang;
 
         document.documentElement.lang = lang;
-        
-        // Reconstruct Lucide Icons for dynamic tags or updates
         if (window.lucide) {
           window.lucide.createIcons();
         }
+
+        // Keep billing text aligned
+        updateBillingDisplay();
+
       } catch (err) {
         console.error("Translation engine error: ", err);
       }
@@ -1266,12 +1251,11 @@
       await applyLang(lang);
     }
 
-    // Main translation load and binding function
     async function translatePage(lang) {
       await setLang(lang);
     }
 
-    // Modal lead actions
+    // Modal controls
     function openLeadModal(e) {
       if (e) {
         e.preventDefault();
@@ -1280,7 +1264,6 @@
       const modal = document.getElementById('lead-modal');
       const container = document.getElementById('lead-modal-container');
       
-      // Reset previous error/success indicators
       document.getElementById('lead-error').classList.add('hidden');
       document.getElementById('lead-success').classList.add('hidden');
       document.getElementById('lead-form').reset();
@@ -1290,7 +1273,7 @@
         modal.classList.add('opacity-100', 'pointer-events-auto');
         container.classList.remove('scale-95');
         container.classList.add('scale-100');
-        document.body.style.overflow = 'hidden'; // block scrolling background
+        document.body.style.overflow = 'hidden';
       }
     }
 
@@ -1302,7 +1285,7 @@
         modal.classList.remove('opacity-100', 'pointer-events-auto');
         container.classList.add('scale-95');
         container.classList.remove('scale-100');
-        document.body.style.overflow = ''; // restore scrolling
+        document.body.style.overflow = '';
       }
     }
 
@@ -1328,11 +1311,8 @@
       const phone = document.getElementById('lead-phone').value.trim();
       const email = document.getElementById('lead-email').value.trim();
 
-      if (!name || !company || !phone || !email) {
-        return;
-      }
+      if (!name || !company || !phone || !email) return;
 
-      // Read current translations dictionary to dynamically change button submit state
       let activeLang = localStorage.getItem('tratatudo_lang') || 'pt';
       let loadingText = "A submeter...";
       let submitText = "Submeter Pedido";
@@ -1347,16 +1327,12 @@
 
       try {
         submitBtn.disabled = true;
-        const mainLabelSpan = submitBtn.querySelector('span');
-        if (mainLabelSpan) {
-          mainLabelSpan.textContent = loadingText;
-        }
+        const mainLabel = submitBtn.querySelector('span');
+        if (mainLabel) mainLabel.textContent = loadingText;
         
         const response = await fetch('/api/lead', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, company, phone, email })
         });
 
@@ -1367,23 +1343,21 @@
           document.getElementById('lead-form').reset();
           setTimeout(() => {
             closeLeadModal();
-          }, 4000);
+          }, 3500);
         } else {
           throw new Error(result.error || "Submission rejected");
         }
       } catch (err) {
-        console.error("Lead submission error:", err);
+        console.error("Lead capture failure:", err);
         errorBanner.classList.remove('hidden');
       } finally {
         submitBtn.disabled = false;
-        const mainLabelSpan = submitBtn.querySelector('span');
-        if (mainLabelSpan) {
-          mainLabelSpan.textContent = submitText;
-        }
+        const mainLabel = submitBtn.querySelector('span');
+        if (mainLabel) mainLabel.textContent = submitText;
       }
     }
 
-    // Mobile Menu overlay trigger control
+    // Mobile menu triggers
     function toggleMobileMenu() {
       const menu = document.getElementById('mobile-menu');
       if (menu) {
@@ -1391,49 +1365,190 @@
       }
     }
 
-    // Smooth Accordion action toggler
+    // Accordions
     function toggleFaq(index) {
       const answer = document.getElementById(`faq-answer-${index}`);
       const icon = document.getElementById(`faq-icon-${index}`);
-      
       if (!answer || !icon) return;
 
-      // Close all other FAQs to protect the focus area
-      for (let i = 1; i <= 4; i++) {
+      // Close all other FAQs
+      for (let i = 1; i <= 6; i++) {
         if (i !== index) {
           const otherAnswer = document.getElementById(`faq-answer-${i}`);
           const otherIcon = document.getElementById(`faq-icon-${i}`);
           if (otherAnswer && otherIcon) {
             otherAnswer.style.maxHeight = '0px';
             otherIcon.style.transform = 'rotate(0deg)';
-            otherAnswer.parentElement.classList.remove('border-brand-500/30', 'bg-brand-500/[0.015]');
+            otherAnswer.parentElement.classList.remove('border-indigo-500/50', 'bg-indigo-500/[0.015]');
           }
         }
       }
 
-      // Action on target FAQ item
+      // Toggle current
       if (answer.style.maxHeight === '0px' || !answer.style.maxHeight) {
         answer.style.maxHeight = answer.scrollHeight + 'px';
         icon.style.transform = 'rotate(180deg)';
-        answer.parentElement.classList.add('border-brand-500/30', 'bg-brand-500/[0.015]');
+        answer.parentElement.classList.add('border-indigo-500/50', 'bg-indigo-500/[0.015]');
       } else {
         answer.style.maxHeight = '0px';
         icon.style.transform = 'rotate(0deg)';
-        answer.parentElement.classList.remove('border-brand-500/30', 'bg-brand-500/[0.015]');
+        answer.parentElement.classList.remove('border-indigo-500/50', 'bg-indigo-500/[0.015]');
       }
     }
 
-    // Trigger execution immediately when document loads
+    // Theme Management Engine
+    function toggleTheme() {
+      const doc = document.documentElement;
+      const isDark = doc.classList.contains('dark');
+      
+      if (isDark) {
+        doc.classList.remove('dark');
+        localStorage.setItem('tratatudo_theme', 'light');
+        setThemeIcons('light');
+      } else {
+        doc.classList.add('dark');
+        localStorage.setItem('tratatudo_theme', 'dark');
+        setThemeIcons('dark');
+      }
+    }
+
+    function setThemeIcons(theme) {
+      const sun = document.getElementById('theme-icon-sun');
+      const moon = document.getElementById('theme-icon-moon');
+      const sunMob = document.getElementById('theme-icon-sun-mob');
+      const moonMob = document.getElementById('theme-icon-moon-mob');
+
+      if (theme === 'dark') {
+        if (sun) sun.classList.remove('hidden');
+        if (moon) moon.classList.add('hidden');
+        if (sunMob) sunMob.classList.remove('hidden');
+        if (moonMob) moonMob.classList.add('hidden');
+      } else {
+        if (sun) sun.classList.add('hidden');
+        if (moon) moon.classList.remove('hidden');
+        if (sunMob) sunMob.classList.add('hidden');
+        if (moonMob) moonMob.classList.remove('hidden');
+      }
+    }
+
+    // Initialize Theme immediately to prevent flicker
+    (function initTheme() {
+      const savedTheme = localStorage.getItem('tratatudo_theme') || 'light';
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        setThemeIcons('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        setThemeIcons('light');
+      }
+    })();
+
+    // ================= REAL-TIME SIMULATED CHAT PLAYING IN FEED =================
+    const simulatedMessages = [
+      { sender: 'client', text: 'Boa tarde! Gostava de marcar uma reunião para amanhã para conhecer as integrações.' },
+      { sender: 'ia', text: 'Boa tarde! Com todo o gosto. 😊 O nosso Engenheiro de Integração tem vagas amanhã às 10h00, 11h30 e 15h00. Qual o horário ideal para si?' },
+      { sender: 'client', text: 'Pode ser às 11h30, por favor.' },
+      { sender: 'ia', text: 'Perfeito! Acabo de registar a reunião para amanhã, dia 7, às 11h30. Já enviei as coordenadas da chamada Zoom para o seu e-mail de trabalho. Precisa de mais alguma ajuda?' },
+      { sender: 'client', text: 'Era isso mesmo! Obrigado pelo atendimento fantástico.' },
+      { sender: 'ia', text: 'Eu é que agradeço! O TrataTudo está sempre aqui para apoiar o seu negócio. Tenha um excelente dia! 🚀' }
+    ];
+
+    let currentMsgIndex = 0;
+    const chatBoard = document.getElementById('simulated-chat-board');
+
+    function createMsgElement(sender, text) {
+      const containerDiv = document.createElement('div');
+      containerDiv.className = 'flex flex-col mb-1.5 ' + (sender === 'client' ? 'items-end' : 'items-start');
+      
+      const bubbleDiv = document.createElement('div');
+      // Style appropriately based on client / ia values
+      if (sender === 'client') {
+        bubbleDiv.className = 'chat-bubble max-w-[85%] bg-indigo-600 text-white rounded-2xl rounded-tr-none py-2 px-3.5 text-[11px] font-medium shadow-sm';
+      } else {
+        bubbleDiv.className = 'chat-bubble max-w-[85%] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-2xl rounded-tl-none py-2 px-3.5 text-[11px] border border-slate-200/50 dark:border-slate-850 shadow-sm';
+      }
+      bubbleDiv.textContent = text;
+      
+      containerDiv.appendChild(bubbleDiv);
+      return containerDiv;
+    }
+
+    function runChatSimulation() {
+      if (!chatBoard) return;
+      
+      // Clear past bubbles if we loops back
+      if (currentMsgIndex === 0) {
+        chatBoard.querySelectorAll('.flex').forEach(el => el.remove());
+      }
+
+      if (currentMsgIndex < simulatedMessages.length) {
+        const item = simulatedMessages[currentMsgIndex];
+        
+        // Simulating typing delay
+        const typingIndicator = document.createElement('div');
+        typingIndicator.className = 'flex items-center gap-1.5 p-3 w-16 bg-slate-150/40 dark:bg-slate-800 rounded-full animate-pulse transition-opacity duration-200';
+        typingIndicator.id = 'typing-indicator-tmp';
+        typingIndicator.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-400 block"></span><span class="w-1.5 h-1.5 rounded-full bg-slate-400 block animate-bounce" style="animation-delay: 0.2s"></span><span class="w-1.5 h-1.5 rounded-full bg-slate-400 block"></span>';
+        
+        if (item.sender === 'ia') {
+          chatBoard.appendChild(typingIndicator);
+          chatBoard.scrollTop = chatBoard.scrollHeight;
+        }
+
+        setTimeout(() => {
+          const indicator = document.getElementById('typing-indicator-tmp');
+          if (indicator) indicator.remove();
+
+          const messageBubble = createMsgElement(item.sender, item.text);
+          chatBoard.appendChild(messageBubble);
+          chatBoard.scrollTop = chatBoard.scrollHeight;
+          
+          currentMsgIndex++;
+          // Trigger next message after reading/thinking simulation delay
+          setTimeout(runChatSimulation, item.sender === 'client' ? 3200 : 4500);
+        }, item.sender === 'ia' ? 1400 : 500);
+
+      } else {
+        // Continuous cycle loop starting back after 8 seconds
+        setTimeout(() => {
+          currentMsgIndex = 0;
+          runChatSimulation();
+        }, 8000);
+      }
+    }
+
+    // Dynamic numeric counters for charts view to seem interactive and real
+    function animateCounters() {
+      const billingVal = document.getElementById('live-billing-val');
+      const leadsVal = document.getElementById('live-leads-val');
+      
+      setInterval(() => {
+        if (billingVal) {
+          const currentAmount = 12000 + Math.floor(Math.random() * 950);
+          billingVal.textContent = currentAmount.toLocaleString('pt-PT') + ' €';
+        }
+        if (leadsVal) {
+          const currentCount = 140 + Math.floor(Math.random() * 25);
+          leadsVal.textContent = currentCount.toString();
+        }
+      }, 5000);
+    }
+
+    // DOM Bootstrapping trigger
     document.addEventListener('DOMContentLoaded', () => {
-      // Initialize Lucide Vector Icons
       if (window.lucide) {
         window.lucide.createIcons();
       }
       
-      // Load current translation preferences right away
+      // Immediate translation trigger
       translatePage(currentLang);
+      
+      // Start simulator
+      setTimeout(runChatSimulation, 1000);
+      
+      // Keep performance numbers evolving
+      animateCounters();
     });
   </script>
-
 </body>
 </html>
