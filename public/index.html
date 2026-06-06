@@ -247,12 +247,12 @@
               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
               <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-600 dark:bg-indigo-400"></span>
             </span>
-            <span>+500 empresas • 3M+ mensagens/mês • 99.9% uptime</span>
+            <span data-i18n="hero_badge">+500 empresas • 3M+ mensagens/mês • 99.9% uptime</span>
           </div>
 
           <!-- Main Dynamic Title -->
-          <h1 class="font-display font-extrabold text-3xl sm:text-5xl lg:text-[52px] leading-[1.1] tracking-tight text-slate-900 dark:text-white" id="hero-title-wrapper">
-            <span class="bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-700 dark:from-indigo-300 dark:via-indigo-200 dark:to-indigo-400 bg-clip-text text-transparent">
+          <h1 class="font-display font-extrabold text-3xl sm:text-5xl lg:text-[52px] leading-[1.1] tracking-tight text-slate-900 dark:text-white" id="hero-title-wrapper" data-i18n="hero_title">
+            <span class="bg-gradient-to-r from-indigo-600 via-indigo-505 to-indigo-700 dark:from-indigo-300 dark:via-indigo-200 dark:to-indigo-400 bg-clip-text text-transparent">
               A Plataforma Que as Grandes Empresas Pagam Fortunas Para Ter.
             </span>
             <br>
@@ -281,15 +281,15 @@
           <div class="mt-10 flex flex-wrap items-center gap-6 text-slate-500 text-xs">
             <div class="flex items-center gap-1.5 font-medium">
               <i data-lucide="shield-check" class="w-4.5 h-4.5 text-indigo-500"></i>
-              <span>RGPD Legal Compliant</span>
+              <span data-i18n="badge_rgpd">RGPD Legal Compliant</span>
             </div>
             <div class="flex items-center gap-1.5 font-medium">
               <i data-lucide="credit-card" class="w-4.5 h-4.5 text-indigo-500"></i>
-              <span>Sem cartão de crédito</span>
+              <span data-i18n="badge_nocard">Sem cartão de crédito</span>
             </div>
             <div class="flex items-center gap-1.5 font-medium">
               <i data-lucide="clock" class="w-4.5 h-4.5 text-indigo-500"></i>
-              <span>Ativação em 10 minutos</span>
+              <span data-i18n="badge_activation">Ativação em 10 minutos</span>
             </div>
           </div>
 
@@ -324,8 +324,8 @@
                     <i data-lucide="bot" class="w-4 h-4 text-white"></i>
                   </div>
                   <div>
-                    <h4 class="text-xs font-bold text-slate-800 dark:text-slate-100">Rita (IA Corporativa)</h4>
-                    <p class="text-[9px] text-emerald-500 font-semibold">disponível 24/7</p>
+                    <h4 class="text-xs font-bold text-slate-800 dark:text-slate-100" data-i18n="chat_name">Rita (IA Corporativa)</h4>
+                    <p class="text-[9px] text-emerald-500 font-semibold" data-i18n="chat_status">disponível 24/7</p>
                   </div>
                 </div>
 
@@ -333,14 +333,14 @@
                 <div class="p-4 flex-1 flex flex-col gap-3 overflow-y-auto" id="simulated-chat-board">
                   <!-- Messages will be continuously spawned and altered by Javascript below -->
                   <div class="text-center py-2">
-                    <span class="text-[10px] text-slate-400 font-medium bg-slate-100 dark:bg-slate-800/80 px-2 py-1 rounded">Hoje</span>
+                    <span class="text-[10px] text-slate-400 font-medium bg-slate-100 dark:bg-slate-800/80 px-2 py-1 rounded" data-i18n="chat_today">Hoje</span>
                   </div>
                 </div>
 
                 <!-- Keyboard placeholder -->
                 <div class="p-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-850 flex items-center justify-between gap-1">
                   <div class="flex-1 bg-slate-100 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800 rounded-full py-1.5 px-3 text-[11px] text-slate-400 flex items-center justify-between">
-                    <span>Rita responde em 1s...</span>
+                    <span data-i18n="chat_placeholder">Rita responde em 1s...</span>
                     <i data-lucide="smile" class="w-3.5 h-3.5 text-slate-400"></i>
                   </div>
                   <div class="w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-white">
@@ -399,7 +399,7 @@
   <!-- ================= TRUST LOGOS SECTION ================= -->
   <section class="border-y border-slate-200 dark:border-slate-850 bg-slate-50/50 dark:bg-[#090d16]/30 py-8 relative overflow-hidden">
     <div class="max-w-7xl mx-auto px-4 md:px-8 mb-5 text-center">
-      <p class="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+      <p class="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500" data-i18n="trust_logos_title">
         Empresas que já automatizaram connosco
       </p>
     </div>
@@ -408,22 +408,22 @@
     <div class="w-full flex overflow-hidden mask-gradient">
       <div class="animate-marquee whitespace-nowrap flex items-center gap-16 text-slate-450 dark:text-slate-500 font-display font-black text-sm select-none">
         
-        <span class="flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-indigo-500"></i> Clínica Sorrisos</span>
-        <span class="flex items-center gap-2"><i data-lucide="package" class="w-5 h-5 text-indigo-500"></i> Alfa Logística Lda</span>
-        <span class="flex items-center gap-2"><i data-lucide="wrench" class="w-5 h-5 text-indigo-500"></i> Oficina Veloz PT</span>
-        <span class="flex items-center gap-2"><i data-lucide="home" class="w-5 h-5 text-indigo-500"></i> Imobiliária Vanguarda</span>
-        <span class="flex items-center gap-2"><i data-lucide="shopping-bag" class="w-5 h-5 text-indigo-500"></i> Boutique Moda Lisboa</span>
-        <span class="flex items-center gap-2"><i data-lucide="key" class="w-5 h-5 text-indigo-500"></i> Host Portugal</span>
-        <span class="flex items-center gap-2"><i data-lucide="globe" class="w-5 h-5 text-indigo-500"></i> Inovação Software S.A.</span>
+        <span class="flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-indigo-500"></i><span data-i18n="trust_logo1">Clínica Sorrisos</span></span>
+        <span class="flex items-center gap-2"><i data-lucide="package" class="w-5 h-5 text-indigo-500"></i><span data-i18n="trust_logo2">Alfa Logística Lda</span></span>
+        <span class="flex items-center gap-2"><i data-lucide="wrench" class="w-5 h-5 text-indigo-500"></i><span data-i18n="trust_logo3">Oficina Veloz PT</span></span>
+        <span class="flex items-center gap-2"><i data-lucide="home" class="w-5 h-5 text-indigo-500"></i><span data-i18n="trust_logo4">Imobiliária Vanguarda</span></span>
+        <span class="flex items-center gap-2"><i data-lucide="shopping-bag" class="w-5 h-5 text-indigo-500"></i><span data-i18n="trust_logo5">Boutique Moda Lisboa</span></span>
+        <span class="flex items-center gap-2"><i data-lucide="key" class="w-5 h-5 text-indigo-500"></i><span data-i18n="trust_logo6">Host Portugal</span></span>
+        <span class="flex items-center gap-2"><i data-lucide="globe" class="w-5 h-5 text-indigo-500"></i><span data-i18n="trust_logo7">Inovação Software S.A.</span></span>
         
         <!-- Duplicated to enable perfect continuous scroll loop -->
-        <span class="flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-indigo-500"></i> Clínica Sorrisos</span>
-        <span class="flex items-center gap-2"><i data-lucide="package" class="w-5 h-5 text-indigo-500"></i> Alfa Logística Lda</span>
-        <span class="flex items-center gap-2"><i data-lucide="wrench" class="w-5 h-5 text-indigo-500"></i> Oficina Veloz PT</span>
-        <span class="flex items-center gap-2"><i data-lucide="home" class="w-5 h-5 text-indigo-500"></i> Imobiliária Vanguarda</span>
-        <span class="flex items-center gap-2"><i data-lucide="shopping-bag" class="w-5 h-5 text-indigo-500"></i> Boutique Moda Lisboa</span>
-        <span class="flex items-center gap-2"><i data-lucide="key" class="w-5 h-5 text-indigo-500"></i> Host Portugal</span>
-        <span class="flex items-center gap-2"><i data-lucide="globe" class="w-5 h-5 text-indigo-500"></i> Inovação Software S.A.</span>
+        <span class="flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-indigo-500"></i><span data-i18n="trust_logo1">Clínica Sorrisos</span></span>
+        <span class="flex items-center gap-2"><i data-lucide="package" class="w-5 h-5 text-indigo-500"></i><span data-i18n="trust_logo2">Alfa Logística Lda</span></span>
+        <span class="flex items-center gap-2"><i data-lucide="wrench" class="w-5 h-5 text-indigo-500"></i><span data-i18n="trust_logo3">Oficina Veloz PT</span></span>
+        <span class="flex items-center gap-2"><i data-lucide="home" class="w-5 h-5 text-indigo-500"></i><span data-i18n="trust_logo4">Imobiliária Vanguarda</span></span>
+        <span class="flex items-center gap-2"><i data-lucide="shopping-bag" class="w-5 h-5 text-indigo-500"></i><span data-i18n="trust_logo5">Boutique Moda Lisboa</span></span>
+        <span class="flex items-center gap-2"><i data-lucide="key" class="w-5 h-5 text-indigo-500"></i><span data-i18n="trust_logo6">Host Portugal</span></span>
+        <span class="flex items-center gap-2"><i data-lucide="globe" class="w-5 h-5 text-indigo-500"></i><span data-i18n="trust_logo7">Inovação Software S.A.</span></span>
       </div>
     </div>
   </section>
@@ -462,10 +462,10 @@
             <i data-lucide="git-branch" class="w-6 h-6"></i>
           </div>
           <h3 class="font-display font-bold text-slate-900 dark:text-white text-xl mb-3 flex items-center justify-between">
-            <span>n8n Automações Visuais</span>
+            <span data-i18n="landing.service3_title">n8n Automações Visuais</span>
             <span class="text-[9px] bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 px-2 py-0.5 rounded-full font-black">Standard</span>
           </h3>
-          <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">Sincronize centenas de integrações sem código de forma simplificada. Conecte CRM, Google Sheets, Gmail, e ERPs nativamente.</p>
+          <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed" data-i18n="landing.service3_p">Sincronize centenas de integrações sem código de forma simplificada. Conecte CRM, Google Sheets, Gmail, e ERPs nativamente.</p>
         </div>
 
         <!-- Bento Card 3: Actives Motor de Automação -->
@@ -474,10 +474,10 @@
             <i data-lucide="cpu" class="w-6 h-6"></i>
           </div>
           <h3 class="font-display font-bold text-slate-900 dark:text-white text-xl mb-3 flex items-center justify-between">
-            <span>Actives Engine</span>
+            <span data-i18n="landing.service5_title">Actives Engine</span>
             <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 px-2 py-0.5 rounded-full font-black">Trigger-Based</span>
           </h3>
-          <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">Motor inteligente para eventos corporatizados complexos. Dispare lembretes de faturamento, confirmações de agenda e alertas automáticos.</p>
+          <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed" data-i18n="landing.service5_p">Motor inteligente para eventos corporatizados complexos. Dispare lembretes de faturamento, confirmações de agenda e alertas automáticos.</p>
         </div>
 
         <!-- Bento Card 4: CRM Kanban Core -->
@@ -574,14 +574,14 @@
         
         <!-- Toggle Button Monthly / Annual -->
         <div class="flex items-center justify-center gap-4 mt-8">
-          <span class="text-sm font-bold text-slate-550 dark:text-slate-400" id="billing-monthly-label">Mensal</span>
+          <span class="text-sm font-bold text-slate-550 dark:text-slate-400" id="billing-monthly-label" data-i18n="billing_monthly">Mensal</span>
           
           <button id="billing-cycle-switch" onclick="toggleBillingCycle()" class="relative w-14 h-8 bg-indigo-600 dark:bg-indigo-550 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
             <span id="billing-cycle-dot" class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300"></span>
           </button>
           
           <span class="text-sm font-bold text-slate-700 dark:text-slate-250 flex items-center gap-1.5" id="billing-yearly-label">
-            <span>Anual</span>
+            <span data-i18n="billing_yearly">Anual</span>
             <span class="bg-amber-500 text-slate-950 font-black text-[9px] uppercase px-2 py-0.5 rounded-full inline-block tracking-wider">-30%</span>
           </span>
         </div>
@@ -594,9 +594,9 @@
         <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-3xl p-8 flex flex-col justify-between hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-800 transition-all duration-300">
           <div>
             <div class="flex justify-between items-start mb-4">
-              <h3 class="font-display font-bold text-slate-800 dark:text-white text-xl">Starter</h3>
+              <h3 class="font-display font-bold text-slate-800 dark:text-white text-xl" data-i18n="plan1_title">Starter</h3>
             </div>
-            <p class="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-6">Ideal para negócios locais e pequenas marcas operando com um assistente.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-6" data-i18n="plan1_desc">Ideal para negócios locais e pequenas marcas operando com um assistente.</p>
             
             <div class="mb-8">
               <span class="text-4xl font-extrabold font-display text-slate-900 dark:text-white transition-all price-val" id="price-starter" data-price-monthly="69€" data-price-yearly="48€">69€</span>
@@ -618,7 +618,7 @@
               </li>
               <li class="flex items-center gap-3.5 text-sm font-semibold text-slate-400 dark:text-slate-500 line-through">
                 <i data-lucide="x" class="w-4.5 h-4.5 text-slate-400 dark:text-slate-600"></i>
-                <span>Gestão CRM & Kanban</span>
+                <span data-i18n="landing.plan1_feature4">Gestão CRM & Kanban</span>
               </li>
             </ul>
           </div>
@@ -635,9 +635,9 @@
           
           <div>
             <div class="flex justify-between items-start mb-4">
-              <h3 class="font-display font-bold text-slate-900 dark:text-white text-xl">Profissional</h3>
+              <h3 class="font-display font-bold text-slate-900 dark:text-white text-xl" data-i18n="plan2_title">Profissional</h3>
             </div>
-            <p class="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-6">A solução ideal para automatizar todas as suas operações e acelerar faturação.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-6" data-i18n="plan2_desc">A solução ideal para automatizar todas as suas operações e acelerar faturação.</p>
             
             <div class="mb-8">
               <span class="text-4xl font-extrabold font-display text-slate-900 dark:text-white transition-all price-val" id="price-profissional" data-price-monthly="129€" data-price-yearly="90€">129€</span>
@@ -673,9 +673,9 @@
         <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-3xl p-8 flex flex-col justify-between hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-800 transition-all duration-300">
           <div>
             <div class="flex justify-between items-start mb-4">
-              <h3 class="font-display font-bold text-slate-800 dark:text-white text-xl">Enterprise</h3>
+              <h3 class="font-display font-bold text-slate-800 dark:text-white text-xl" data-i18n="plan3_title">Enterprise</h3>
             </div>
-            <p class="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-6">Tecnologia avançada de dados para corporações exigindo robustez e SLAs.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-6" data-i18n="plan3_desc">Tecnologia avançada de dados para corporações exigindo robustez e SLAs.</p>
             
             <div class="mb-8">
               <span class="text-4xl font-extrabold font-display text-slate-900 dark:text-white transition-all price-val" id="price-enterprise" data-price-monthly="249€" data-price-yearly="174€">249€</span>
@@ -719,26 +719,26 @@
         
         <!-- Left Side Content -->
         <div class="lg:col-span-7">
-          <span class="text-xs font-bold text-amber-500 uppercase tracking-widest block mb-3 font-mono">// WHITE LABEL</span>
-          <h2 class="text-3xl sm:text-4xl font-display font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
+          <span class="text-xs font-bold text-amber-500 uppercase tracking-widest block mb-3 font-mono" data-i18n="resell_label">// WHITE LABEL</span>
+          <h2 class="text-3xl sm:text-4xl font-display font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight" data-i18n="resell_title">
             Constrói o Teu Próprio Negócio de Software
           </h2>
-          <p class="mt-4 text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
-            Seja dono de uma plataforma de automação e inteligência artificial completa. Revenda as soluções da TrataTudo com os seus logótipos, cores corporativas e nome no seu próprio domínio. Nós administramos toda a infraestrutura técnica e de servidores, enquanto você foca-se exclusivamente na marca e retém 100% das receitas recorrentes.
+          <p class="mt-4 text-slate-600 dark:text-slate-400 font-medium leading-relaxed" data-i18n="resell_desc">
+            Seja dono de uma plataforma de automatização e inteligência artificial completa. Revenda as soluções da TrataTudo com os seus logótipos, cores corporativas e nome no seu próprio domínio. Nós administramos toda a infraestrutura técnica e de servidores, enquanto você foca-se exclusivamente na marca e retém 100% das receitas recorrentes.
           </p>
           
           <div class="mt-8 grid grid-cols-2 md:grid-cols-3 gap-6">
             <div class="bg-white dark:bg-slate-900 p-4 border border-slate-200/50 dark:border-slate-850 rounded-xl">
-              <span class="text-amber-500 font-extrabold text-lg block">249€ <span class="text-[10px] text-slate-400 font-semibold">/mês</span></span>
-              <span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold block mt-1">Plano Inicial</span>
+              <span class="text-amber-500 font-extrabold text-lg block">249€ <span class="text-[10px] text-slate-400 font-semibold" data-i18n="resell_plan_period">/mês</span></span>
+              <span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold block mt-1" data-i18n="resell_plan1">Plano Inicial</span>
             </div>
             <div class="bg-white dark:bg-slate-900 p-4 border border-slate-200/50 dark:border-slate-850 rounded-xl">
-              <span class="text-amber-500 font-extrabold text-lg block">499€ <span class="text-[10px] text-slate-400 font-semibold">/mês</span></span>
-              <span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold block mt-1">Plano Premium</span>
+              <span class="text-amber-500 font-extrabold text-lg block">499€ <span class="text-[10px] text-slate-400 font-semibold" data-i18n="resell_plan_period">/mês</span></span>
+              <span class="text-[11px] text-slate-550 dark:text-slate-400 font-bold block mt-1" data-i18n="resell_plan2">Plano Premium</span>
             </div>
             <div class="bg-white dark:bg-slate-900 p-4 border border-slate-200/50 dark:border-slate-850 rounded-xl">
-              <span class="text-amber-500 font-extrabold text-lg block">799€ <span class="text-[10px] text-slate-400 font-semibold">/mês</span></span>
-              <span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold block mt-1">Plano Ilimitado</span>
+              <span class="text-amber-500 font-extrabold text-lg block">799€ <span class="text-[10px] text-slate-400 font-semibold" data-i18n="resell_plan_period">/mês</span></span>
+              <span class="text-[11px] text-slate-550 dark:text-slate-400 font-bold block mt-1" data-i18n="resell_plan3">Plano Ilimitado</span>
             </div>
           </div>
         </div>
@@ -747,11 +747,11 @@
         <div class="lg:col-span-5 relative">
           <div class="absolute -inset-1 rounded-3xl bg-amber-500/10 dark:bg-amber-500/5 blur-xl pointer-events-none"></div>
           <div class="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-3xl p-8 shadow-xl">
-            <h3 class="font-display font-extrabold text-xl text-slate-900 dark:text-white mb-3">Tudo Personalizado</h3>
-            <p class="text-slate-500 dark:text-slate-450 text-xs leading-relaxed mb-6 font-medium">Instale no seu domínio oficial, defina os preços finais dos seus clientes e expanda um negócio de lucros garantidos no mercado de software das PMEs portuguesas.</p>
+            <h3 class="font-display font-extrabold text-xl text-slate-900 dark:text-white mb-3" data-i18n="resell_card_title">Tudo Personalizado</h3>
+            <p class="text-slate-500 dark:text-slate-450 text-xs leading-relaxed mb-6 font-medium" data-i18n="resell_card_desc">Instale no seu domínio oficial, defina os preços finais dos seus clientes e expanda um negócio de lucros garantidos no mercado de software das PMEs portuguesas.</p>
             
             <a href="/revenda.html" class="flex items-center justify-center gap-2 w-full py-4 text-center text-xs font-black bg-slate-900 dark:bg-amber-500 text-white dark:text-slate-950 hover:bg-indigo-600 dark:hover:bg-amber-400 rounded-xl shadow-lg transition-all duration-200">
-              <span>Ver Programa de Revenda</span>
+              <span data-i18n="resell_card_btn">Ver Programa de Revenda</span>
               <i data-lucide="arrow-right" class="w-4 h-4"></i>
             </a>
           </div>
@@ -767,7 +767,7 @@
       
       <!-- Section Header -->
       <div class="text-center max-w-2xl mx-auto mb-16">
-        <span class="text-xs font-bold text-indigo-500 uppercase tracking-widest block mb-3 font-mono">// CASOS DE SUCESSO</span>
+        <span class="text-xs font-bold text-indigo-500 uppercase tracking-widest block mb-3 font-mono" data-i18n="landing.cases_section_label">// CASOS DE SUCESSO</span>
         <h2 class="text-2xl sm:text-3xl lg:text-[38px] font-display font-extrabold text-slate-900 dark:text-white tracking-tight" data-i18n="landing.cases_section_title">Estudos de Caso de Alto Rendimento</h2>
         <p class="mt-4 text-slate-500 dark:text-slate-400 font-medium" data-i18n="landing.cases_section_p">Conheça algumas das empresas que reduziram o atrito administrativo e impulsionaram a conversão com o TrataTudo.</p>
       </div>
@@ -784,7 +784,7 @@
             <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold font-display text-sm">CS</div>
             <div>
               <h4 class="text-xs font-black text-slate-800 dark:text-slate-100" data-i18n="landing.case1_title">Clínica Sorrisos (Saúde)</h4>
-              <p class="text-[10px] text-slate-400 font-semibold">Dr.ª Margarida Costa</p>
+              <p class="text-[10px] text-slate-400 font-semibold" data-i18n="landing.case1_author">Dr.ª Margarida Costa</p>
             </div>
           </div>
         </div>
@@ -798,7 +798,7 @@
             <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold font-display text-sm">AL</div>
             <div>
               <h4 class="text-xs font-black text-slate-800 dark:text-slate-100" data-i18n="landing.case2_title">Alfa Lda (Logística e Suporte)</h4>
-              <p class="text-[10px] text-slate-400 font-semibold font-medium">Manuel Goulart, Diretor Operacional</p>
+              <p class="text-[10px] text-slate-400 font-semibold font-medium" data-i18n="landing.case2_author">Manuel Goulart, Diretor Operacional</p>
             </div>
           </div>
         </div>
@@ -812,7 +812,7 @@
             <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold font-display text-sm">OV</div>
             <div>
               <h4 class="text-xs font-black text-slate-800 dark:text-slate-100" data-i18n="landing.case3_title">Oficina Veloz (Serviços Automotivos)</h4>
-              <p class="text-[10px] text-slate-400 font-semibold font-medium">Rui Azevedo, Fundador</p>
+              <p class="text-[10px] text-slate-400 font-semibold font-medium" data-i18n="landing.case3_author">Rui Azevedo, Fundador</p>
             </div>
           </div>
         </div>
@@ -951,8 +951,8 @@
             <div class="w-8 h-8 rounded-lg bg-indigo-650 flex items-center justify-center text-white font-black text-sm">TT</div>
             <span class="font-display font-extrabold text-slate-900 dark:text-white text-lg">TrataTudo</span>
           </a>
-          <p class="text-xs text-slate-500 leading-relaxed" data-i18n="footer_desc">A plataforma premium tudo-em-um de automatização empresarial. Atendimento inteligente, sincronização de dados e faturamento simplificado.</p>
-          <p class="mt-4 text-xs font-mono text-slate-400 dark:text-slate-500 font-bold">&#x25CF; EU Hosting</p>
+          <p class="text-xs text-slate-500 leading-relaxed" data-i18n="footer_desc font-medium leading-relaxed mb-6">A plataforma premium tudo-em-um de automatização empresarial. Atendimento inteligente, sincronização de dados e faturamento simplificado.</p>
+          <p class="mt-4 text-xs font-mono text-slate-400 dark:text-slate-500 font-bold" data-i18n="footer_hosting">&#x25CF; EU Hosting</p>
         </div>
 
         <!-- Col 2: Services links -->
@@ -973,8 +973,8 @@
             <li><a href="#plataforma" class="hover:text-indigo-500 transition-colors" data-i18n="footer_about">Sobre Nós</a></li>
             <li><a href="#precos" class="hover:text-indigo-500 transition-colors" data-i18n="nav_pricing">Planos de Acesso</a></li>
             <li><a href="/revenda.html" class="hover:text-indigo-500 transition-colors text-amber-500 font-bold" data-i18n="footer_reseller">Revenda White Label</a></li>
-            <li><a href="/legal/privacidade.html" class="hover:text-indigo-500 transition-colors">Política de Privacidade</a></li>
-            <li><a href="/legal/termos.html" class="hover:text-indigo-500 transition-colors">Termos de Serviço</a></li>
+            <li><a href="/legal/privacidade.html" class="hover:text-indigo-500 transition-colors" data-i18n="footer_privacy">Política de Privacidade</a></li>
+            <li><a href="/legal/termos.html" class="hover:text-indigo-500 transition-colors" data-i18n="footer_terms">Termos de Serviço</a></li>
           </ul>
         </div>
 
@@ -1090,6 +1090,8 @@
   <script>
     const AVAILABLE_LANGS = ['pt', 'en', 'es', 'fr'];
     let currentLang = localStorage.getItem('tratatudo_lang') || 'pt';
+    let currentTranslations = {};
+    let chatTimeout = null;
 
     // If no language config in cache, let's gracefully check matching browser settings
     if (!localStorage.getItem('tratatudo_lang')) {
@@ -1239,6 +1241,15 @@
 
         // Keep billing text aligned
         updateBillingDisplay();
+
+        // Assign translations globally and restart chat simulation instantly
+        currentTranslations = translations;
+        currentMsgIndex = 0;
+        if (chatTimeout) {
+          clearTimeout(chatTimeout);
+          chatTimeout = null;
+        }
+        runChatSimulation();
 
       } catch (err) {
         console.error("Translation engine error: ", err);
@@ -1445,12 +1456,12 @@
 
     // ================= REAL-TIME SIMULATED CHAT PLAYING IN FEED =================
     const simulatedMessages = [
-      { sender: 'client', text: 'Boa tarde! Gostava de marcar uma reunião para amanhã para conhecer as integrações.' },
-      { sender: 'ia', text: 'Boa tarde! Com todo o gosto. 😊 O nosso Engenheiro de Integração tem vagas amanhã às 10h00, 11h30 e 15h00. Qual o horário ideal para si?' },
-      { sender: 'client', text: 'Pode ser às 11h30, por favor.' },
-      { sender: 'ia', text: 'Perfeito! Acabo de registar a reunião para amanhã, dia 7, às 11h30. Já enviei as coordenadas da chamada Zoom para o seu e-mail de trabalho. Precisa de mais alguma ajuda?' },
-      { sender: 'client', text: 'Era isso mesmo! Obrigado pelo atendimento fantástico.' },
-      { sender: 'ia', text: 'Eu é que agradeço! O TrataTudo está sempre aqui para apoiar o seu negócio. Tenha um excelente dia! 🚀' }
+      { sender: 'client', key: 'chat_msg1', text: 'Boa tarde! Gostava de marcar uma reunião para amanhã para conhecer as integrações.' },
+      { sender: 'ia', key: 'chat_msg2', text: 'Boa tarde! Com todo o gosto. 😊 O nosso Engenheiro de Integração tem vagas amanhã às 10h00, 11h30 e 15h00. Qual o horário ideal para si?' },
+      { sender: 'client', key: 'chat_msg3', text: 'Pode ser às 11h30, por favor.' },
+      { sender: 'ia', key: 'chat_msg4', text: 'Perfeito! Acabo de registar a reunião para amanhã, dia 7, às 11h30. Já enviei as coordenadas da chamada Zoom para o seu e-mail de trabalho. Precisa de mais alguma ajuda?' },
+      { sender: 'client', key: 'chat_msg5', text: 'Era isso mesmo! Obrigado pelo atendimento fantástico.' },
+      { sender: 'ia', key: 'chat_msg6', text: 'Eu é que agradeço! O TrataTudo está sempre aqui para apoiar o seu negócio. Tenha um excelente dia! 🚀' }
     ];
 
     let currentMsgIndex = 0;
@@ -1476,9 +1487,11 @@
     function runChatSimulation() {
       if (!chatBoard) return;
       
-      // Clear past bubbles if we loops back
+      // Clear past bubbles if we loop back
       if (currentMsgIndex === 0) {
         chatBoard.querySelectorAll('.flex').forEach(el => el.remove());
+        const typingIndicator = document.getElementById('typing-indicator-tmp');
+        if (typingIndicator) typingIndicator.remove();
       }
 
       if (currentMsgIndex < simulatedMessages.length) {
@@ -1486,7 +1499,7 @@
         
         // Simulating typing delay
         const typingIndicator = document.createElement('div');
-        typingIndicator.className = 'flex items-center gap-1.5 p-3 w-16 bg-slate-150/40 dark:bg-slate-800 rounded-full animate-pulse transition-opacity duration-200';
+        typingIndicator.className = 'flex items-center gap-1.5 p-3 w-16 bg-slate-150/40 dark:bg-slate-800 rounded-full animate-pulse transition-opacity duration-200 flex';
         typingIndicator.id = 'typing-indicator-tmp';
         typingIndicator.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-400 block"></span><span class="w-1.5 h-1.5 rounded-full bg-slate-400 block animate-bounce" style="animation-delay: 0.2s"></span><span class="w-1.5 h-1.5 rounded-full bg-slate-400 block"></span>';
         
@@ -1495,22 +1508,23 @@
           chatBoard.scrollTop = chatBoard.scrollHeight;
         }
 
-        setTimeout(() => {
+        chatTimeout = setTimeout(() => {
           const indicator = document.getElementById('typing-indicator-tmp');
           if (indicator) indicator.remove();
 
-          const messageBubble = createMsgElement(item.sender, item.text);
+          const messageText = (currentTranslations && currentTranslations[item.key]) || item.text;
+          const messageBubble = createMsgElement(item.sender, messageText);
           chatBoard.appendChild(messageBubble);
           chatBoard.scrollTop = chatBoard.scrollHeight;
           
           currentMsgIndex++;
           // Trigger next message after reading/thinking simulation delay
-          setTimeout(runChatSimulation, item.sender === 'client' ? 3200 : 4500);
+          chatTimeout = setTimeout(runChatSimulation, item.sender === 'client' ? 3200 : 4500);
         }, item.sender === 'ia' ? 1400 : 500);
 
       } else {
         // Continuous cycle loop starting back after 8 seconds
-        setTimeout(() => {
+        chatTimeout = setTimeout(() => {
           currentMsgIndex = 0;
           runChatSimulation();
         }, 8000);
@@ -1540,11 +1554,8 @@
         window.lucide.createIcons();
       }
       
-      // Immediate translation trigger
+      // Immediate translation trigger - this starts chat simulation itself via applyLang
       translatePage(currentLang);
-      
-      // Start simulator
-      setTimeout(runChatSimulation, 1000);
       
       // Keep performance numbers evolving
       animateCounters();
