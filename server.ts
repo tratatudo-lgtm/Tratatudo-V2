@@ -34,38 +34,95 @@ async function startServer() {
   app.use(express.json());
   app.use(cookieParser());
 
-  // --- MIDDLEWARES ---
-
-  /**
-   * Middleware to validate Super Admin session via JWT
-   */
-  const requireAdminSession = async (req: any, res: any, next: any) => {
-    const token = req.cookies.tratatudo_admin_session || req.headers.authorization?.split(" ")[1];
+  // --- GLOBAL USER POPULATION MIDDLEWARE ---
+  const populateUser = async (req: any, res: any, next: any) => {
+    const token = req.cookies.tratatudo_admin_session || req.cookies.hub_session || req.headers.authorization?.split(" ")[1];
     
     if (!token) {
-      return res.status(401).json({ ok: false, error: "Sessão não encontrada. Por favor, faça login." });
+      return next();
     }
 
     try {
       const decoded: any = jwt.verify(token, JWT_SECRET);
+      const userId = decoded.userId || decoded.clientId;
       
-      if (decoded.email !== "juliocosta@protonmail.com") {
-        return res.status(403).json({ ok: false, error: "Acesso administrativo negado. Utilizador não autorizado." });
+      const { data: client } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (client) {
+        req.user = {
+          id: client.id,
+          email: client.email,
+          phone_e164: client.phone_e164,
+          role: client.role || decoded.role || "visualizador",
+          is_global_admin: client.is_global_admin === true || client.is_global_admin === 'true',
+          can_act_as_admin: client.can_act_as_admin === true || client.can_act_as_admin === 'true',
+          company_name: client.company_name,
+          ...client
+        };
+      } else {
+        req.user = {
+          id: decoded.userId || decoded.clientId,
+          email: decoded.email || "",
+          role: decoded.role || "visualizador",
+          is_global_admin: decoded.role === 'super_admin' || decoded.role === 'admin' || decoded.is_global_admin === true,
+          can_act_as_admin: decoded.role === 'super_admin' || decoded.role === 'admin' || decoded.is_global_admin === true,
+          company_name: "Global Admin User"
+        };
       }
 
-      req.admin = { email: decoded.email, role: 'super_admin' };
-      req.adminId = decoded.userId;
+      const isGlobalAdmin = req.user.is_global_admin === true;
+      const isRoleAdmin = req.user.role === 'admin';
+
+      if (isRoleAdmin || isGlobalAdmin) {
+        req.isAdmin = true;
+        req.adminRole = req.user.role;
+      }
       next();
     } catch (err) {
-      res.clearCookie("tratatudo_admin_session");
-      return res.status(401).json({ ok: false, error: "Sessão expirada ou inválida." });
+      next();
     }
   };
 
+  app.use(populateUser);
+
+  // --- MIDDLEWARES ---
+
   /**
-   * Middleware to validate Client Hub session via JWT
+   * Unified Middleware to validate Admin session
+   */
+  const requireAdmin = (req: any, res: any, next: any) => {
+    if (!req.user) {
+      return res.status(401).json({ ok: false, error: "Sessão não encontrada ou inválida. Por favor, faça login." });
+    }
+
+    const isGlobalAdmin = req.user.is_global_admin === true;
+    const isRoleAdmin = req.user.role === 'admin';
+
+    if (!isRoleAdmin && !isGlobalAdmin) {
+      return res.status(403).json({ ok: false, error: "Acesso administrativo negado. Utilizador não autorizado." });
+    }
+
+    req.isAdmin = true;
+    req.adminRole = req.user.role;
+    next();
+  };
+
+  const requireAdminSession = requireAdmin;
+
+  /**
+   * Middleware to validate Client/Tenant Hub session with Tenant Bypass for Admins
    */
   const requireClientSession = async (req: any, res: any, next: any) => {
+    // If authenticated as admin, bypass standard tenant validation completely
+    if (req.isAdmin === true) {
+      req.clientId = req.query.client_id || req.headers['x-client-id'] || req.user?.id;
+      return next();
+    }
+
     const token = req.cookies.hub_session || req.headers.authorization?.split(" ")[1];
     
     if (!token) {
@@ -103,10 +160,6 @@ async function startServer() {
       return res.status(400).json({ ok: false, error: "E-mail e password são obrigatórios." });
     }
 
-    if (email !== "juliocosta@protonmail.com") {
-      return res.status(403).json({ ok: false, error: "Acesso negado. Apenas o e-mail administrador juliocosta@protonmail.com tem acesso." });
-    }
-
     try {
       // 1. Authenticate with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -118,9 +171,28 @@ async function startServer() {
         return res.status(401).json({ ok: false, error: "E-mail ou palavra-passe incorretos." });
       }
 
+      // Check if user is admin or holds is_global_admin in clients table
+      const { data: client } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", authData.user.id)
+        .maybeSingle();
+
+      let role = 'admin';
+      let isGlobalAdmin = true;
+
+      if (client) {
+        const isAdmin = client.role === 'admin' || client.is_global_admin === true || client.is_global_admin === 'true';
+        if (!isAdmin) {
+          return res.status(403).json({ ok: false, error: "Acesso administrativo negado. Utilizador não autorizado." });
+        }
+        role = client.role || 'admin';
+        isGlobalAdmin = client.is_global_admin === true || client.is_global_admin === 'true';
+      }
+
       // 2. Generate Admin JWT
       const token = jwt.sign(
-        { userId: authData.user.id, email: authData.user.email, role: 'super_admin' },
+        { userId: authData.user.id, email: authData.user.email, role: role, is_global_admin: isGlobalAdmin },
         JWT_SECRET,
         { expiresIn: "12h" }
       );
@@ -134,14 +206,78 @@ async function startServer() {
         maxAge: 12 * 60 * 60 * 1000 // 12 hours
       });
 
-      res.json({ ok: true, data: { admin: { email: authData.user.email, id: authData.user.id } } });
+      res.json({ 
+        ok: true, 
+        email: authData.user.email,
+        role: role,
+        is_global_admin: isGlobalAdmin,
+        data: { 
+          admin: { 
+            email: authData.user.email, 
+            id: authData.user.id,
+            role: role,
+            is_global_admin: isGlobalAdmin
+          } 
+        } 
+      });
     } catch (err: any) {
       res.status(500).json({ ok: false, error: "Erro interno no servidor de autenticação." });
     }
   });
 
+  app.get("/api/admin/auth/session", async (req: any, res: any) => {
+    const token = req.cookies.tratatudo_admin_session || req.headers.authorization?.split(" ")[1];
+    if (!token) {
+      return res.json({ ok: true, authenticated: false });
+    }
+
+    try {
+      const decoded: any = jwt.verify(token, JWT_SECRET);
+      
+      const { data: client } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", decoded.userId)
+        .maybeSingle();
+
+      let is_admin = false;
+      let email = decoded.email;
+      let role = decoded.role || 'admin';
+      let is_global_admin = decoded.is_global_admin === true || decoded.is_global_admin === 'true';
+      let can_act_as_admin = false;
+
+      if (client) {
+        is_admin = client.role === 'admin' || client.is_global_admin === true || client.is_global_admin === 'true';
+        email = client.email || decoded.email;
+        role = client.role || 'admin';
+        is_global_admin = client.is_global_admin === true || client.is_global_admin === 'true';
+        can_act_as_admin = client.can_act_as_admin === true || client.can_act_as_admin === 'true';
+      } else {
+        is_admin = decoded.role === 'admin' || decoded.role === 'super_admin' || decoded.is_global_admin === true;
+        is_global_admin = is_admin;
+        can_act_as_admin = is_admin;
+      }
+
+      if (!is_admin) {
+        return res.json({ ok: true, authenticated: false, error: "Acesso administrativo negado." });
+      }
+
+      res.json({ 
+        ok: true, 
+        authenticated: true, 
+        email, 
+        role,
+        is_global_admin,
+        can_act_as_admin
+      });
+    } catch (err) {
+      res.clearCookie("tratatudo_admin_session");
+      res.json({ ok: true, authenticated: false });
+    }
+  });
+
   app.get("/api/admin/me", requireAdminSession, async (req: any, res) => {
-    res.json({ ok: true, data: req.admin });
+    res.json({ ok: true, data: req.user });
   });
 
   app.post("/api/admin/auth/logout", (req, res) => {
@@ -258,7 +394,20 @@ async function startServer() {
       const decoded: any = jwt.verify(token, JWT_SECRET);
       const { data: client } = await supabase.from("clients").select("*").eq("id", decoded.clientId).maybeSingle();
       if (!client) throw new Error();
-      res.json({ ok: true, authenticated: true, client, role: decoded.role, userId: decoded.userId });
+      res.json({ 
+        ok: true, 
+        authenticated: true, 
+        client, 
+        role: client.role || decoded.role || 'visualizador', 
+        userId: client.id,
+        phone_e164: client.phone_e164,
+        company_name: client.company_name,
+        is_global_admin: client.is_global_admin === true || client.is_global_admin === 'true',
+        can_act_as_admin: client.can_act_as_admin === true || client.can_act_as_admin === 'true',
+        can_act_as_client: client.can_act_as_client === true || client.can_act_as_client === 'true',
+        can_access_restaurant_portal: client.can_access_restaurant_portal === true || client.can_access_restaurant_portal === 'true',
+        finePermissions: []
+      });
     } catch {
       res.clearCookie("hub_session");
       res.json({ ok: true, authenticated: false });
