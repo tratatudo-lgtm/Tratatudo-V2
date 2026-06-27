@@ -6,6 +6,8 @@ import jwt from "jsonwebtoken";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
+import { adminAuditMiddleware } from "./src/middleware/adminAudit";
+import { adminDangerZone } from "./src/middleware/adminDangerZone";
 
 dotenv.config();
 
@@ -88,6 +90,7 @@ async function startServer() {
   };
 
   app.use(populateUser);
+  app.use(adminAuditMiddleware);
 
   // --- MIDDLEWARES ---
 
@@ -120,6 +123,33 @@ async function startServer() {
     // If authenticated as admin, bypass standard tenant validation completely
     if (req.isAdmin === true) {
       req.clientId = req.query.client_id || req.headers['x-client-id'] || req.user?.id;
+      
+      // Dynamically fetch target client info so req.client is populated for downstream route handlers
+      try {
+        const { data: targetClient } = await supabase
+          .from("clients")
+          .select("*")
+          .eq("id", req.clientId)
+          .maybeSingle();
+          
+        if (targetClient) {
+          req.client = targetClient;
+        } else {
+          req.client = {
+            id: req.clientId,
+            company_name: "Admin Bypassed Client",
+            plan: "Enterprise",
+            status: "active"
+          };
+        }
+      } catch (err) {
+        req.client = {
+          id: req.clientId,
+          company_name: "Admin Bypassed Client",
+          plan: "Enterprise",
+          status: "active"
+        };
+      }
       return next();
     }
 
@@ -445,6 +475,30 @@ async function startServer() {
           }
         }
       });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.put("/api/client/profile", requireClientSession, async (req: any, res) => {
+    try {
+      const { company_name, phone_e164, email, address, nif } = req.body;
+      const { data, error } = await supabase
+        .from("clients")
+        .update({
+          company_name,
+          phone_e164,
+          email,
+          address,
+          nif,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", req.clientId)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      res.json({ ok: true, data });
     } catch (err: any) {
       res.status(500).json({ ok: false, error: err.message });
     }
@@ -1115,6 +1169,98 @@ async function startServer() {
     }
   });
 
+  // --- MULTI-TENANT LEADS CRUD ---
+
+  app.get("/api/client/leads", requireClientSession, async (req: any, res) => {
+    try {
+      const { data, error } = await supabase
+        .from("sales_leads")
+        .select("*")
+        .eq("client_id", req.clientId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      res.json({ ok: true, data });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/client/leads", requireClientSession, async (req: any, res) => {
+    try {
+      const { name, company, phone, email, status, source } = req.body;
+      const { data, error } = await supabase
+        .from("sales_leads")
+        .insert({
+          client_id: req.clientId,
+          name,
+          company,
+          phone,
+          email,
+          status: status || "frio",
+          source: source || "crm",
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+
+      await logActivity(req.clientId, req.client?.company_name || req.client?.phone_e164 || "HubClient", "Criar Lead", "Vendas", `Lead "${name}" (${company}) adicionada.`);
+      res.json({ ok: true, data });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.patch("/api/client/leads/:id", requireClientSession, async (req: any, res) => {
+    try {
+      const { name, company, phone, email, status, source } = req.body;
+      const { data, error } = await supabase
+        .from("sales_leads")
+        .update({ name, company, phone, email, status, source })
+        .eq("id", req.params.id)
+        .eq("client_id", req.clientId)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+
+      await logActivity(req.clientId, req.client?.company_name || req.client?.phone_e164 || "HubClient", "Atualizar Lead", "Vendas", `Lead "${name || data?.name}" atualizada.`);
+      res.json({ ok: true, data });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.delete("/api/client/leads/:id", requireClientSession, async (req: any, res) => {
+    try {
+      const { data: item } = await supabase
+        .from("sales_leads")
+        .select("name")
+        .eq("id", req.params.id)
+        .eq("client_id", req.clientId)
+        .maybeSingle();
+
+      const { data, error } = await supabase
+        .from("sales_leads")
+        .delete()
+        .eq("id", req.params.id)
+        .eq("client_id", req.clientId)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (item) {
+        await logActivity(req.clientId, req.client?.company_name || req.client?.phone_e164 || "HubClient", "Remover Lead", "Vendas", `Lead "${item.name}" removida.`);
+      }
+      res.json({ ok: true, data });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   // --- MULTI-TENANT CONFIGS CRUD (SMTP Settings/Automations) ---
 
   app.get("/api/client/email/config", requireClientSession, async (req: any, res) => {
@@ -1594,7 +1740,7 @@ async function startServer() {
   app.post("/api/admin/clients", requireAdminSession, handleClientCreate);
   app.post("/api/admin/clients/trial", requireAdminSession, handleClientCreate);
 
-  app.put("/api/admin/clients/:id", requireAdminSession, async (req, res) => {
+  app.put("/api/admin/clients/:id", requireAdminSession, adminDangerZone, async (req, res) => {
     try {
       const { data, error } = await supabase
         .from("clients")
@@ -1610,7 +1756,7 @@ async function startServer() {
     }
   });
 
-  app.put("/api/admin/clients/:id/bot-config", requireAdminSession, async (req, res) => {
+  app.put("/api/admin/clients/:id/bot-config", requireAdminSession, adminDangerZone, async (req, res) => {
     try {
       const { master_prompt, bot_instructions, bot_instructions_compact } = req.body;
       
@@ -1632,7 +1778,7 @@ async function startServer() {
     }
   });
 
-  app.delete("/api/admin/clients/:id", requireAdminSession, async (req, res) => {
+  app.delete("/api/admin/clients/:id", requireAdminSession, adminDangerZone, async (req, res) => {
     try {
       // Prefer soft delete (status inactive) or based on user choice
       const { data, error } = await supabase

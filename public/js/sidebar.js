@@ -20,6 +20,7 @@ const MENU_CATEGORIES = [
     key: "menu_sales_finance",
     icon: "dollar-sign",
     items: [
+      { name: "Leads", key: "menu_leads", url: "/app/leads", rawUrl: "leads.html", icon: "target" },
       { name: "Vendas", key: "menu_sales", url: "/app/sales", rawUrl: "sales.html", icon: "trending-up" },
       { name: "Financeiro", key: "menu_finance", url: "/app/finance", rawUrl: "finance.html", icon: "wallet" },
       { name: "Faturação", key: "menu_invoicing", url: "/app/invoicing", rawUrl: "invoicing.html", icon: "receipt" }
